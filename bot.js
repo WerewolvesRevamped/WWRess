@@ -9,12 +9,13 @@ client.on("ready", () => {
     registerCommands();
 });
 
-
+// check if user is a Game Master
 function isGameMaster(member) {
     if(!member) return false;
     return member && member.roles && member.roles.cache.get("584767449078169601");
 }
 
+// log utility function
 function log(txt1, txt2 = "", txt3 = "", txt4 = "", txt5 = "") {
     let txt = txt1 + " " + txt2 + " " + txt3 + " " + txt4 + " " + txt5;
     console.log(txt);
@@ -24,27 +25,34 @@ function log(txt1, txt2 = "", txt3 = "", txt4 = "", txt5 = "") {
     if(channel) channel.send(txt);**/
 }
 
+
+/** GLOBAL VARIABLES **/
 var games = [];
 var players = [];
 var outstandingChallenge = [];
 
+// check if player is playing
 function isPlaying(id) {
     return players.map(el => el[0]).indexOf(id) != -1;
 }
 
+// check if player has an outstanding challenge
 function isOutstanding(id) {
     return outstandingChallenge.map(el => el[0]).indexOf(id) != -1;
 }
 
+// get the id of the game the player is playing
 function getPlayerGameId(id) {
     let ind = players.map(el => el[0]).indexOf(id);
     return players[ind][1];
 }
 
+// create a deep copy of an element by JSON stringifying and then parsing it
 function deepCopy(el) {
     return JSON.parse(JSON.stringify(el));
 }
 
+// moves a piece from one place to another (and/or replaces the piece with another piece)
 function movePiece(interaction, id, from, to, repl = null) {
     // get coords
     let moveFrom = nameToXY(from);
@@ -52,25 +60,84 @@ function movePiece(interaction, id, from, to, repl = null) {
             
     // move piece
     let moveCurGame = games[id];
-    let movedPiece = moveCurGame.state[moveFrom.y][moveFrom.x];
+    let movedPiece = deepCopy(moveCurGame.state[moveFrom.y][moveFrom.x]);
+    let beatenPiece = deepCopy(moveCurGame.state[moveTo.y][moveTo.x]);
     if(repl) movedPiece = repl; // replace piece for promotion
-    moveCurGame.state[moveFrom.y][moveFrom.x] = null;
+    moveCurGame.state[moveFrom.y][moveFrom.x] = getPiece(null);
     moveCurGame.state[moveTo.y][moveTo.x] = movedPiece;
     
+    // 0 -> unknown
+    // 1 -> likely pawn
+    // 2 -> likely king
+    // 3 -> likely rook / king
+    // 4 -> piece known
+    if(movedPiece.enemyVisibleStatus < 4) { 
+        let movedXorig = moveFrom.x - moveTo.x;
+        let movedYorig = moveFrom.y - moveTo.y;
+        let movedX = Math.abs(movedXorig);
+        let movedY = Math.abs(movedYorig);
+        console.log("MOVED", movedXorig, movedYorig, beatenPiece.name);
+        // definitely a knight
+        if((movedY == 1 && movedX == 2) || (movedY == 2 && movedX == 1)) {
+            movedPiece.enemyVisibleStatus = 4;
+            movedPiece.enemyVisible = "Knight";
+        }
+        // pawn condition
+        else if(movedPiece.enemyVisibleStatus < 1 && moveCurGame.turn == 0 && movedYorig == 1 && movedX == 0 && beatenPiece.name == null) { // white pawn move
+            movedPiece.enemyVisibleStatus = 1;
+            movedPiece.enemyVisible = "LikelyPawn";
+        } else if(movedPiece.enemyVisibleStatus < 1 && moveCurGame.turn == 0 && movedYorig == 1 && movedX == 1 && beatenPiece.name != null) { // white pawn beat
+            movedPiece.enemyVisibleStatus = 1;
+            movedPiece.enemyVisible = "LikelyPawn";
+        } else if(movedPiece.enemyVisibleStatus < 1 && moveCurGame.turn == 1 && movedYorig == -1 && movedX == 0 && beatenPiece.name == null) { // black pawn move
+            movedPiece.enemyVisibleStatus = 1;
+            movedPiece.enemyVisible = "LikelyPawn";
+        } else if(movedPiece.enemyVisibleStatus < 1 && moveCurGame.turn == 1 && movedYorig == -1 && movedX == 1 && beatenPiece.name != null) { // black pawn beat
+            movedPiece.enemyVisibleStatus = 1;
+            movedPiece.enemyVisible = "LikelyPawn";
+        }
+        // king condition
+        else if(movedPiece.enemyVisibleStatus < 2 && movedY == 0 && movedX == 1) { // rook like move (left/right)
+            movedPiece.enemyVisibleStatus = 2;
+            movedPiece.enemyVisible = "LikelyKing";
+        } else if(movedPiece.enemyVisibleStatus < 2 && ((moveCurGame.turn == 0 && movedYorig == -1) || (moveCurGame.turn == 1 && movedYorig == 1))  && (movedX == 0 || movedX == 1)) { // rook like move (down, side down)
+            movedPiece.enemyVisibleStatus = 2;
+            movedPiece.enemyVisible = "LikelyKing";
+        } else if(movedPiece.enemyVisibleStatus < 2 && ((moveCurGame.turn == 0 && movedYorig == 1) || (moveCurGame.turn == 1 && movedYorig == -1))  && movedX == 0 && beatenPiece.name != null) { // rook like move (up)
+            movedPiece.enemyVisibleStatus = 2;
+            movedPiece.enemyVisible = "LikelyKing";
+        } else if(movedPiece.enemyVisibleStatus < 2 && ((moveCurGame.turn == 0 && movedYorig == 1) || (moveCurGame.turn == 1 && movedYorig == -1))  && movedX == 1 && beatenPiece.name == null) { // rook like move (side up)
+            movedPiece.enemyVisibleStatus = 2;
+            movedPiece.enemyVisible = "LikelyKing";
+        }
+        // rook condition
+        else if(movedPiece.enemyVisibleStatus < 3 && ((movedY > 1 && movedX == 0) || (movedY == 0 && movedX > 1))) {
+            movedPiece.enemyVisibleStatus = 3;
+            movedPiece.enemyVisible = "LikelyRook";
+        }
+        // queen condition
+        else if(movedPiece.enemyVisibleStatus < 4 && (movedY > 1 || movedX > 1) && movedY > 1 && movedX > 1) {
+            movedPiece.enemyVisibleStatus = 3;
+            movedPiece.enemyVisible = "Queen";
+        }
+    }
+    
+    // store move
+    moveCurGame.lastMoves.push([moveCurGame.turn, movedPiece.name, movedPiece.enemyVisible, from, to]);
     
     // promote?
-    if(movedPiece == "Citizen" && moveTo.y == 0) {
+    if(movedPiece.chess == "Pawn" && moveCurGame.turn == 0 && moveTo.y == 0) {
         if(interaction) {
-            interaction.update(displayBoard(moveCurGame, "Promote " + to, [{ type: 1, components: [{ type: 2, label: "Runner", style: 1, custom_id: "promote-"+to+"-Runner" }] }]));
+            interaction.update(displayBoard(moveCurGame, "Promote " + to, [{ type: 1, components: [{ type: 2, label: "Runner ♖", style: 1, custom_id: "promote-"+to+"-Runner" }, { type: 2, label: "Hooker ♔", style: 1, custom_id: "promote-"+to+"-Hooker" }] }]));
         } else {
-            movePiece(interaction, id, to, to, "Runner");
+            movePiece(interaction, id, to, to, getPiece("Runner"));
             nextTurn(moveCurGame);
         }
-    } else if(movedPiece == "Wolf" && moveTo.y == 4) {
+    } else if(movedPiece.chess == "Pawn" && moveCurGame.turn == 1 && moveTo.y == 4) {
         if(interaction) {
-            interaction.update(displayBoard(moveCurGame, "Promote " + to, [{ type: 1, components: [{ type: 2, label: "Warlock", style: 1, custom_id: "promote-"+to+"-Warlock" }] }]));
+            interaction.update(displayBoard(moveCurGame, "Promote " + to, [{ type: 1, components: [{ type: 2, label: "Warlock ♜", style: 1, custom_id: "promote-"+to+"-Warlock" }, { type: 2, label: "Alpha Wolf ♚", style: 1, custom_id: "promote-"+to+"-Alpha Wolf" }] }]));
         } else {
-            movePiece(interaction, id, to, to, "Warlock");
+            movePiece(interaction, id, to, to, getPiece("Warlock"));
             nextTurn(moveCurGame);
         }
     } else {
@@ -88,14 +155,20 @@ function displayBoard(game, message, comp = []) {
 }
 
 async function busyWaiting(interaction, gameid, player) {
-    await sleep(500);
+    await sleep(900);
     while(true) {
         await sleep(100);
         if(!games[gameid]) return;
         if(games[gameid].turn == player) {
             let availableMoves = showMoves(gameid, player);
-            interaction.editReply(availableMoves);  
-            return;
+            // if edit fails retry;
+            try {
+                if(interaction) interaction.editReply(availableMoves);  
+                return;
+            } catch (err) { 
+                console.log(err);
+                sleep(500);
+            }
         }
     }
 }
@@ -110,8 +183,8 @@ function nextTurn(game) {
     let pieces = [];
     for(let y = 0; y < board.length; y++) {
         for(let x = 0; x < board[0].length; x++) {
-            if(getTeam(board[y][x]) == game.turn) {
-                pieces.push([board[y][x], xyToName(x, y), y, x]);
+            if(board[y][x].team == game.turn) {
+                pieces.push([board[y][x].name, xyToName(x, y), y, x]);
             }
         }
     }
@@ -135,6 +208,7 @@ function nextTurn(game) {
         else if(oldTurn == 0 && !game.players[1]) channel.send("<@" + game.players[oldTurn] + "> has won against **AI**!");
         else if(oldTurn == 1 && !game.players[1]) channel.send("**AI** has won against <@" + game.players[game.turn] + ">!");
         destroyGame(game.id);
+        console.log("WIN");
         return;
     }
     
@@ -148,8 +222,8 @@ function AImove(game) {
     let pieces = [];
     for(let y = 0; y < board.length; y++) {
         for(let x = 0; x < board[0].length; x++) {
-            if(getTeam(board[y][x]) == 1) {
-                pieces.push([board[y][x], xyToName(x, y), y, x]);
+            if(board[y][x].team == 1) {
+                pieces.push([board[y][x].name, xyToName(x, y), y, x]);
             }
         }
     }
@@ -184,13 +258,13 @@ client.on('interactionCreate', async interaction => {
                 let currentGame = deepCopy(games[selectGameID]);
                 
                 // generate list of possible moves
-                console.log("BOARD AT SELECT", currentGame.state);
+                console.log("BOARD AT SELECT", currentGame.state.map(el => el.map(el2 => el2.name).join(",")).join("\n"));
                 let positions = generatePositions(currentGame.state, arg1);
                 console.log("POSSIBLE MOVES", positions);
                 let components = interactionsFromPositions(positions, arg1);
                 //console.log(components);
                 
-                currentGame.state[selection.y][selection.x] = "selected";
+                currentGame.state[selection.y][selection.x] = getPiece("Selected");
                 let selectBoardRender = renderBoard(currentGame);
                 
                 interaction.update(displayBoard(currentGame, "Pick a Move", components));
@@ -244,6 +318,7 @@ client.on('interactionCreate', async interaction => {
                  let id = getPlayerGameId(interaction.member.id);
                  destroyGame(id);
                 interaction.reply("✅ " + interaction.member.user.username + " resigned!");
+                console.log("RESIGN");
             }
         break;
         case "challenge":
@@ -292,29 +367,244 @@ client.on('interactionCreate', async interaction => {
     }
 })
 
-function destroyGame(id) {
-    let playersDel = games[id].players;
-    players = players.filter(el => el[0] != playersDel[0] && el[0] != playersDel[1]);
-    games[id] = null;
+
+function getTeam(piece) {
+    switch(piece) {
+        case "Citizen": case "Ranger": case "Huntress": case "Bartender": case "Fortune Apprentice": case "Child":
+        case "Hooker": case "Idiot": case "Crowd Seeker": case "Aura Teller":
+        case "Royal Knight": case "Alcoholic": case "Amnesiac":
+        case "Runner": case "Fortune Teller": case "Witch":
+        case "Cursed Civilian":
+            return 0;
+        case "Wolf": case "Wolf Cub": case "Tanner": case "Archivist Fox": case "Recluse": case "Dog":
+        case "Infecting Wolf": case "Alpha Wolf": case "Psychic Wolf": case "Sneaking Wolf":
+        case "Direwolf": case "Clairvoyant Fox": case "Fox":
+        case "Warlock": case "Scared Wolf": case "Saboteur Wolf":
+         case "White Werewolf":
+            return 1;
+        case "Selected":
+        case null:
+            return -1;
+    }
 }
 
+function getAbilityText(piece) {
+    switch(piece) {
+        case "Citizen":
+        case "Ranger":
+        case "Huntress": 
+        case "Bartender":
+        case "Fortune Apprentice":
+        case "Child":
+        case "Hooker":
+        case "Idiot":
+        case "Crowd Seeker":
+        case "Aura Teller":
+        case "Royal Knight":
+        case "Alcoholic":
+        case "Amnesiac":
+        case "Runner":
+        case "Fortune Teller":
+        case "Witch":
+        case "Cursed Civilian":
+        case "Wolf":
+        case "Wolf Cub":
+        case "Tanner":
+        case "Archivist Fox":
+        case "Recluse":
+        case "Dog":
+        case "Infecting Wolf":
+        case "Alpha Wolf":
+        case "Psychic Wolf":
+        case "Sneaking Wolf":
+        case "Direwolf":
+        case "Clairvoyant Fox":
+        case "Fox":
+        case "Warlock":
+        case "Scared Wolf":
+        case "Saboteur Wolf":
+         case "White Werewolf":
+    }
+}
 
-const emptyBoard = [[null, null, null, null, null], [null, null, null, null, null], [null, null, null, null, null], [null, null, null, null, null], [null, null, null, null, null]];
+function getChessName(piece) {
+    switch(piece) {
+        default:
+            return null;
+        case "Citizen": case "Ranger": case "Huntress": case "Bartender": case "Fortune Apprentice": case "Child":
+        case "Wolf": case "Wolf Cub": case "Tanner": case "Archivist Fox": case "Recluse": case "Dog":
+            return "Pawn";
+         case "Hooker": case "Idiot": case "Crowd Seeker": case "Aura Teller":
+         case "Infecting Wolf": case "Alpha Wolf": case "Psychic Wolf": case "Sneaking Wolf":
+            return "King";
+         case "Royal Knight": case "Alcoholic": case "Amnesiac":
+         case "Direwolf": case "Clairvoyant Fox": case "Fox":
+            return "Knight";
+        case "Runner": case "Fortune Teller": case "Witch":
+        case "Warlock": case "Scared Wolf": case "Saboteur Wolf":
+            return "Rook";
+         case "Cursed Civilian":
+         case "White Werewolf":
+            return "Queen";
+        case "Selected":
+        case null:
+            return "None";
+    }
+}
+
+function getChessValue(name) {
+    switch(name) {
+        case "Pawn":
+            return 1;
+        case "Knight":
+            return 3;
+        case "King":
+            return 3;
+        case "Rook":
+            return 5;
+        case "Queen":
+            return 9;
+    }
+}
+
+// creates a piece object
+function getPiece(name) {
+    return { name: name, team: getTeam(name), chess: getChessName(name), enemyVisible: "Unknown", enemyVisibleStatus: 0 };
+}
+
+function loadDefaultSetup(board) {
+    board[4][0] = getPiece("Hooker");
+    board[4][1] = getPiece("Citizen");
+    board[4][2] = getPiece("Citizen");
+    board[4][3] = getPiece("Runner");
+    board[4][4] = getPiece("Citizen");
+    board[0][0] = getPiece("Wolf");
+    board[0][1] = getPiece("Warlock");
+    board[0][2] = getPiece("Wolf");
+    board[0][3] = getPiece("Wolf");
+    board[0][4] = getPiece("Alpha Wolf");
+}
+
+function generateRoleList(board) {
+    // name, chess value, wwr value, incompatible with, requires
+    // all town pieces
+    let town = [
+        ["Citizen", 1, 0, [], ""],
+        ["Ranger", 1, 1, [], ""],
+        ["Huntress", 1, 5, [], ""],
+        ["Bartender", 1, 1, [], "Alcoholic"],
+        ["Fortune Apprentice", 1, 3, [], ""],
+        ["Child", 1, 2, [], ""],
+        ["Hooker", 3, 4, [], ""],
+        ["Idiot", 3, 2, [], ""],
+        ["Crowd Seeker", 3, 2, ["FortuneTeller","AuraTeller"], ""],
+        ["Aura Teller", 3, 2, ["FortuneTeller","CrowdSeeker"], ""],
+        ["Royal Knight", 3, 2, [], ""],
+        ["Alcoholic", 3, 4, [], "Bartender"],
+        ["Amnesiac", 3, 1, [], []],
+        ["Fortune Teller", 5, 3, ["CrowdSeeker","AuraTeller"], ""],
+        ["Runner", 5, 3, [], ""],
+        ["Witch", 5, 2, [], ""],
+        ["Cursed Civilian", 9, -3, [], ""],
+    ];
+    // all wolf pieces
+    let wolf = [
+        ["Wolf", 1, 0, [], ""],
+        ["Wolf Cub", 1, 2, [], ""],
+        ["Tanner", 1, 2, ["Sneaking Wolf"], ""],
+        ["Archivist Fox", 1, 2, [], ""],
+        ["Recluse", 1, 1, [], ""],
+        ["Dog", 1, 3, ["Fox"], ""],
+        ["Infecting Wolf", 3, 5, ["Saboteur Wolf"], ""],
+        ["Alpha Wolf", 3, 3, [], ""],
+        ["Psychic Wolf", 3, 2, ["Clairvoyant Fox","Warlock"], ""],
+        ["Sneaking Wolf", 3, 1, ["Tanner"], ""],
+        ["Direwolf", 3, 3, [], ""],
+        ["Clairvoyant Fox", 3, 3, ["Warlock","Psychic Wolf"], ""],
+        ["Fox", 3, 0, ["Dog"], ""],
+        ["Scared Wolf", 5, 3, [], ""],
+        ["Saboteur Wolf", 5, 3, ["Infecting Wolf"], ""],
+        ["Warlock", 5, 5, ["Psychic Wolf","Clairvoyant Fox"], ""],
+        ["White Werewolf", 9, 0, [], ""],
+    ];
+    // preparation
+    let townSelected = [];
+    let wolfSelected = [];
+    let iterations = 0;
+    // attempt to select pieces
+    while(iterations < 100) {
+        // select pieces TOWN
+        townSelected = [];
+        for(let i = 0; i < 5; i++) {
+            townSelected.push(town[Math.floor(Math.random() * town.length)]);
+            // add previous requirement if exists
+            let prevReq = townSelected[townSelected.length - 1][4];
+            if(prevReq && prevReq.length) townSelected.push(town.filter(el => el[0] == prevReq)[0]);
+        }
+        // select pieces WOLF
+        wolfSelected = [];
+        for(let i = 0; i < 5; i++) {
+            wolfSelected.push(wolf[Math.floor(Math.random() * wolf.length)]);
+            // add previous requirement if exists
+            let prevReq = wolfSelected[wolfSelected.length - 1][4];
+            if(prevReq && prevReq.length) wolfSelected.push(wolf.filter(el => el[0] == prevReq)[0]);
+        }
+        // EVALUATE setup
+        // calculate values town
+        let totalChessValueTown = townSelected.map(el => el[1]).reduce((a,b) => a+b);
+        let totalWWRValueTown  = townSelected.map(el => el[2]).reduce((a,b) => a+b);
+        let totalValueTown = totalChessValueTown + totalWWRValueTown;
+        let combinedIncompTown = [].concat.apply([], townSelected.map(el => el[3]));
+        // calculate values wolf
+        let totalChessValueWolf = wolfSelected.map(el => el[1]).reduce((a,b) => a+b);
+        let totalWWRValueWolf  = wolfSelected.map(el => el[2]).reduce((a,b) => a+b);
+        let totalValueWolf = totalChessValueTown + totalWWRValueTown;
+        let combinedIncompWolf = [].concat.apply([], wolfSelected.map(el => el[3]));
+        // condition
+        if(totalChessValueTown <= 15 && totalWWRValueTown <= 12 && totalValueTown <= 23 && totalChessValueWolf <= 15 && totalWWRValueWolf <= 12 && totalValueWolf <= 23 && townSelected.length == 5 && wolfSelected.length == 5 && combinedIncompTown.indexOf(townSelected[0]) == -1 && (totalValueTown == totalValueWolf || totalValueTown+1 == totalValueWolf || totalValueTown-1 == totalValueWolf) &&combinedIncompTown.indexOf(townSelected[1]) == -1 && combinedIncompTown.indexOf(townSelected[2]) == -1 && combinedIncompTown.indexOf(townSelected[3]) == -1 && combinedIncompTown.indexOf(townSelected[4]) == -1 && combinedIncompWolf.indexOf(townSelected[0]) == -1 && combinedIncompWolf.indexOf(townSelected[1]) == -1 && combinedIncompWolf.indexOf(townSelected[2]) == -1 && combinedIncompWolf.indexOf(townSelected[3]) == -1 && combinedIncompWolf.indexOf(townSelected[4]) == -1) {
+            console.log("ACCEPT", totalChessValueTown, totalWWRValueTown, totalValueTown, townSelected.map(el=>el[0]).join(","), totalChessValueWolf, totalWWRValueWolf, totalValueWolf, wolfSelected.map(el=>el[0]).join(","));
+            break;
+        }
+        console.log("DISCARD", totalChessValueTown, totalWWRValueTown, totalValueTown, townSelected.map(el=>el[0]).join(","), totalChessValueWolf, totalWWRValueWolf, totalValueWolf, wolfSelected.map(el=>el[0]).join(","));
+        iterations++;
+    }
+    // randomize piece order
+    townSelected = randomize(townSelected);
+    wolfSelected = randomize(wolfSelected);
+    // put pieces onto the board
+    for(let i = 0; i < 5; i++) {
+        board[4][i] = getPiece(townSelected[i][0]);
+        board[0][i] = getPiece(wolfSelected[i][0]);
+    }
+}
+
+// randomizes an array
+function randomize(arr) {
+    return arr .map(value => ({ value, sort: Math.random() }))
+                        .sort((a, b) => a.sort - b.sort)
+                        .map(({ value }) => value);
+}
+
+// setups a new game
+const emptyBoard = [[getPiece(null), getPiece(null), getPiece(null), getPiece(null), getPiece(null)], [getPiece(null), getPiece(null), getPiece(null), getPiece(null), getPiece(null)], [getPiece(null), getPiece(null), getPiece(null), getPiece(null), getPiece(null)], [getPiece(null), getPiece(null), getPiece(null), getPiece(null), getPiece(null)], [getPiece(null), getPiece(null), getPiece(null), getPiece(null), getPiece(null)]];
 function createGame(playerID, playerID2, gameID, name1, name2, channel, guild) {
+    // store players as playing players
     players.push([playerID, gameID]);
     if(playerID2) players.push([playerID2, gameID]);
+    // create a blank new board
     let newBoard = deepCopy(emptyBoard);
-    newBoard[4][0] = "Citizen";
-    newBoard[4][1] = "Citizen";
-    newBoard[4][2] = "Citizen";
-    newBoard[4][3] = "Runner";
-    newBoard[4][4] = "Citizen";
-    newBoard[0][0] = "Wolf";
-    newBoard[0][1] = "Warlock";
-    newBoard[0][2] = "Wolf";
-    newBoard[0][3] = "Wolf";
-    newBoard[0][4] = "Wolf";
-    games.push({id: gameID, players: [ playerID, playerID2 ], playerNames: [ name1, name2 ], state: newBoard, turn: 0, channel: channel, guild: guild });
+    // put pieces on board
+    loadDefaultSetup(newBoard);
+    generateRoleList(newBoard);
+    // push game to list of games
+    games.push({id: gameID, players: [ playerID, playerID2 ], playerNames: [ name1, name2 ], state: newBoard, turn: 0, channel: channel, guild: guild, lastMoves: [] });
+}
+
+// destroys a game
+function destroyGame(id) {
+    let playersDel = games[id].players; // get game's players
+    players = players.filter(el => el[0] != playersDel[0] && el[0] != playersDel[1]); // delete players from playing players
+    games[id] = null; // remove game from game list
 }
 
 // turn = 0 for town, 1 for wolves
@@ -325,12 +615,22 @@ function showMoves(gameID, turn) {
     return { content: board, ephemeral: true, fetchReply: true, components: [ { type: 1, components: interactions } ] }
 }
 
-function getTeam(piece) {
-    switch(piece) {
-        case "Citizen": case "Runner":
-            return 0;
-        case "Wolf": case "Warlock":
-            return 1;
+function isPawn(name) {
+    return name.chess === "Pawn";
+}
+
+function getUnicode(chessName, team) {
+    switch(chessName) {
+        case "Pawn":
+            return team?"♙":"♟︎";
+        case "King":
+            return team?"♔":"♚";
+        case "Knight":
+            return team?"♘":"♞";
+        case "Rook":
+            return team?"♖":"♜";
+        case "Queen":
+            return team?"♕":"♛";
     }
 }
 
@@ -363,72 +663,169 @@ function generatePositions(board, position) {
     position = nameToXY(position);
     let x = position.x, y = position.y;
     let piece = board[y][x];
-    console.log("Finding moves for ", piece, " @ ", x, "|", numToRank(x), " ", y);
-    const enemyTeam = (getTeam(piece) + 1) % 2;
-    switch(piece) {
-        // Pawn
-        case "Citizen":
-            if(y>0) {
-                if(board[y-1][x] == null) positions.push([x, y-1]);
-                if(x>0 && board[y-1][x-1] != null && getTeam(board[y-1][x-1]) == enemyTeam) positions.push([x-1, y-1, true]);
-                if(x<4 && board[y-1][x+1] != null && getTeam(board[y-1][x+1]) == enemyTeam) positions.push([x+1, y-1, true]);
-            }            
-        break;
-        case "Wolf":
-            if(y<4) {
-                if(board[y+1][x] == null) positions.push([x, y+1]);
-                if(x>0 && board[y+1][x-1] != null && getTeam(board[y+1][x-1]) == enemyTeam) positions.push([x-1, y+1, true]);
-                if(x<4 && board[y+1][x+1] != null && getTeam(board[y+1][x+1]) == enemyTeam) positions.push([x+1, y+1, true]);
-            }            
-        break;
-        // Rook
-        case "Runner":
-        case "Warlock":
-            for(let xt1 = x+1; xt1 < 5; xt1++) {
-                if(inBounds(xt1) && board[y][xt1] == null) {
-                    positions.push([xt1, y]);
-                } else if(inBounds(xt1) && getTeam(board[y][xt1]) == enemyTeam) {
-                    positions.push([xt1, y, true]);
-                    break;
-                } else {
-                    break;
-                }
+    console.log("Finding moves for ", piece.name, " @ ", x, "|", numToRank(x), " ", y);
+    const pieceTeam = piece.team;
+    const enemyTeam = (pieceTeam + 1) % 2;
+    const pieceType = piece.chess;
+    // Movement Logic
+    /* PAWN */
+    if(pieceType == "Pawn" && pieceTeam == 0) {
+        if(y>0) {
+            if(board[y-1][x].name == null) positions.push([x, y-1]);
+            if(x>0 && board[y-1][x-1].name != null && board[y-1][x-1].team == enemyTeam) positions.push([x-1, y-1, true]);
+            if(x<4 && board[y-1][x+1].name != null && board[y-1][x+1].team == enemyTeam) positions.push([x+1, y-1, true]);
+        }            
+    } else if(pieceType == "Pawn" && pieceTeam == 1) {
+        if(y<4) {
+            if(board[y+1][x].name == null) positions.push([x, y+1]);
+            if(x>0 && board[y+1][x-1].name != null && board[y+1][x-1].team == enemyTeam) positions.push([x-1, y+1, true]);
+            if(x<4 && board[y+1][x+1].name != null && board[y+1][x+1].team == enemyTeam) positions.push([x+1, y+1, true]);
+        }            
+    } 
+    /* ROOK */
+    else if(pieceType == "Rook") {
+        for(let xt1 = x+1; xt1 < 5; xt1++) {
+            if(inBounds(xt1) && board[y][xt1].name == null) {
+                positions.push([xt1, y]);
+            } else if(inBounds(xt1) && board[y][xt1].team == enemyTeam) {
+                positions.push([xt1, y, true]);
+                break;
+            } else {
+                break;
             }
-            console.log(positions);
-            for(let xt2 = x-1; xt2 >= 0; xt2--) {
-                if(inBounds(xt2) && board[y][xt2] == null) {
-                    positions.push([xt2, y]);
-                } else if(inBounds(xt2) && getTeam(board[y][xt2]) == enemyTeam) {
-                    positions.push([xt2, y, true]);
-                    break;
-                } else {
-                    break;
-                }
+        }
+        for(let xt2 = x-1; xt2 >= 0; xt2--) {
+            if(inBounds(xt2) && board[y][xt2].name == null) {
+                positions.push([xt2, y]);
+            } else if(inBounds(xt2) && board[y][xt2].team == enemyTeam) {
+                positions.push([xt2, y, true]);
+                break;
+            } else {
+                break;
             }
-            console.log(positions);
-            for(let yt1 = y+1; yt1 < 5; yt1++) {
-                if(inBounds(yt1) && board[yt1][x] == null) {
-                    positions.push([x, yt1]);
-                } else if(inBounds(yt1) && getTeam(board[yt1][x]) == enemyTeam) {
-                    positions.push([x, yt1, true]);
-                    break;
-                } else {
-                    break;
-                }
+        }
+        for(let yt1 = y+1; yt1 < 5; yt1++) {
+            if(inBounds(yt1) && board[yt1][x].name == null) {
+                positions.push([x, yt1]);
+            } else if(inBounds(yt1) && board[yt1][x].team == enemyTeam) {
+                positions.push([x, yt1, true]);
+                break;
+            } else {
+                break;
             }
-            console.log(positions);
-            for(let yt2 = y-1; yt2 >= 0; yt2--) {
-                if(inBounds(yt2) && board[yt2][x] == null) {
-                    positions.push([x, yt2]);
-                } else if(inBounds(yt2) && getTeam(board[yt2][x]) == enemyTeam) {
-                    positions.push([x, yt2, true]);
-                    break;
-                } else {
-                    break;
-                }
+        }
+        for(let yt2 = y-1; yt2 >= 0; yt2--) {
+            if(inBounds(yt2) && board[yt2][x].name == null) {
+                positions.push([x, yt2]);
+            } else if(inBounds(yt2) && board[yt2][x].team == enemyTeam) {
+                positions.push([x, yt2, true]);
+                break;
+            } else {
+                break;
             }
-            console.log(positions);
-        break;
+        }
+    } /* QUEEN */
+    else if(pieceType == "Queen") {
+        for(let xt1 = x+1; xt1 < 5; xt1++) {
+            if(inBounds(xt1) && board[y][xt1].name == null) {
+                positions.push([xt1, y]);
+            } else if(inBounds(xt1) && board[y][xt1].team == enemyTeam) {
+                positions.push([xt1, y, true]);
+                break;
+            } else {
+                break;
+            }
+        }
+        for(let xt2 = x-1; xt2 >= 0; xt2--) {
+            if(inBounds(xt2) && board[y][xt2].name == null) {
+                positions.push([xt2, y]);
+            } else if(inBounds(xt2) && board[y][xt2].team == enemyTeam) {
+                positions.push([xt2, y, true]);
+                break;
+            } else {
+                break;
+            }
+        }
+        for(let yt1 = y+1; yt1 < 5; yt1++) {
+            if(inBounds(yt1) && board[yt1][x].name == null) {
+                positions.push([x, yt1]);
+            } else if(inBounds(yt1) && board[yt1][x].team == enemyTeam) {
+                positions.push([x, yt1, true]);
+                break;
+            } else {
+                break;
+            }
+        }
+        for(let yt2 = y-1; yt2 >= 0; yt2--) {
+            if(inBounds(yt2) && board[yt2][x].name == null) {
+                positions.push([x, yt2]);
+            } else if(inBounds(yt2) && board[yt2][x].team == enemyTeam) {
+                positions.push([x, yt2, true]);
+                break;
+            } else {
+                break;
+            }
+        }
+        for(let offset = 0; offset < 5; offset--) {
+            if(inBounds(x+offset, y+offset) && board[y+offset][x+offset].name == null) {
+                positions.push([x+offset, y+offset]);
+            } else if(inBounds(x+offset, y+offset) && board[y+offset][x+offset].team == enemyTeam) {
+                positions.push([x+offset, y+offset, true]);
+                break;
+            } else {
+                break;
+            }
+        }
+        for(let offset = 0; offset < 5; offset--) {
+            if(inBounds(x-offset, y+offset) && board[y+offset][x-offset].name == null) {
+                positions.push([x-offset, y+offset]);
+            } else if(inBounds(x-offset, y+offset) && board[y+offset][x-offset].team == enemyTeam) {
+                positions.push([x-offset, y+offset, true]);
+                break;
+            } else {
+                break;
+            }
+        }
+        for(let offset = 0; offset < 5; offset--) {
+            if(inBounds(x+offset, y-offset) && board[y-offset][x+offset].name == null) {
+                positions.push([x+offset, y-offset]);
+            } else if(inBounds(x+offset, y-offset) && board[y-offset][x+offset].team == enemyTeam) {
+                positions.push([x+offset, y-offset, true]);
+                break;
+            } else {
+                break;
+            }
+        }
+        for(let offset = 0; offset < 5; offset--) {
+            if(inBounds(x-offset, y-offset) && board[y-offset][x-offset].name == null) {
+                positions.push([x-offset, y-offset]);
+            } else if(inBounds(x-offset, y-offset) && board[y-offset][x-offset].team == enemyTeam) {
+                positions.push([x-offset, y-offset, true]);
+                break;
+            } else {
+                break;
+            }
+        }
+    }
+    /* KING */
+    else if(pieceType == "King") {
+        let possibleMoves = [[1,0],[-1,0],[0,1],[0,-1],[1,1],[-1,1],[1,-1],[-1,-1]];
+        for(let i = 0; i < possibleMoves.length; i++) {
+            let px = x + possibleMoves[i][0];
+            let py = y + possibleMoves[i][1];
+            if(inBounds(px, py) && board[py][px].name == null) positions.push([px, py]);
+            else if(inBounds(px, py) && board[py][px].team == enemyTeam) positions.push([px, py, true]);
+        }
+    }
+    /* KNIGHT */
+    else if(pieceType == "Knight") {
+        let possibleMoves = [[2,1],[-2,1],[2,-1],[-2,-1],[1,2],[-1,2],[1,-2],[-1,-2]];
+        for(let i = 0; i < possibleMoves.length; i++) {
+            let px = x + possibleMoves[i][0];
+            let py = y + possibleMoves[i][1];
+            if(inBounds(px, py) && board[py][px].name == null) positions.push([px, py]);
+            else if(inBounds(px, py) && board[py][px].team == enemyTeam) positions.push([px, py, true]);
+        }
     }
     return positions;
 }
@@ -451,21 +848,13 @@ function interactionsFromPositions(positions, from) {
     return interactionsOutput;
 }
 
-function isLowValuePiece(name) {
-    switch(name) {
-        default:
-            return false;
-        case "Citizen": case "Wolf":
-            return true;
-    }
-}
 
 function generateInteractions(board, team) {
     let interactions = [];
     for(let y = 0; y < board.length; y++) {
         for(let x = 0; x < board[0].length; x++) {
-            if(getTeam(board[y][x]) == team) {
-                interactions.push({ type: 2, label: xyToName(x, y) + " " + board[y][x], style: isLowValuePiece(board[y][x]) ? 2 : 1, custom_id: "select-" + xyToName(x, y) });
+            if(board[y][x].team == team) {
+                interactions.push({ type: 2, label: xyToName(x, y) + " " + board[y][x].name + " " + getUnicode(board[y][x].chess, team), style: isPawn(board[y][x]) ? 2 : 1, custom_id: "select-" + xyToName(x, y) });
             }
         }
     }
@@ -474,30 +863,76 @@ function generateInteractions(board, team) {
 
 function renderBoard(game, message = "Turn") {
     let board = game.state;
-    let boardMsg = "**" + game.playerNames[0] + " vs. " + game.playerNames[1] +  "**\n" + "**" + message + "** " + game.turn + "\n🟦🇦​🇧​🇨​🇩​🇪\n";
+    let boardMsg = "**" + game.playerNames[0] + " vs. " + game.playerNames[1] +  "**\n" + "**" + message + "**\n";
+    let boardRows = ["🟦🇦​🇧​🇨​🇩​🇪"];
+    const letterRanks = ["🇦","🇧","🇨","🇩","​🇪"];
     const numberRow = ["1️⃣","2️⃣","3️⃣","4️⃣","5️⃣"];
     for(let y = 0; y < board.length; y++) {
         let row = numberRow[y];
         for(let x = 0; x < board[0].length; x++) {
-                row += renderField(board[y][x], x, y);
+                row += renderField(board[y][x], x, y, game.turn);
         }
-        boardMsg += row + "\n";
+        boardRows.push(row);
         row = "";
     }
-    return boardMsg;
+    // display last moves
+    // [moveCurGame.turn, movedPiece.name, movedPiece.enemyVisible, from, to]
+    for(let i = 0; i < boardRows.length; i++) {
+        boardRows[i] += "🟦";
+        if(i == 0) {
+            boardRows[i] += "🇱​🇦​🇸​🇹​🇲​🇴​🇻​🇪​🇸";
+        } else {
+            boardRows[i] += "🟦";
+            let lmIndex = game.lastMoves.length - i;
+            if(game.lastMoves[lmIndex]) {
+                let lmMsg = "";
+                let lm = game.lastMoves[lmIndex];
+                let moveFrom = nameToXY(lm[3]);
+                let moveTo = nameToXY(lm[4]);
+                if(lm[0] == 0) lmMsg += "⬜"; 
+                else lmMsg += "⬛";
+                if(lm[0] == game.turn) lmMsg += findEmoji(lm[1]);
+                else lmMsg += findEmoji((lm[0] == 0?"white":"black") + lm[2]);
+                lmMsg += letterRanks[moveFrom.x];
+                lmMsg += numberRow[moveFrom.y];
+                lmMsg += "▶️";
+                lmMsg += letterRanks[moveTo.x];
+                lmMsg += numberRow[moveTo.y];
+                boardRows[i] += lmMsg + "🟦";
+            } else {
+                boardRows[i] += "🟦🟦🟦🟦🟦🟦🟦🟦";
+            }
+        }
+        
+    }
+    return boardMsg + boardRows.join("\n");
 }
 
-function renderField(field, x, y) {
-    switch(field) {
+// find an emoji by name
+function findEmoji(name) {
+    name = name.toLowerCase().replace(/[^a-z]/g,"");
+    let emoji = client.emojis.cache.find(el => el.name.toLowerCase() === name);
+    if(emoji) emoji = `<:${emoji.name}:${emoji.id}>`;
+    else {
+        console.log("MISSING EMOJI", name);
+        emoji = "❓";
+    }
+    // return
+    return emoji;
+}
+
+function renderField(field, x, y, turn) {
+    switch(field.name) {
         default: 
-            let fieldName = field.toLowerCase().replace(/[^a-z]/g,"");
-            let emoji = client.emojis.cache.find(el => el.name.toLowerCase() === fieldName);
-            if(emoji) emoji = `<:${emoji.name}:${emoji.id}>`;
-            else emoji = "❓";
-            return emoji;
+            // get name
+            let fieldName;
+            if(field.team == turn) fieldName = field.name;
+            else fieldName = (field.team?"black":"white") + field.enemyVisible;
+            // get emoji
+            return findEmoji(fieldName);
         case null:
-            return ((x&1)^(y&1))?"⬜":"🟫";
-        case "selected":
+            return findEmoji(((x&1)^(y&1))?"whitesquare":"blacksquare");
+        case "Selected":
             return "❗";
     }
 }
