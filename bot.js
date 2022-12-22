@@ -71,6 +71,8 @@ function movePiece(interaction, id, from, to, repl = null) {
     // 2 -> likely king
     // 3 -> likely rook / king
     // 4 -> piece known
+    // 5 -> active ability known
+    // 6 -> role known
     if(movedPiece.enemyVisibleStatus < 4) { 
         let movedXorig = moveFrom.x - moveTo.x;
         let movedYorig = moveFrom.y - moveTo.y;
@@ -131,14 +133,12 @@ function movePiece(interaction, id, from, to, repl = null) {
             interaction.update(displayBoard(moveCurGame, "Promote " + to, [{ type: 1, components: [{ type: 2, label: "Runner ♖", style: 1, custom_id: "promote-"+to+"-Runner" }, { type: 2, label: "Hooker ♔", style: 1, custom_id: "promote-"+to+"-Hooker" }] }]));
         } else {
             movePiece(interaction, id, to, to, getPiece("Runner"));
-            nextTurn(moveCurGame);
         }
     } else if(movedPiece.chess == "Pawn" && moveCurGame.turn == 1 && moveTo.y == 4) {
         if(interaction) {
             interaction.update(displayBoard(moveCurGame, "Promote " + to, [{ type: 1, components: [{ type: 2, label: "Warlock ♜", style: 1, custom_id: "promote-"+to+"-Warlock" }, { type: 2, label: "Alpha Wolf ♚", style: 1, custom_id: "promote-"+to+"-Alpha Wolf" }] }]));
         } else {
             movePiece(interaction, id, to, to, getPiece("Warlock"));
-            nextTurn(moveCurGame);
         }
     } else {
         // turn complete
@@ -150,15 +150,23 @@ function movePiece(interaction, id, from, to, repl = null) {
     }
 }
 
-function displayBoard(game, message, comp = []) {
-    return { content: renderBoard(game, message), components: comp, ephemeral: true, fetchReply: true };
+function displayBoard(game, message, comp = [], turnOverride = null) {
+    return { content: renderBoard(game, message, turnOverride), components: comp, ephemeral: true, fetchReply: true };
 }
 
 async function busyWaiting(interaction, gameid, player) {
     await sleep(900);
     while(true) {
         await sleep(100);
+        // game disappeared
         if(!games[gameid]) return;
+        // game concluded
+        if(games[gameid].concluded) {
+            interaction.editReply(displayBoard(games[gameid], "Game Concluded", [], player));     
+            destroyGame(game.id);
+            return;
+        }
+        // attempt turn
         if(games[gameid].turn == player) {
             let availableMoves = showMoves(gameid, player);
             // if edit fails retry;
@@ -207,7 +215,7 @@ function nextTurn(game) {
         if(game.players[1]) channel.send("<@" + game.players[oldTurn] + "> has won against <@" + game.players[game.turn] + ">!");
         else if(oldTurn == 0 && !game.players[1]) channel.send("<@" + game.players[oldTurn] + "> has won against **AI**!");
         else if(oldTurn == 1 && !game.players[1]) channel.send("**AI** has won against <@" + game.players[game.turn] + ">!");
-        destroyGame(game.id);
+        concludeGame(game.id);
         console.log("WIN");
         return;
     }
@@ -264,6 +272,7 @@ client.on('interactionCreate', async interaction => {
                 let components = interactionsFromPositions(positions, arg1);
                 //console.log(components);
                 
+                currentGame.selectedPiece = deepCopy(currentGame.state[selection.y][selection.x]);
                 currentGame.state[selection.y][selection.x] = getPiece("Selected");
                 let selectBoardRender = renderBoard(currentGame);
                 
@@ -277,7 +286,7 @@ client.on('interactionCreate', async interaction => {
             // promote a piece; update board
             case "promote":
                 let promoteGameID = getPlayerGameId(interaction.member.id);
-                movePiece(interaction, promoteGameID, arg1, arg1, arg2);
+                movePiece(interaction, promoteGameID, arg1, arg1, getPiece(arg2));
             break;
             // back to turn start menu
             case "turnstart":
@@ -315,8 +324,9 @@ client.on('interactionCreate', async interaction => {
             if(!isPlaying(interaction.member.id)) {
                 interaction.reply({ content: "❎ You're not in a game!", ephemeral: true });
             } else {
-                 let id = getPlayerGameId(interaction.member.id);
-                 destroyGame(id);
+                let id = getPlayerGameId(interaction.member.id);
+                concludeGame(game.id);
+                destroyGame(id);
                 interaction.reply("✅ " + interaction.member.user.username + " resigned!");
                 console.log("RESIGN");
             }
@@ -358,7 +368,7 @@ client.on('interactionCreate', async interaction => {
                 
                 interaction.channel.send("<@" + challenge[1] + "> Your challenge has been accepted by <@" + interaction.member.id + ">!");
                 
-                interaction.reply(displayBoard(games[challenge[2]], "Waiting on Opponent"));
+                interaction.reply(displayBoard(games[challenge[2]], "Waiting on Opponent", [], 1));
                 busyWaiting(interaction, challenge[2], 1);
                 
                 outstandingChallenge = outstandingChallenge.filter(el => el[0] != interaction.member.id);
@@ -391,39 +401,73 @@ function getTeam(piece) {
 function getAbilityText(piece) {
     switch(piece) {
         case "Citizen":
+            return "No ability.";
         case "Ranger":
+            return "";
         case "Huntress": 
+            return "";
         case "Bartender":
+            return "";
         case "Fortune Apprentice":
+            return "";
         case "Child":
+            return "";
         case "Hooker":
+            return "";
         case "Idiot":
+            return "";
         case "Crowd Seeker":
+            return "";
         case "Aura Teller":
+            return "";
         case "Royal Knight":
+            return "";
         case "Alcoholic":
+            return "";
         case "Amnesiac":
+            return "";
         case "Runner":
+            return "";
         case "Fortune Teller":
+            return "";
         case "Witch":
+            return "";
         case "Cursed Civilian":
+            return "";
         case "Wolf":
+            return "No ability.";
         case "Wolf Cub":
+            return "";
         case "Tanner":
+            return "";
         case "Archivist Fox":
+            return "";
         case "Recluse":
+            return "";
         case "Dog":
+            return "";
         case "Infecting Wolf":
+            return "";
         case "Alpha Wolf":
+            return "";
         case "Psychic Wolf":
+            return "";
         case "Sneaking Wolf":
+            return "";
         case "Direwolf":
+            return "";
         case "Clairvoyant Fox":
+            return "";
         case "Fox":
+            return "No ability.";
         case "Warlock":
+            return "";
         case "Scared Wolf":
+            return "";
         case "Saboteur Wolf":
+            return "";
          case "White Werewolf":
+            return "";
     }
 }
 
@@ -483,6 +527,11 @@ function loadDefaultSetup(board) {
     board[0][2] = getPiece("Wolf");
     board[0][3] = getPiece("Wolf");
     board[0][4] = getPiece("Alpha Wolf");
+}
+
+function loadTestingSetup(board) {
+    board[1][0] = getPiece("Citizen");
+    board[3][4] = getPiece("Wolf");
 }
 
 function generateRoleList(board) {
@@ -594,10 +643,11 @@ function createGame(playerID, playerID2, gameID, name1, name2, channel, guild) {
     // create a blank new board
     let newBoard = deepCopy(emptyBoard);
     // put pieces on board
-    loadDefaultSetup(newBoard);
-    generateRoleList(newBoard);
+    //loadDefaultSetup(newBoard);
+    //generateRoleList(newBoard);
+    loadTestingSetup(newBoard);
     // push game to list of games
-    games.push({id: gameID, players: [ playerID, playerID2 ], playerNames: [ name1, name2 ], state: newBoard, turn: 0, channel: channel, guild: guild, lastMoves: [] });
+    games.push({id: gameID, players: [ playerID, playerID2 ], playerNames: [ name1, name2 ], state: newBoard, turn: 0, channel: channel, guild: guild, lastMoves: [], concluded: false, selectedPiece: null });
 }
 
 // destroys a game
@@ -605,6 +655,17 @@ function destroyGame(id) {
     let playersDel = games[id].players; // get game's players
     players = players.filter(el => el[0] != playersDel[0] && el[0] != playersDel[1]); // delete players from playing players
     games[id] = null; // remove game from game list
+}
+
+// concludes a game (reveals all pieces)
+function concludeGame(id) {
+    let concludedGame = games[id];
+    for(let y = 0; y < 5; y++) {
+        for(let x = 0; x < 5; x++) {
+            concludeGame.state[y][x].enemyVisibleStatus = 6;
+        }
+    }
+    concludedGame.concluded = true;
 }
 
 // turn = 0 for town, 1 for wolves
@@ -827,6 +888,7 @@ function generatePositions(board, position) {
             else if(inBounds(px, py) && board[py][px].team == enemyTeam) positions.push([px, py, true]);
         }
     }
+    positions.sort((a,b) => (xyToName(a[0], a[1]) > xyToName(b[0], b[1])) ? 1 : ((xyToName(b[0], b[1]) > xyToName(a[0], a[1])) ? -1 : 0));
     return positions;
 }
 
@@ -861,16 +923,20 @@ function generateInteractions(board, team) {
     return interactions;
 }
 
-function renderBoard(game, message = "Turn") {
+function renderBoard(game, message = "Turn", turnOverride = null) {
     let board = game.state;
     let boardMsg = "**" + game.playerNames[0] + " vs. " + game.playerNames[1] +  "**\n" + "**" + message + "**\n";
     let boardRows = ["🟦🇦​🇧​🇨​🇩​🇪"];
+    let visiblePieces = [];
     const letterRanks = ["🇦","🇧","🇨","🇩","​🇪"];
     const numberRow = ["1️⃣","2️⃣","3️⃣","4️⃣","5️⃣"];
+    const curTurn = turnOverride != null ? turnOverride : game.turn;
     for(let y = 0; y < board.length; y++) {
         let row = numberRow[y];
         for(let x = 0; x < board[0].length; x++) {
-                row += renderField(board[y][x], x, y, game.turn);
+                row += renderField(board[y][x], x, y, curTurn);
+                if(board[y][x].name != null && board[y][x].team == curTurn) visiblePieces.push(board[y][x].name);
+                else if(board[y][x].name != null && board[y][x].team != curTurn && board[y][x].enemyVisibleStatus == 6) visiblePieces.push(board[y][x].name);
         }
         boardRows.push(row);
         row = "";
@@ -891,7 +957,7 @@ function renderBoard(game, message = "Turn") {
                 let moveTo = nameToXY(lm[4]);
                 if(lm[0] == 0) lmMsg += "⬜"; 
                 else lmMsg += "⬛";
-                if(lm[0] == game.turn) lmMsg += findEmoji(lm[1]);
+                if(lm[0] == curTurn) lmMsg += findEmoji(lm[1]);
                 else lmMsg += findEmoji((lm[0] == 0?"white":"black") + lm[2]);
                 lmMsg += letterRanks[moveFrom.x];
                 lmMsg += numberRow[moveFrom.y];
@@ -903,7 +969,14 @@ function renderBoard(game, message = "Turn") {
                 boardRows[i] += "🟦🟦🟦🟦🟦🟦🟦🟦";
             }
         }
-        
+    }
+    // divider
+    boardRows.push("🟦🟦🟦🟦🟦🟦🟦🟦🟦🟦🟦🟦🟦🟦🟦🟦");
+    // add explanations for visible pieces
+    if(game.selectedPiece) visiblePieces.push(game.selectedPiece.name);
+    visiblePieces.sort();
+    for(let i = 0; i < visiblePieces.length; i++) {
+        boardRows.push(findEmoji((getTeam(visiblePieces[i])?"Black":"White") + getChessName(visiblePieces[i])) + " " + findEmoji(visiblePieces[i]) + " **" + visiblePieces[i] + " (" + getChessName(visiblePieces[i]) + "):** " + getAbilityText(visiblePieces[i]));
     }
     return boardMsg + boardRows.join("\n");
 }
@@ -926,7 +999,7 @@ function renderField(field, x, y, turn) {
         default: 
             // get name
             let fieldName;
-            if(field.team == turn) fieldName = field.name;
+            if(field.team == turn || field.enemyVisibleStatus == 6) fieldName = field.name;
             else fieldName = (field.team?"black":"white") + field.enemyVisible;
             // get emoji
             return findEmoji(fieldName);
