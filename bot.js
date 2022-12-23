@@ -514,7 +514,7 @@ client.on('interactionCreate', async interaction => {
                         aInteractions = [{ type: 2, label: "Back", style: 4, custom_id: "turnstart" }];
                         aInteractions.push({ type: 2, label: "Wolf Cub " + getUnicode("Pawn", 1), style: 1, custom_id: "transform-" + arg1 + "-Wolf Cub" });
                         aInteractions.push({ type: 2, label: "Fox " + getUnicode("Knight", 1), style: 1, custom_id: "transform-" + arg1 + "-Fox" });
-                        aComponents = { type: 1, components: aInteractions };
+                        aComponents = [{ type: 1, components: aInteractions }];
                     break;
                 }
                 
@@ -1377,7 +1377,7 @@ function renderBoard(game, message = "Turn", turnOverride = null) {
     for(let i = 0; i < visiblePieces.length; i++) {
         boardRows.push(findEmoji((getTeam(visiblePieces[i])?"Black":"White") + getChessName(visiblePieces[i])) + " " + findEmoji(visiblePieces[i]) + " **" + visiblePieces[i] + " (" + getChessName(visiblePieces[i]) + "):** " + getAbilityText(visiblePieces[i]));
     }
-    return boardMsg + boardRows.join("\n");
+    return (boardMsg + boardRows.join("\n")).substr(0, 1950);
 }
 
 // find an emoji by name
