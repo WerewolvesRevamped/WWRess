@@ -820,7 +820,7 @@ function loadPromoteTestSetup(board) {
 }
 
 function loadTestingSetup(board) {
-    let testTown = "Crowd Seeker";
+    let testTown = "Fortune Teller";
     let testWolf = "Sneaking Wolf";
     board[4][0] = getPiece(testTown);
     board[4][1] = getPiece(testTown);
