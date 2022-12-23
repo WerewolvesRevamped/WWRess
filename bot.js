@@ -245,7 +245,10 @@ function movePiece(interaction, id, from, to, repl = null) {
                     }
                 }
             }
-            if(wolfCount == 1 && !moveCurGame.inDoubleMove) moveCurGame.doubleMove1 = true;
+            if(wolfCount == 1 && !moveCurGame.inDoubleMove) {
+		    moveCurGame.doubleMove1 = true;
+		    movedPiece.enemyVisibleStatus = 6;
+	    }
     	break;
     }
     moveCurGame.inDoubleMove = false;
