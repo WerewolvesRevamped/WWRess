@@ -558,6 +558,16 @@ function getTeam(piece) {
     }
 }
 
+function isActive(piece) {
+    switch(piece) {
+        default:
+            return false;
+        case "Hooker": case "Crowd Seeker": case "Aura Teller": case "Royal Knight": case "Fortune Teller": case "Witch":
+        case "Tanner": case "Archivist Fox": case "Dog": case "Infecting Wolf": case "Alpha Wolf": case "Psychic Wolf": case "Clairvoyant Fox": case "Warlock": case "Saboteur Wolf":
+            return true;
+    }
+}
+
 function getAbilityText(piece) {
     switch(piece) {
         case "Citizen":
@@ -1168,6 +1178,18 @@ function generateInteractions(board, team) {
         for(let x = 0; x < board[0].length; x++) {
             if(board[y][x].team == team) {
                 interactions.push({ type: 2, label: xyToName(x, y) + " " + board[y][x].name + " " + getUnicode(board[y][x].chess, team), style: isPawn(board[y][x]) ? 2 : 1, custom_id: "select-" + xyToName(x, y) });
+            }
+        }
+    }
+    return interactions;
+}
+
+function generateAbilities(board, team) {
+    let interactions = [];
+    for(let y = 0; y < board.length; y++) {
+        for(let x = 0; x < board[0].length; x++) {
+            if(board[y][x].team == team && board[y][x].active) {
+                interactions.push({ type: 2, label: xyToName(x, y) + " " + board[y][x].name + " " + getUnicode(board[y][x].chess, team), style: 1, custom_id: "ability-" + xyToName(x, y) });
             }
         }
     }
