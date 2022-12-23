@@ -1030,7 +1030,7 @@ function showMoves(gameID, turn, abilities = false, message = "") {
     let interactions;
     if(!abilities) interactions = generateInteractions(currentGame.state, turn);
     else {
-        interactions = { type: 2, label: "Skip", style: 4, custom_id: "turnmove" });
+        interactions = [{ type: 2, label: "Skip", style: 4, custom_id: "turnmove" }];
         interactions.push(...generateAbilities(currentGame.state, turn));
     }
     interactions = interactions.slice(0, 4);
