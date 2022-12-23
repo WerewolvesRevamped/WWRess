@@ -339,16 +339,17 @@ function nextTurn(game) {
     }
     
     // DOUBLE MOVE (CHILD/CUB)
-    game.inDoubleMove = false;
     if(game.turn == 1 && game.doubleMove0 == true) { // double move town (Child)
         game.doubleMove0 = false;
     	game.inDoubleMove = true;
         nextTurn(game);
+    	game.inDoubleMove = false;
         return;
     } else if(game.turn == 0 && game.doubleMove1 == true) { // double move wolf (Cub)
         game.doubleMove1 = false;
     	game.inDoubleMove = true;
         nextTurn(game);
+    	game.inDoubleMove = false;
         return;
     }
     
