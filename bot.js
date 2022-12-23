@@ -168,6 +168,9 @@ function movePiece(interaction, id, from, to, repl = null) {
         defensiveY = moveFrom.y;
     }
     
+    if(from == to) beatenPice = getPiece(null); // promotion is not taking
+    
+    // death effects
     switch(beatenPiece.name) {
         default: case null:
             // store move
@@ -245,6 +248,7 @@ function movePiece(interaction, id, from, to, repl = null) {
         break;
     }
     
+    // move effects
     switch(movedPiece.name) {
         case "Amnesiac": // Amnesiac -> Change role after onhe move
             console.log("AMNESIAC CHANGE", movedPiece.convertTo);
