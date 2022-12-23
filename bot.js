@@ -53,7 +53,7 @@ function deepCopy(el) {
 }
 
 function turnStart(interaction, gameid, turn, mode = "editreply") {
-    let availableAbilities = showMoves(gameid, turn, true);
+    let availableAbilities = showMoves(gameid, turn, true, "Select a Piece (ABILITY)");
     response(interaction, availableAbilities, mode);
 }
 
@@ -63,7 +63,7 @@ function turnMove(interaction, gameid, turn, mode = "editreply") {
     msgSpec.ephemeral = false;
     games[gameid].msg.edit(msgSpec);
     // show movable pieces
-    let availableMoves = showMoves(gameid, turn);
+    let availableMoves = showMoves(gameid, turn, false, "Select a Piece (MOVE)");
     response(interaction, availableMoves, mode);
 }
 
@@ -803,7 +803,7 @@ function loadPromoteTestSetup(board) {
 }
 
 function loadTestingSetup(board) {
-    let testTown = "Fortune Teller";
+    let testTown = "Crowd Seeker";
     let testWolf = "Direwolf";
     board[4][0] = getPiece(testTown);
     board[4][1] = getPiece(testTown);
@@ -1012,9 +1012,9 @@ function concludeGame(id) {
 }
 
 // turn = 0 for town, 1 for wolves
-function showMoves(gameID, turn, abilities = false) {
+function showMoves(gameID, turn, abilities = false, messsage = "") {
     let currentGame = games[gameID];
-    let board = renderBoard(currentGame);
+    let board = renderBoard(currentGame, message);
     let interactions;
     if(!abilities) interactions = generateInteractions(currentGame.state, turn);
     else interactions = generateAbilities(currentGame.state, turn);
