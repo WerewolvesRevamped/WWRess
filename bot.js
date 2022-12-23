@@ -55,7 +55,7 @@ function deepCopy(el) {
 function turnStart(interaction, gameid, turn, update = false) {
     let availableMoves = showMoves(gameid, turn);
     if(update) interaction.update(availableMoves);  
-    else interaction.edit(availableMoves);  
+    else interaction.editReply(availableMoves);  
 }
 
 // moves a piece from one place to another (and/or replaces the piece with another piece)
