@@ -54,7 +54,9 @@ function deepCopy(el) {
 
 function turnStart(interaction, gameid, turn, mode = "editreply") {
     let availableAbilities = showMoves(gameid, turn, true, "Select a Piece (ABILITY)");
-    response(interaction, availableAbilities, mode);
+    // show buttons?
+    if(availableAbilities.components[0].components.length == 1) turnMove(interaction, gameid, turn, mode); // no
+    else response(interaction, availableAbilities, mode); // yes
 }
 
 function turnMove(interaction, gameid, turn, mode = "editreply") {
@@ -99,7 +101,7 @@ function movePiece(interaction, id, from, to, repl = null) {
     moveCurGame.state[moveFrom.y][moveFrom.x] = getPiece(null);
     moveCurGame.state[moveTo.y][moveTo.x] = movedPiece;
     
-    // 0 -> unknown
+    // 0 -> unknown / likely knight
     // 1 -> likely pawn
     // 2 -> likely king
     // 3 -> likely rook / king
@@ -111,10 +113,20 @@ function movePiece(interaction, id, from, to, repl = null) {
     let movedYorig = moveFrom.y - moveTo.y;
     let movedX = Math.abs(movedXorig);
     let movedY = Math.abs(movedYorig);
-    if(movedPiece.enemyVisibleStatus < 4) { 
+    console.log("status", movedPiece.enemyVisibleStatus);
+    if(movedPiece.enemyVisibleStatus < 7) { 
         console.log("MOVED", movedXorig, movedYorig, beatenPiece.name);
         // definitely a knight
-        if((movedY == 1 && movedX == 2) || (movedY == 2 && movedX == 1)) {
+        if(movedPiece.enemyVisibleStatus < 3 && ((movedY == 1 && movedX == 2) || (movedY == 2 && movedX == 1))) {
+            if(movedPiece.team == 0 && !movedPiece.hasMoved) { // white knights may be amnesiacs
+                movedPiece.enemyVisibleStatus = 0;
+                movedPiece.enemyVisible = "LikelyKnight";  
+            } else {
+                movedPiece.enemyVisibleStatus = 4;
+                movedPiece.enemyVisible = "Knight";
+            }
+        }
+        if(movedPiece.enemyVisibleStatus == 6 && ((movedY == 1 && movedX == 2) || (movedY == 2 && movedX == 1)) && movedPiece.disguise && getChessName(movedPiece.disguise) != "Knight") { // was disguised
             movedPiece.enemyVisibleStatus = 4;
             movedPiece.enemyVisible = "Knight";
         }
@@ -122,38 +134,38 @@ function movePiece(interaction, id, from, to, repl = null) {
         else if(movedPiece.enemyVisibleStatus < 1 && moveCurGame.turn == 0 && movedYorig == 1 && movedX == 0 && beatenPiece.name == null) { // white pawn move
             movedPiece.enemyVisibleStatus = 1;
             movedPiece.enemyVisible = "LikelyPawn";
-        } else if(movedPiece.enemyVisibleStatus < 1 && moveCurGame.turn == 0 && movedYorig == 1 && movedX == 1 && beatenPiece.name != null) { // white pawn beat
+        } else if((movedPiece.enemyVisibleStatus < 1 || (movedPiece.enemyVisibleStatus == 6 && movedPiece.disguise && getChessName(movedPiece.disguise) == "Rook")) && moveCurGame.turn == 0 && movedYorig == 1 && movedX == 1 && beatenPiece.name != null) { // white pawn beat
             movedPiece.enemyVisibleStatus = 1;
             movedPiece.enemyVisible = "LikelyPawn";
         } else if(movedPiece.enemyVisibleStatus < 1 && moveCurGame.turn == 1 && movedYorig == -1 && movedX == 0 && beatenPiece.name == null) { // black pawn move
             movedPiece.enemyVisibleStatus = 1;
             movedPiece.enemyVisible = "LikelyPawn";
-        } else if(movedPiece.enemyVisibleStatus < 1 && moveCurGame.turn == 1 && movedYorig == -1 && movedX == 1 && beatenPiece.name != null) { // black pawn beat
+        } else if((movedPiece.enemyVisibleStatus < 1 || (movedPiece.enemyVisibleStatus == 6 && movedPiece.disguise && getChessName(movedPiece.disguise) == "Rook")) && moveCurGame.turn == 1 && movedYorig == -1 && movedX == 1 && beatenPiece.name != null) { // black pawn beat
             movedPiece.enemyVisibleStatus = 1;
             movedPiece.enemyVisible = "LikelyPawn";
         }
         // king condition
-        else if(movedPiece.enemyVisibleStatus < 2 && movedY == 0 && movedX == 1) { // rook like move (left/right)
+        else if((movedPiece.enemyVisibleStatus < 2 || (movedPiece.enemyVisibleStatus == 6 && movedPiece.disguise && (getChessName(movedPiece.disguise) != "Rook" || getChessName(movedPiece.disguise) != "Queen" || getChessName(movedPiece.disguise) != "King"))) && movedY == 0 && movedX == 1) { // rook like move (left/right)
             movedPiece.enemyVisibleStatus = 2;
             movedPiece.enemyVisible = "LikelyKing";
-        } else if(movedPiece.enemyVisibleStatus < 2 && ((moveCurGame.turn == 0 && movedYorig == -1) || (moveCurGame.turn == 1 && movedYorig == 1))  && (movedX == 0 || movedX == 1)) { // rook like move (down, side down)
+        } else if((movedPiece.enemyVisibleStatus < 2 || (movedPiece.enemyVisibleStatus == 6 && movedPiece.disguise && (getChessName(movedPiece.disguise) != "Rook" || getChessName(movedPiece.disguise) != "Queen" || getChessName(movedPiece.disguise) != "King"))) && ((moveCurGame.turn == 0 && movedYorig == -1) || (moveCurGame.turn == 1 && movedYorig == 1))  && (movedX == 0 || movedX == 1)) { // rook like move (down, side down)
             movedPiece.enemyVisibleStatus = 2;
             movedPiece.enemyVisible = "LikelyKing";
-        } else if(movedPiece.enemyVisibleStatus < 2 && ((moveCurGame.turn == 0 && movedYorig == 1) || (moveCurGame.turn == 1 && movedYorig == -1))  && movedX == 0 && beatenPiece.name != null) { // rook like move (up)
+        } else if((movedPiece.enemyVisibleStatus < 2 || (movedPiece.enemyVisibleStatus == 6 && movedPiece.disguise && (getChessName(movedPiece.disguise) != "Rook" || getChessName(movedPiece.disguise) != "Queen" || getChessName(movedPiece.disguise) != "King"))) && ((moveCurGame.turn == 0 && movedYorig == 1) || (moveCurGame.turn == 1 && movedYorig == -1))  && movedX == 0 && beatenPiece.name != null) { // rook like move (up)
             movedPiece.enemyVisibleStatus = 2;
             movedPiece.enemyVisible = "LikelyKing";
-        } else if(movedPiece.enemyVisibleStatus < 2 && ((moveCurGame.turn == 0 && movedYorig == 1) || (moveCurGame.turn == 1 && movedYorig == -1))  && movedX == 1 && beatenPiece.name == null) { // rook like move (side up)
+        } else if((movedPiece.enemyVisibleStatus < 2 || (movedPiece.enemyVisibleStatus == 6 && movedPiece.disguise && (getChessName(movedPiece.disguise) != "Rook" || getChessName(movedPiece.disguise) != "Queen" || getChessName(movedPiece.disguise) != "King"))) && ((moveCurGame.turn == 0 && movedYorig == 1) || (moveCurGame.turn == 1 && movedYorig == -1))  && movedX == 1 && beatenPiece.name == null) { // rook like move (side up)
             movedPiece.enemyVisibleStatus = 2;
             movedPiece.enemyVisible = "LikelyKing";
         }
         // rook condition
-        else if(movedPiece.enemyVisibleStatus < 3 && ((movedY > 1 && movedX == 0) || (movedY == 0 && movedX > 1))) {
+        else if((movedPiece.enemyVisibleStatus < 3 || (movedPiece.enemyVisibleStatus == 6 && movedPiece.disguise && (getChessName(movedPiece.disguise) != "Rook" || getChessName(movedPiece.disguise) != "Queen"))) && ((movedY > 1 && movedX == 0) || (movedY == 0 && movedX > 1))) {
             movedPiece.enemyVisibleStatus = 3;
             movedPiece.enemyVisible = "LikelyRook";
         }
         // queen condition
-        else if(movedPiece.enemyVisibleStatus < 4 && (movedY > 1 || movedX > 1) && movedY > 1 && movedX > 1) {
-            movedPiece.enemyVisibleStatus = 3;
+        else if((movedPiece.enemyVisibleStatus < 4 || (movedPiece.enemyVisibleStatus == 6 && movedPiece.disguise && getChessName(movedPiece.disguise) != "Queen")) && (movedY > 1 || movedX > 1) && movedY > 1 && movedX > 1) {
+            movedPiece.enemyVisibleStatus = 4;
             movedPiece.enemyVisible = "Queen";
         }
     }
@@ -168,7 +180,7 @@ function movePiece(interaction, id, from, to, repl = null) {
         defensiveY = moveFrom.y;
     }
     
-    if(from == to) beatenPice = getPiece(null); // promotion is not taking
+    if(from == to) beatenPiece = getPiece(null); // promotion is not taking
     
     // death effects
     switch(beatenPiece.name) {
@@ -176,7 +188,7 @@ function movePiece(interaction, id, from, to, repl = null) {
             // store move
             if(from == to) { // pawn promotion
                 moveCurGame.lastMoves.push([moveCurGame.turn, movedPieceCopy.name, movedPiece.disguise, movedPiece.enemyVisibleStatus<4?"Pawn":movedPiece.enemyVisible, from, to, movedPiece.enemyVisibleStatus<4?4:movedPiece.enemyVisibleStatus, "⏫🟦🟦"]);
-            } else if(beatenPiece.protected) { // protected (Witch)
+            } else if(beatenPiece.protected || beatenPiece.hidden) { // protected (Witch)
                 moveCurGame.lastMoves.push([moveCurGame.turn, movedPiece.name, movedPiece.disguise, movedPiece.enemyVisible, from, xyToName(defensiveX, defensiveY), movedPiece.enemyVisibleStatus]);
                 moveCurGame.lastMoves.push([(moveCurGame.turn+1)%2, beatenPiece.name, beatenPiece.disguise, beatenPiece.enemyVisible, to, to, beatenPiece.enemyVisibleStatus, "🛡️🟦🟦"]);
                 moveCurGame.state[defensiveY][defensiveX] = movedPiece;
@@ -229,7 +241,7 @@ function movePiece(interaction, id, from, to, repl = null) {
         break;
         case "Cursed Civilian":
             moveCurGame.lastMoves.push([moveCurGame.turn, movedPiece.name, movedPiece.disguise, movedPiece.enemyVisible, from, xyToName(defensiveX, defensiveY), movedPiece.enemyVisibleStatus]);
-            moveCurGame.lastMoves.push([(moveCurGame.turn+1)%2, beatenPiece.name, false, "", to, to, 6, "🔀" + findEmoji("Wolf") + "🟦"]);
+            moveCurGame.lastMoves.push([moveCurGame.turn, beatenPiece.name, false, "", to, to, 7, "🔀" + findEmoji("Wolf") + "🟦"]);
             moveCurGame.state[defensiveY][defensiveX] = movedPiece;
             moveCurGame.state[moveTo.y][moveTo.x] = getPiece("Wolf");
             moveCurGame.state[moveTo.y][moveTo.x].enemyVisibleStatus = 7;
@@ -256,11 +268,45 @@ function movePiece(interaction, id, from, to, repl = null) {
         break;
     }
     
+    // Hooker death check
+    if(inBounds(moveTo.y, moveTo.x-1) && moveCurGame.state[moveTo.y][moveTo.x-1].hidden == to) {
+        moveCurGame.state[moveTo.y][moveTo.x-1] = getPiece(null);
+        moveCurGame.lastMoves.push([moveCurGame.turn, movedPiece.name, movedPiece.disguise, movedPiece.enemyVisible, from, to, movedPiece.enemyVisibleStatus, "🇽" + findEmoji("Hooker") + "🟦"]);
+    }
+    if(inBounds(moveTo.y, moveTo.x+1) && moveCurGame.state[moveTo.y][moveTo.x+1].hidden == to) {
+        moveCurGame.state[moveTo.y][moveTo.x+1] = getPiece(null);
+        moveCurGame.lastMoves.push([moveCurGame.turn, movedPiece.name, movedPiece.disguise, movedPiece.enemyVisible, from, to, movedPiece.enemyVisibleStatus, "🇽" + findEmoji("Hooker") + "🟦"]);
+    }
+    if(inBounds(moveTo.y+1, moveTo.x-1) && moveCurGame.state[moveTo.y+1][moveTo.x-1].hidden == to) {
+        moveCurGame.state[moveTo.y+1][moveTo.x-1] = getPiece(null);
+        moveCurGame.lastMoves.push([moveCurGame.turn, movedPiece.name, movedPiece.disguise, movedPiece.enemyVisible, from, to, movedPiece.enemyVisibleStatus, "🇽" + findEmoji("Hooker") + "🟦"]);
+    }
+    if(inBounds(moveTo.y+1, moveTo.x) && moveCurGame.state[moveTo.y+1][moveTo.x].hidden == to) {
+        moveCurGame.state[moveTo.y+1][moveTo.x] = getPiece(null);
+        moveCurGame.lastMoves.push([moveCurGame.turn, movedPiece.name, movedPiece.disguise, movedPiece.enemyVisible, from, to, movedPiece.enemyVisibleStatus, "🇽" + findEmoji("Hooker") + "🟦"]);
+    }
+    if(inBounds(moveTo.y+1, moveTo.x+1) && moveCurGame.state[moveTo.y+1][moveTo.x+1].hidden == to) {
+        moveCurGame.state[moveTo.y+1][moveTo.x+1] = getPiece(null);
+        moveCurGame.lastMoves.push([moveCurGame.turn, movedPiece.name, movedPiece.disguise, movedPiece.enemyVisible, from, to, movedPiece.enemyVisibleStatus, "🇽" + findEmoji("Hooker") + "🟦"]);
+    }
+    if(inBounds(moveTo.y-1, moveTo.x-1) && moveCurGame.state[moveTo.y-1][moveTo.x-1].hidden == to) {
+        moveCurGame.state[moveTo.y-1][moveTo.x-1] = getPiece(null);
+        moveCurGame.lastMoves.push([moveCurGame.turn, movedPiece.name, movedPiece.disguise, movedPiece.enemyVisible, from, to, movedPiece.enemyVisibleStatus, "🇽" + findEmoji("Hooker") + "🟦"]);
+    }
+    if(inBounds(moveTo.y-1, moveTo.x) && moveCurGame.state[moveTo.y-1][moveTo.x].hidden == to) {
+        moveCurGame.state[moveTo.y-1][moveTo.x] = getPiece(null);
+        moveCurGame.lastMoves.push([moveCurGame.turn, movedPiece.name, movedPiece.disguise, movedPiece.enemyVisible, from, to, movedPiece.enemyVisibleStatus, "🇽" + findEmoji("Hooker") + "🟦"]);
+    }
+    if(inBounds(moveTo.y-1, moveTo.x+1) && moveCurGame.state[moveTo.y-1][moveTo.x+1].hidden == to) {
+        moveCurGame.state[moveTo.y-1][moveTo.x+1] = getPiece(null);
+        moveCurGame.lastMoves.push([moveCurGame.turn, movedPiece.name, movedPiece.disguise, movedPiece.enemyVisible, from, to, movedPiece.enemyVisibleStatus, "🇽" + findEmoji("Hooker") + "🟦"]);
+    }
+    
     // move effects
     switch(movedPiece.name) {
         case "Amnesiac": // Amnesiac -> Change role after onhe move
             console.log("AMNESIAC CHANGE", movedPiece.convertTo);
-            moveCurGame.state[moveTo.y][moveTo.x] = getPiece(movedPiece.convertTo);
+            moveCurGame.state[moveTo.y][moveTo.x] = convertPiece(movedPiece, movedPiece.convertTo);
         break;
     	case "Direwolf": // Direwolf -> Double move if last piece
             let wolfCount = 0;
@@ -493,12 +539,15 @@ client.on('interactionCreate', async interaction => {
                 let abilitySelection = nameToXY(arg1);
                 let abilityPiece = curGame.state[abilitySelection.y][abilitySelection.x];
                 
-                // unprotect
+                // unprotect, unhide, undisguise
                 for(let y = 0; y < 5; y++) {
                     for(let x = 0; x < 5; x++) {
                         let xyPiece = curGame.state[y][x];
                         if(xyPiece.name != null && xyPiece.team == abilityPiece.team) {
                             curGame.state[y][x].protected = false; 
+                            curGame.state[y][x].hidden = false; 
+                            curGame.state[y][x].disguise = false;
+                            if(curGame.state[y][x].name == "Sneaking Wolf") curGame.state[y][x].disguise = "Wolf"; // keep SnW disguise
                         }
                     }
                 }
@@ -512,12 +561,14 @@ client.on('interactionCreate', async interaction => {
                     // Target targetable enemy
                     case "Fortune Teller":
                     case "Warlock":
+                    case "Infecting Wolf":
                         aPositions = generatePositions(curGame.state, arg1);
                         aPositions = aPositions.filter(el => el[2]).map(el => [el[0], el[1]]); // only select moves with targets
-                        aComponents = interactionsFromPositions(aPositions, arg1, "turnstart", "investigate");
+                        aComponents = interactionsFromPositions(aPositions, arg1, "turnstart", abilityPiece.name == "Infecting Wolf" ? "infect" : "investigate");
                     break;
                     // Target targetable ally
                     case "Witch":
+                    case "Royal Knight":
                         let modGame = deepCopy(curGame.state);
                         modGame[abilitySelection.y][abilitySelection.x].team = (modGame[abilitySelection.y][abilitySelection.x].team + 1) % 2;
                         aPositions = generatePositions(modGame, arg1);
@@ -532,12 +583,25 @@ client.on('interactionCreate', async interaction => {
                         for(let y = 0; y < 5; y++) {
                             for(let x = 0; x < 5; x++) {
                                 let xyPiece = curGame.state[y][x];
-                                if(xyPiece.name != null && xyPiece.team != abilityPiece.team) {
+                                if(xyPiece.name != null && xyPiece.team != abilityPiece.team && xyPiece.enemyVisibleStatus != 7) {
                                     aPositions.push([x, y]);
                                 }
                             }
                         }
                         aComponents = interactionsFromPositions(aPositions, arg1, "turnstart", "investigate");
+                    break;
+                    // Target all ally
+                    case "Tanner":
+                        aPositions = [];
+                        for(let y = 0; y < 5; y++) {
+                            for(let x = 0; x < 5; x++) {
+                                let xyPiece = curGame.state[y][x];
+                                if(xyPiece.name != null && xyPiece.team == abilityPiece.team) {
+                                    aPositions.push([x, y]);
+                                }
+                            }
+                        }
+                        aComponents = interactionsFromPositions(aPositions, arg1, "turnstart", "disguise");
                     break;
                     // Dog
                     case "Dog":
@@ -545,6 +609,25 @@ client.on('interactionCreate', async interaction => {
                         aInteractions.push({ type: 2, label: "Wolf Cub " + getUnicode("Pawn", 1), style: 1, custom_id: "transform-" + arg1 + "-Wolf Cub" });
                         aInteractions.push({ type: 2, label: "Fox " + getUnicode("Knight", 1), style: 1, custom_id: "transform-" + arg1 + "-Fox" });
                         aComponents = [{ type: 1, components: aInteractions }];
+                    break;
+                    // Hooker - Surrounding fields
+                    case "Hooker":
+                        aInteractions = [];
+                        if(inBounds(abilitySelection.x, abilitySelection.y)) aInteractions.push([abilitySelection.x, abilitySelection.y]);
+                        if(inBounds(abilitySelection.x, abilitySelection.y-1)) aInteractions.push([abilitySelection.x, abilitySelection.y-1]);
+                        if(inBounds(abilitySelection.x, abilitySelection.y+1)) aInteractions.push([abilitySelection.x, abilitySelection.y+1]);
+                        if(inBounds(abilitySelection.x-1, abilitySelection.y-1)) aInteractions.push([abilitySelection.x-1, abilitySelection.y-1]);
+                        if(inBounds(abilitySelection.x-1, abilitySelection.y)) aInteractions.push([abilitySelection.x-1, abilitySelection.y]);
+                        if(inBounds(abilitySelection.x-1, abilitySelection.y+1)) aInteractions.push([abilitySelection.x-1, abilitySelection.y+1]);
+                        if(inBounds(abilitySelection.x+1, abilitySelection.y-1)) aInteractions.push([abilitySelection.x+1, abilitySelection.y-1]);
+                        if(inBounds(abilitySelection.x+1, abilitySelection.y)) aInteractions.push([abilitySelection.x+1, abilitySelection.y]);
+                        if(inBounds(abilitySelection.x+1, abilitySelection.y+1)) aInteractions.push([abilitySelection.x+1, abilitySelection.y+1]);
+                        aInteractions = aInteractions.map(el => {
+                            return new Object({ type: 2, label: xyToName(el[0], el[1]), style: 1, custom_id: "hide-" + arg1 + "-" + xyToName(el[0], el[1]) });
+                        });
+                        aInteractions.unshift({ type: 2, label: "Back", style: 4, custom_id: "turnstart" });
+                        aComponents = [{ type: 1, components: aInteractions.slice(0, 5) }];
+                        if(aInteractions.length > 5) aComponents.push({ type: 1, components: aInteractions.slice(5, 10) });
                     break;
                 }
                 
@@ -579,10 +662,45 @@ client.on('interactionCreate', async interaction => {
                 curGame.state[transformer.y][transformer.x] = getPiece(arg2);
                 turnMove(interaction, gameID, curGame.turn, "update");   
             break;
-            // transform
+            // infect
+            case "infect":
+                let iwSource = nameToXY(arg1);
+                let iwTarget = nameToXY(arg2);
+                curGame.lastMoves.push([curGame.turn, curGame.state[iwTarget.y][iwTarget.x].name, false, "", arg2, arg2, 7, "🔀" + findEmoji("Wolf") + "🟦"]);
+                curGame.state[iwSource.y][iwSource.x] = getPiece("Wolf");
+                curGame.state[iwTarget.y][iwTarget.x] = getPiece("Wolf");
+                curGame.state[iwSource.y][iwSource.x].enemyVisibleStatus = 7;
+                curGame.state[iwTarget.y][iwTarget.x].enemyVisibleStatus = 7;
+                turnMove(interaction, gameID, curGame.turn, "update");   
+            break;
+            // active protect
             case "protect":
                 let protectTarget = nameToXY(arg2);
                 curGame.state[protectTarget.y][protectTarget.x].protected = true;
+                turnMove(interaction, gameID, curGame.turn, "update") 
+            break;
+            // hooker hide
+            case "hide":
+                let hideSubject = nameToXY(arg1);
+                curGame.state[hideSubject.y][hideSubject.x].hidden = arg2;
+                turnMove(interaction, gameID, curGame.turn, "update") 
+            break;
+            // tanner tan
+            case "disguise":
+                // show tan options
+                let disInteractions = [{ type: 2, label: "Back", style: 4, custom_id: "ability-" + arg1 }];
+                disInteractions.push({ type: 2, label: "Wolf " + getUnicode("Pawn", 1), style: 1, custom_id: "tan-" + arg2 + "-Wolf" });
+                disInteractions.push({ type: 2, label: "Psychic Wolf " + getUnicode("King", 1), style: 1, custom_id: "tan-" + arg2 + "-Psychic Wolf" });
+                disInteractions.push({ type: 2, label: "Fox " + getUnicode("Knight", 1), style: 1, custom_id: "tan-" + arg2 + "-Fox" });
+                disInteractions.push({ type: 2, label: "Scared Wolf " + getUnicode("Rook", 1), style: 1, custom_id: "tan-" + arg2 + "-Scared Wolf" });
+                let disComponents = [{ type: 1, components: disInteractions }];
+                // update message
+                interaction.update(displayBoard(curGame, "Pick a Disguise", disComponents));
+            break;
+            // tanner tan
+            case "tan":
+                let tanSubject = nameToXY(arg1);
+                curGame.state[tanSubject.y][tanSubject.x].disguise = arg2;
                 turnMove(interaction, gameID, curGame.turn, "update") 
             break;
         }
@@ -730,7 +848,7 @@ function getAbilityText(piece) {
         case "Child":
             return "Additional move, when taken.";
         case "Hooker":
-            return "";
+            return "May hide in an adjacent tile.";
         case "Idiot":
             return "Survives one attack, but becomes unmovable.";
         case "Attacked Idiot":
@@ -740,7 +858,7 @@ function getAbilityText(piece) {
         case "Aura Teller":
             return "";
         case "Royal Knight":
-            return "";
+            return "Protects a reachable piece.";
         case "Alcoholic":
             return "Invulnerable, if Bartender exists.";
         case "Amnesiac":
@@ -760,7 +878,7 @@ function getAbilityText(piece) {
         case "Wolf Cub":
             return "Additional move, when taken.";
         case "Tanner":
-            return "";
+            return "Disguise one piece.";
         case "Archivist Fox":
             return "";
         case "Recluse":
@@ -768,7 +886,7 @@ function getAbilityText(piece) {
         case "Dog":
             return "Once, becomes a Wolf Cub or Fox.";
         case "Infecting Wolf":
-            return "";
+            return "Convert enemy piece to wolf + become wolf.";
         case "Alpha Wolf":
             return "";
         case "Psychic Wolf":
@@ -836,9 +954,18 @@ function getChessValue(name) {
     }
 }
 
+// converts one piece into another
+function convertPiece(oldPiece, newName) {
+    oldPiece.name = newName;
+    oldPiece.team = getTeam(newName);
+    oldPiece.chess = getChessName(newName);
+    oldPiece.active = isActive(newName);
+    return oldPiece;
+}
+
 // creates a piece object
 function getPiece(name, metadata = {}) {
-    var piece = { name: name, team: getTeam(name), chess: getChessName(name), enemyVisible: "Unknown", enemyVisibleStatus: 0, active: isActive(name), disguise: false, protected: false };
+    var piece = { name: name, team: getTeam(name), chess: getChessName(name), enemyVisible: "Unknown", enemyVisibleStatus: 0, active: isActive(name), disguise: false, protected: false, hasMoved: false, hidden: false };
     switch(name) {
         case "Amnesiac":
             piece.convertTo = metadata.amnesiac;
@@ -869,8 +996,8 @@ function loadPromoteTestSetup(board) {
 }
 
 function loadTestingSetup(board) {
-    let testTown = "Witch";
-    let testWolf = "Warlock";
+    let testTown = "Fortune Teller";
+    let testWolf = "Infecting Wolf";
     board[4][0] = getPiece(testTown);
     board[4][1] = getPiece(testTown);
     board[4][2] = getPiece(testTown);
@@ -890,7 +1017,6 @@ function generateRoleList(board) {
         ["Citizen", 1, 0, [], ""],
         ["Ranger", 1, 1, [], ""],
         ["Huntress", 1, 5, [], ""],
-        ["Bartender", 1, 1, [], "Alcoholic"],
         ["Fortune Apprentice", 1, 3, [], ""],
         ["Fortune Apprentice", 1, 3, [], ""], // double chance
         ["Child", 1, 2, [], ""],
@@ -906,6 +1032,7 @@ function generateRoleList(board) {
         ["Runner", 5, 3, [], ""],
         ["Witch", 5, 2, [], ""],
         ["Cursed Civilian", 9, -3, [], ""],
+        ["Bartender", 1, 1, [], "Alcoholic"], // cant be rolled normally
     ];
     // all wolf pieces
     let wolf = [
@@ -938,7 +1065,7 @@ function generateRoleList(board) {
         // select pieces TOWN
         townSelected = [];
         for(let i = 0; i < 5; i++) {
-            townSelected.push(town[Math.floor(Math.random() * town.length)]);
+            townSelected.push(town[Math.floor(Math.random() * (town.length-1))]);
             // add previous requirement if exists
             let prevReq = townSelected[townSelected.length - 1][4];
             if(prevReq && prevReq.length) {
@@ -981,7 +1108,7 @@ function generateRoleList(board) {
                 continue;
             }
             totalChessValueTown = totalChessValueTown - (amnesiacCount * 3) + (amnesiacCount * ((3 + amnesiacRole[1] * 3) / 4));
-            totalWWRValueTown = totalChessValueTown - (amnesiacCount * 1) + (amnesiacCount * ((1 + amnesiacRole[2] * 3) / 4));
+            totalWWRValueTown = totalWWRValueTown - (amnesiacCount * 1) + (amnesiacCount * ((1 + amnesiacRole[2] * 3) / 4));
             totalValueTown = totalChessValueTown + totalWWRValueTown;
             combinedIncompTown.push(...amnesiacRole[3]);
             metadata.amnesiac = amnesiacRole[0];
@@ -998,12 +1125,12 @@ function generateRoleList(board) {
                 continue;
             }
             totalChessValueTown = totalChessValueTown - (faCount * 3) + (faCount * ((3 + faRole[1]) / 2));
-            totalWWRValueTown = totalChessValueTown - (faCount * 1) + (faCount * ((1 + faRole[2]) / 2));
+            totalWWRValueTown = totalWWRValueTown - (faCount * 1) + (faCount * ((1 + faRole[2]) / 2));
             totalValueTown = totalChessValueTown + totalWWRValueTown;
         }
         
         // condition
-        if(totalChessValueTown <= 15 && totalWWRValueTown <= 12 && totalValueTown <= 23 && totalChessValueWolf <= 15 && totalWWRValueWolf <= 12 && totalValueWolf <= 23 && townSelected.length == 5 && wolfSelected.length == 5 && combinedIncompTown.indexOf(townSelected[0]) == -1 && (totalValueTown == totalValueWolf || totalValueTown+1 == totalValueWolf || totalValueTown-1 == totalValueWolf) &&combinedIncompTown.indexOf(townSelected[1]) == -1 && combinedIncompTown.indexOf(townSelected[2]) == -1 && combinedIncompTown.indexOf(townSelected[3]) == -1 && combinedIncompTown.indexOf(townSelected[4]) == -1 && combinedIncompWolf.indexOf(townSelected[0]) == -1 && combinedIncompWolf.indexOf(townSelected[1]) == -1 && combinedIncompWolf.indexOf(townSelected[2]) == -1 && combinedIncompWolf.indexOf(townSelected[3]) == -1 && combinedIncompWolf.indexOf(townSelected[4]) == -1) {
+        if(totalChessValueTown <= 15 && totalWWRValueTown <= 12 && totalValueTown <= 23 && totalChessValueWolf <= 15 && totalWWRValueWolf <= 12 && totalValueWolf <= 23 && townSelected.length == 5 && wolfSelected.length == 5 && combinedIncompTown.indexOf(townSelected[0]) == -1 && (totalValueTown == totalValueWolf || totalValueTown+1.5 == totalValueWolf || totalValueTown-1.5 == totalValueWolf) &&combinedIncompTown.indexOf(townSelected[1]) == -1 && combinedIncompTown.indexOf(townSelected[2]) == -1 && combinedIncompTown.indexOf(townSelected[3]) == -1 && combinedIncompTown.indexOf(townSelected[4]) == -1 && combinedIncompWolf.indexOf(wolfSelected[0]) == -1 && combinedIncompWolf.indexOf(wolfSelected[1]) == -1 && combinedIncompWolf.indexOf(wolfSelected[2]) == -1 && combinedIncompWolf.indexOf(wolfSelected[3]) == -1 && combinedIncompWolf.indexOf(wolfSelected[4]) == -1) {
             console.log("INCOMPATIBLE", combinedIncompTown);
             console.log("ACCEPT #" + iterations, totalChessValueTown, totalWWRValueTown, totalValueTown, townSelected.map(el=>el[0]).join(","), totalChessValueWolf, totalWWRValueWolf, totalValueWolf, wolfSelected.map(el=>el[0]).join(","));
             console.log("LIST METADATA", metadata);
@@ -1040,10 +1167,10 @@ function createGame(playerID, playerID2, gameID, name1, name2, channel, guild) {
     // put pieces on board
     
     //loadDefaultSetup(newBoard);
-    generateRoleList(newBoard);
+    //generateRoleList(newBoard);
     
     //loadPromoteTestSetup(newBoard);
-    //loadTestingSetup(newBoard);
+    loadTestingSetup(newBoard);
     
     // push game to list of games
     games.push({id: gameID, players: [ playerID, playerID2 ], playerNames: [ name1, name2 ], state: newBoard, turn: 0, channel: channel, guild: guild, lastMoves: [], concluded: false, selectedPiece: null, doubleMove0: false, doubleMove1: false, inDoubleMove: false, msg: null });
@@ -1082,10 +1209,14 @@ function showMoves(gameID, turn, abilities = false, message = "") {
     let currentGame = games[gameID];
     let board = renderBoard(currentGame, message);
     let interactions;
-    if(!abilities) interactions = generateInteractions(currentGame.state, turn);
-    else {
+    if(!abilities) {
+        interactions = generateInteractions(currentGame.state, turn);
+        interactions.sort((a,b) => (a.label > b.label) ? 1 : ((b.label > a.label) ? -1 : 0));
+    } else {
         interactions = [{ type: 2, label: "Skip", style: 4, custom_id: "turnmove" }];
-        interactions.push(...generateAbilities(currentGame.state, turn));
+        let abilities = generateAbilities(currentGame.state, turn);
+        abilities.sort((a,b) => (a.label > b.label) ? 1 : ((b.label > a.label) ? -1 : 0));
+        interactions.push(...abilities);
     }
     interactions = interactions.slice(0, 5);
     return { content: board, ephemeral: true, fetchReply: true, components: [ { type: 1, components: interactions } ] }
@@ -1375,9 +1506,8 @@ function renderBoard(game, message = "Turn", turnOverride = null) {
     for(let i = 0; i < boardRows.length; i++) {
         boardRows[i] += "🟦";
         if(i == 0) {
-            boardRows[i] += "🇱​🇦​🇸​🇹​🇲​🇴​🇻​🇪​🇸";
+            boardRows[i] += "🟦🟦🟦🟦🟦🟦🟦";
         } else {
-            boardRows[i] += "🟦";
             let lmIndex = game.lastMoves.length - i;
             if(game.lastMoves[lmIndex]) {
                 let lmMsg = "";
@@ -1398,14 +1528,14 @@ function renderBoard(game, message = "Turn", turnOverride = null) {
                 } else {
                     lmMsg += lm[7];
                 }
-                boardRows[i] += lmMsg + "🟦";
+                boardRows[i] += lmMsg;
             } else {
-                boardRows[i] += "🟦🟦🟦🟦🟦🟦🟦🟦";
+                boardRows[i] += "🟦🟦🟦🟦🟦🟦🟦";
             }
         }
     }
     // divider
-    boardRows.push("🟦🟦🟦🟦🟦🟦🟦🟦🟦🟦🟦🟦🟦🟦🟦🟦");
+    boardRows.push("🟦🟦🟦🟦🟦🟦🟦🟦🟦🟦🟦🟦🟦🟦");
     // add explanations for visible pieces
     if(game.selectedPiece) visiblePieces.push(game.selectedPiece.name);
     visiblePieces = [...new Set(visiblePieces)];
