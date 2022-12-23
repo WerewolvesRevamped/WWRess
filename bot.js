@@ -483,6 +483,7 @@ client.on('interactionCreate', async interaction => {
                     break;
                     case "Fortune Teller":
                         aPositions = generatePositions(curGame.state, arg1);
+                        aPositions = aPositions.filter(el => el[2]).map(el => [el[0], el[1]]); // only select moves with targets
                         aComponents = interactionsFromPositions(aPositions, arg1, "turnstart", "investigate");
                     break;
                 }
@@ -495,6 +496,7 @@ client.on('interactionCreate', async interaction => {
             case "investigate":
                 let investTarget = nameToXY(arg2);
                 curGame.state[investTarget.y][investTarget.x].enemyVisibleStatus = 6;
+                turnMove(interaction, gameID, curGame.turn, "update") 
             break;
         }
     }
