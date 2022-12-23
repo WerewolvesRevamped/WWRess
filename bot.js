@@ -481,7 +481,7 @@ client.on('interactionCreate', async interaction => {
                 let abilitySelection = nameToXY(arg1);
                 let abilityPiece = curGame.state[abilitySelection.y][abilitySelection.x];
                 
-                let aPositions, aComponents = [];
+                let aPositions, aInteractions, aComponents = [];
                 // provide options
                 switch(abilityPiece.name) {
                     default: case null:
@@ -509,6 +509,13 @@ client.on('interactionCreate', async interaction => {
                         }
                         aComponents = interactionsFromPositions(aPositions, arg1, "turnstart", "investigate");
                     break;
+                    // Dog
+                    case "Dog":
+                        aInteractions = [{ type: 2, label: "Back", style: 4, custom_id: "turnstart" }];
+                        aInteractions.push({ type: 2, label: "Wolf Cub " + getUnicode("Pawn", 1), style: 1, custom_id: "transform-" + arg1 + "-Wolf Cub" });
+                        aInteractions.push({ type: 2, label: "Fox " + getUnicode("Knight", 1), style: 1, custom_id: "transform-" + arg1 + "-Fox" });
+                        aComponents = { type: 1, components: aInteractions };
+                    break;
                 }
                 
                 // update message
@@ -535,6 +542,12 @@ client.on('interactionCreate', async interaction => {
                     break;
                 }
                 turnMove(interaction, gameID, curGame.turn, "update") 
+            break;
+            // transform
+            case "transform":
+                let transformer = nameToXY(arg1);
+                curGame.state[transformer.y][transformer.x] = getPiece(arg2);
+                turnMove(interaction, gameID, curGame.turn, "update");   
             break;
         }
     }
@@ -991,10 +1004,10 @@ function createGame(playerID, playerID2, gameID, name1, name2, channel, guild) {
     // put pieces on board
     
     //loadDefaultSetup(newBoard);
-    //generateRoleList(newBoard);
+    generateRoleList(newBoard);
     
     //loadPromoteTestSetup(newBoard);
-    loadTestingSetup(newBoard);
+    //loadTestingSetup(newBoard);
     
     // push game to list of games
     games.push({id: gameID, players: [ playerID, playerID2 ], playerNames: [ name1, name2 ], state: newBoard, turn: 0, channel: channel, guild: guild, lastMoves: [], concluded: false, selectedPiece: null, doubleMove0: false, doubleMove1: false, inDoubleMove: false, msg: null });
