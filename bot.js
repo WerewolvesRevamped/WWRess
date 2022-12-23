@@ -500,7 +500,7 @@ client.on('interactionCreate', async interaction => {
 				        aPositions = [];
                         for(let y = 0; y < 5; y++) {
                             for(let x = 0; x < 5; x++) {
-                                let xyPiece = CurGame.state[y][x];
+                                let xyPiece = curGame.state[y][x];
                                 if(xyPiece.team != abilityPiece.team) {
                                     aPositions.push([x, y]);
                                 }
@@ -1033,7 +1033,7 @@ function showMoves(gameID, turn, abilities = false, message = "") {
         interactions = [{ type: 2, label: "Skip", style: 4, custom_id: "turnmove" }];
         interactions.push(...generateAbilities(currentGame.state, turn));
     }
-    interactions = interactions.slice(0, 4);
+    interactions = interactions.slice(0, 5);
     return { content: board, ephemeral: true, fetchReply: true, components: [ { type: 1, components: interactions } ] }
 }
 
