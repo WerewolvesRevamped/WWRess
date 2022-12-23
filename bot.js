@@ -171,24 +171,24 @@ function movePiece(interaction, id, from, to, repl = null) {
     switch(beatenPiece.name) {
         default: case null:
             // store move
-            if(from == to) moveCurGame.lastMoves.push([moveCurGame.turn, movedPieceCopy.name, movedPiece.enemyVisibleStatus<4?"Pawn":movedPiece.enemyVisible, from, to, movedPiece.enemyVisibleStatus<4?4:movedPiece.enemyVisibleStatus, "⏫🟦🟦"]);
-            else moveCurGame.lastMoves.push([moveCurGame.turn, movedPiece.name, movedPiece.enemyVisible, from, to, movedPiece.enemyVisibleStatus]);
+            if(from == to) moveCurGame.lastMoves.push([moveCurGame.turn, movedPieceCopy.name, movedPiece.disguise, movedPiece.enemyVisibleStatus<4?"Pawn":movedPiece.enemyVisible, from, to, movedPiece.enemyVisibleStatus<4?4:movedPiece.enemyVisibleStatus, "⏫🟦🟦"]);
+            else moveCurGame.lastMoves.push([moveCurGame.turn, movedPiece.name, movedPiece.disguise, movedPiece.enemyVisible, from, to, movedPiece.enemyVisibleStatus]);
         break;
         case "Ranger":
             movedPiece.enemyVisibleStatus = 7;
-            moveCurGame.lastMoves.push([moveCurGame.turn, movedPiece.name, movedPiece.enemyVisible, from, to, movedPiece.enemyVisibleStatus]);
-            moveCurGame.lastMoves.push([(moveCurGame.turn+1)%2, "Ranger", "", to, to, 7, "👁️" + findEmoji(movedPiece.name) + "🟦"]);
+            moveCurGame.lastMoves.push([moveCurGame.turn, movedPiece.name, movedPiece.disguise, movedPiece.enemyVisible, from, to, movedPiece.enemyVisibleStatus]);
+            moveCurGame.lastMoves.push([(moveCurGame.turn+1)%2, "Ranger", false, "", to, to, 7, "👁️" + findEmoji(movedPiece.name) + "🟦"]);
         break;
         case "Huntress":
-            moveCurGame.lastMoves.push([moveCurGame.turn, movedPiece.name, movedPiece.enemyVisible, from, to, movedPiece.enemyVisibleStatus]);
-            moveCurGame.lastMoves.push([(moveCurGame.turn+1)%2, "Huntress", "", to, to, 7, "🇽🟦🟦"]);
+            moveCurGame.lastMoves.push([moveCurGame.turn, movedPiece.name, movedPiece.disguise, movedPiece.enemyVisible, from, to, movedPiece.enemyVisibleStatus]);
+            moveCurGame.lastMoves.push([(moveCurGame.turn+1)%2, "Huntress", false, "", to, to, 7, "🇽🟦🟦"]);
             moveCurGame.state[moveTo.y][moveTo.x] = getPiece(null);
         break;
         // Extra Move Pieces
         case "Child":
         case "Wolf Cub":
-            moveCurGame.lastMoves.push([moveCurGame.turn, movedPiece.name, movedPiece.enemyVisible, from, to, movedPiece.enemyVisibleStatus]);
-            moveCurGame.lastMoves.push([(moveCurGame.turn+1)%2, beatenPiece.name, "", to, to, 7, "🟦" + "2️⃣" + "🇽"]);
+            moveCurGame.lastMoves.push([moveCurGame.turn, movedPiece.name, movedPiece.disguise, movedPiece.enemyVisible, from, to, movedPiece.enemyVisibleStatus]);
+            moveCurGame.lastMoves.push([(moveCurGame.turn+1)%2, beatenPiece.name, false, "", to, to, 7, "🟦" + "2️⃣" + "🇽"]);
             if(moveCurGame.turn == 0) moveCurGame.doubleMove0 = true;
             else if(moveCurGame.turn == 1) moveCurGame.doubleMove1 = true;
         break;
@@ -196,7 +196,7 @@ function movePiece(interaction, id, from, to, repl = null) {
         case "Fortune Teller":
         case "Aura Teller":
         case "Crowd Seeker":
-            moveCurGame.lastMoves.push([moveCurGame.turn, movedPiece.name, movedPiece.enemyVisible, from, to, movedPiece.enemyVisibleStatus]);
+            moveCurGame.lastMoves.push([moveCurGame.turn, movedPiece.name, movedPiece.disguise, movedPiece.enemyVisible, from, to, movedPiece.enemyVisibleStatus]);
             for(let y = 0; y < 5; y++) {
                 for(let x = 0; x < 5; x++) {
                     let xyPiece = moveCurGame.state[y][x];
@@ -210,15 +210,15 @@ function movePiece(interaction, id, from, to, repl = null) {
         case "Runner":
         case "Idiot":
         case "Scared Wolf":
-            moveCurGame.lastMoves.push([moveCurGame.turn, movedPiece.name, movedPiece.enemyVisible, from, xyToName(defensiveX, defensiveY), movedPiece.enemyVisibleStatus]);
-            moveCurGame.lastMoves.push([(moveCurGame.turn+1)%2, beatenPiece.name, "", to, to, 7, "🛡️🟦🟦"]);
+            moveCurGame.lastMoves.push([moveCurGame.turn, movedPiece.name, movedPiece.disguise, movedPiece.enemyVisible, from, xyToName(defensiveX, defensiveY), movedPiece.enemyVisibleStatus]);
+            moveCurGame.lastMoves.push([(moveCurGame.turn+1)%2, beatenPiece.name, false, "", to, to, 7, "🛡️🟦🟦"]);
             moveCurGame.state[defensiveY][defensiveX] = movedPiece;
             moveCurGame.state[moveTo.y][moveTo.x] = getPiece("Attacked " + beatenPiece.name);
             moveCurGame.state[moveTo.y][moveTo.x].enemyVisibleStatus = 7;
         break;
         case "Cursed Civilian":
-            moveCurGame.lastMoves.push([moveCurGame.turn, movedPiece.name, movedPiece.enemyVisible, from, xyToName(defensiveX, defensiveY), movedPiece.enemyVisibleStatus]);
-            moveCurGame.lastMoves.push([(moveCurGame.turn+1)%2, beatenPiece.name, "", to, to, 6, "🔀" + findEmoji("Wolf") + "🟦"]);
+            moveCurGame.lastMoves.push([moveCurGame.turn, movedPiece.name, movedPiece.disguise, movedPiece.enemyVisible, from, xyToName(defensiveX, defensiveY), movedPiece.enemyVisibleStatus]);
+            moveCurGame.lastMoves.push([(moveCurGame.turn+1)%2, beatenPiece.name, false, "", to, to, 6, "🔀" + findEmoji("Wolf") + "🟦"]);
             moveCurGame.state[defensiveY][defensiveX] = movedPiece;
             moveCurGame.state[moveTo.y][moveTo.x] = getPiece("Wolf");
             moveCurGame.state[moveTo.y][moveTo.x].enemyVisibleStatus = 7;
@@ -234,13 +234,13 @@ function movePiece(interaction, id, from, to, repl = null) {
                 }
             }
             if(bartenderAlive) {
-                moveCurGame.lastMoves.push([moveCurGame.turn, movedPiece.name, movedPiece.enemyVisible, from, xyToName(defensiveX, defensiveY), movedPiece.enemyVisibleStatus]);
-                moveCurGame.lastMoves.push([(moveCurGame.turn+1)%2, beatenPiece.name, "", to, to, 7, "🛡️🟦🟦"]);
+                moveCurGame.lastMoves.push([moveCurGame.turn, movedPiece.name, movedPiece.disguise, movedPiece.enemyVisible, from, xyToName(defensiveX, defensiveY), movedPiece.enemyVisibleStatus]);
+                moveCurGame.lastMoves.push([(moveCurGame.turn+1)%2, beatenPiece.name, false, "", to, to, 7, "🛡️🟦🟦"]);
                 moveCurGame.state[defensiveY][defensiveX] = movedPiece;
                 moveCurGame.state[moveTo.y][moveTo.x] = beatenPiece;
                 moveCurGame.state[moveTo.y][moveTo.x].enemyVisibleStatus = 7;
             } else {
-                moveCurGame.lastMoves.push([moveCurGame.turn, movedPiece.name, movedPiece.enemyVisible, from, to, movedPiece.enemyVisibleStatus]);
+                moveCurGame.lastMoves.push([moveCurGame.turn, movedPiece.name, movedPiece.disguise, movedPiece.enemyVisible, from, to, movedPiece.enemyVisibleStatus]);
             }
         break;
     }
@@ -1333,20 +1333,21 @@ function renderBoard(game, message = "Turn", turnOverride = null) {
             if(game.lastMoves[lmIndex]) {
                 let lmMsg = "";
                 let lm = game.lastMoves[lmIndex];
-                let moveFrom = nameToXY(lm[3]);
-                let moveTo = nameToXY(lm[4]);
+                let moveFrom = nameToXY(lm[4]);
+                let moveTo = nameToXY(lm[5]);
                 if(lm[0] == 0) lmMsg += "⬜"; 
                 else lmMsg += "⬛";
-                if(lm[0] == curTurn || lm[5] == 6) lmMsg += findEmoji(lm[1]);
-                else lmMsg += findEmoji((lm[0] == 0?"white":"black") + lm[2]);
+                if(lm[6] == 6 && lm[2]) lmMsg += findEmoji(lm[2]);
+                else if(lm[0] == curTurn || lm[6] >= 6) lmMsg += findEmoji(lm[1]);
+                else lmMsg += findEmoji((lm[0] == 0?"white":"black") + lm[3]);
                 lmMsg += letterRanks[moveFrom.x];
                 lmMsg += numberRow[moveFrom.y];
-                if(lm.length == 6) {
+                if(lm.length == 7) {
                     lmMsg += "▶️";
                     lmMsg += letterRanks[moveTo.x];
                     lmMsg += numberRow[moveTo.y];
                 } else {
-                    lmMsg += lm[6];
+                    lmMsg += lm[7];
                 }
                 boardRows[i] += lmMsg + "🟦";
             } else {
@@ -1384,7 +1385,9 @@ function renderField(field, x, y, turn) {
         default: 
             // get name
             let fieldName;
-            if(field.team == turn || field.enemyVisibleStatus == 6) fieldName = field.name;
+            if(field.team == turn || field.enemyVisibleStatus == 7) fieldName = field.name;
+            else if(field.enemyVisibleStatus == 6 && !field.disguise) fieldName = field.name;
+            else if(field.enemyVisibleStatus == 6 && field.disguise) fieldName = field.disguise;
             else fieldName = (field.team?"black":"white") + field.enemyVisible;
             // get emoji
             return findEmoji(fieldName);
