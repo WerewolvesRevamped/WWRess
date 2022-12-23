@@ -582,7 +582,7 @@ client.on('interactionCreate', async interaction => {
             // transform
             case "protect":
                 let protectTarget = nameToXY(arg2);
-                curGame.state[investTarget.y][investTarget.x].protected = true;
+                curGame.state[protectTarget.y][protectTarget.x].protected = true;
                 turnMove(interaction, gameID, curGame.turn, "update") 
             break;
         }
