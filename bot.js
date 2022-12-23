@@ -156,7 +156,8 @@ function movePiece(interaction, id, from, to, repl = null) {
         case "Wolf Cub":
             moveCurGame.lastMoves.push([moveCurGame.turn, movedPiece.name, movedPiece.enemyVisible, from, to, movedPiece.enemyVisibleStatus]);
             moveCurGame.lastMoves.push([(moveCurGame.turn+1)%2, beatenPiece.name, "", to, to, 6, "🟦" + "2️⃣" + "🇽"]);
-            moveCurGame.doubleMove = (moveCurGame.turn+1)%2;
+            if(moveCurGame.turn == 0) moveCurGame.doubleMove0 = true;
+            else if(moveCurGame.turn == 1) moveCurGame.doubleMove1 = true;
         break;
         // Fortune Apprentice
         case "Fortune Teller":
@@ -212,10 +213,22 @@ function movePiece(interaction, id, from, to, repl = null) {
     }
     
     switch(movedPiece.name) {
-        case "Amnesiac":
+        case "Amnesiac": // Amnesiac -> Change role after onhe move
             console.log("AMNESIAC CHANGE", movedPiece.convertTo);
             moveCurGame.state[moveTo.y][moveTo.x] = getPiece(movedPiece.convertTo);
         break;
+    	case "Direwolf": // Direwolf -> Double move if last piece
+            let wolfCount = 0;
+            for(let y = 0; y < 5; y++) {
+                for(let x = 0; x < 5; x++) {
+                    let xyPiece = moveCurGame.state[y][x];
+                    if(xyPiece.team == 1) {
+                        wolfCount++;
+                    }
+                }
+            }
+            if(wolfCount == 1 && !moveCurGame.inDoubleMove) moveCurGame.doubleMove1 = true;
+    	break;
     }
     
     
@@ -326,8 +339,15 @@ function nextTurn(game) {
     }
     
     // DOUBLE MOVE (CHILD/CUB)
-    if(game.doubleMove !== null && game.doubleMove !== game.turn) {
-        game.doubleMove = null;
+    game.inDoubleMove = false;
+    if(game.turn == 1 && game.doubleMove0 == true) { // double move town (Child)
+        game.doubleMove0 = false;
+    	game.inDoubleMove = true;
+        nextTurn(game);
+        return;
+    } else if(game.turn == 0 && game.doubleMove1 == true) { // double move wolf (Cub)
+        game.doubleMove1 = false;
+    	game.inDoubleMove = true;
         nextTurn(game);
         return;
     }
@@ -866,7 +886,7 @@ function createGame(playerID, playerID2, gameID, name1, name2, channel, guild) {
     //loadTestingSetup(newBoard);
     
     // push game to list of games
-    games.push({id: gameID, players: [ playerID, playerID2 ], playerNames: [ name1, name2 ], state: newBoard, turn: 0, channel: channel, guild: guild, lastMoves: [], concluded: false, selectedPiece: null, doubleMove: null, msg: null });
+    games.push({id: gameID, players: [ playerID, playerID2 ], playerNames: [ name1, name2 ], state: newBoard, turn: 0, channel: channel, guild: guild, lastMoves: [], concluded: false, selectedPiece: null, doubleMove0: false, doubleMove1: false, inDoubleMove: false, msg: null });
 }
 
 // destroys a game
