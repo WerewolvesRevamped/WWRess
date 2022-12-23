@@ -617,7 +617,7 @@ function getAbilityText(piece) {
         case "Royal Knight":
             return "";
         case "Alcoholic":
-            return "";
+            return "Invulnerable, if Bartender exists.";
         case "Amnesiac":
             return "Changes after one move.";
         case "Runner":
@@ -629,7 +629,7 @@ function getAbilityText(piece) {
         case "Witch":
             return "";
         case "Cursed Civilian":
-            return "";
+            return "Becomes a Wolf, when taken.";
         case "Wolf":
             return "No ability.";
         case "Wolf Cub":
@@ -651,7 +651,7 @@ function getAbilityText(piece) {
         case "Sneaking Wolf":
             return "";
         case "Direwolf":
-            return "";
+            return "Double moves, if last piece.";
         case "Clairvoyant Fox":
             return "";
         case "Fox":
