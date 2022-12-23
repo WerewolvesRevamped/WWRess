@@ -487,6 +487,10 @@ client.on('interactionCreate', async interaction => {
                         aComponents = interactionsFromPositions([], arg1, "turnstart");
                     break;
                     case "Fortune Teller":
+                    case "Crowd Seeker":
+                    case "Warlock":
+                    case "Psychic Wolf":
+                    case "Clairvoyant Fox":
                         aPositions = generatePositions(curGame.state, arg1);
                         aPositions = aPositions.filter(el => el[2]).map(el => [el[0], el[1]]); // only select moves with targets
                         aComponents = interactionsFromPositions(aPositions, arg1, "turnstart", "investigate");
@@ -499,8 +503,23 @@ client.on('interactionCreate', async interaction => {
             /** ACTIVE ABILITIES **/
             // investigate
             case "investigate":
+                let investigator = nameToXY(arg1);
+		        investigator = curGame.state[investigator.y][investigator.x];
                 let investTarget = nameToXY(arg2);
-                curGame.state[investTarget.y][investTarget.x].enemyVisibleStatus = 6;
+                switch(investigator) {
+                    // reveal role
+                    case "Fortune Teller":
+                    case "Warlock":
+                    case "Clairvoyant Fox":
+                        curGame.state[investTarget.y][investTarget.x].enemyVisibleStatus = 6;
+                    break;
+                    // reveal movement tyoe
+                    case "Crowd Seeker":
+                    case "Psychic Wolf":
+                        curGame.state[investTarget.y][investTarget.x].enemyVisibleStatus = 5;
+                        curGame.state[investTarget.y][investTarget.x].enemyVisible = curGame.state[investTarget.y][investTarget.x].chess;
+                    break;
+                }
                 turnMove(interaction, gameID, curGame.turn, "update") 
             break;
         }
