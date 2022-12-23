@@ -52,6 +52,12 @@ function deepCopy(el) {
     return JSON.parse(JSON.stringify(el));
 }
 
+function turnStart(interaction, gameid, turn, update = false) {
+    let availableMoves = showMoves(gameid, turn);
+    if(update) interaction.update(availableMoves);  
+    else interaction.edit(availableMoves);  
+}
+
 // moves a piece from one place to another (and/or replaces the piece with another piece)
 function movePiece(interaction, id, from, to, repl = null) {
     // get coords
@@ -260,6 +266,10 @@ function displayBoard(game, message, comp = [], turnOverride = null) {
     return { content: renderBoard(game, message, turnOverride), components: comp, ephemeral: true, fetchReply: true };
 }
 
+function emptyMessage() {
+    return { content: "*Loading...*", components: [], ephemeral: true, fetchReply: true };
+}
+
 async function busyWaiting(interaction, gameid, player) {
     await sleep(900);
     while(true) {
@@ -274,10 +284,9 @@ async function busyWaiting(interaction, gameid, player) {
         }
         // attempt turn
         if(games[gameid].turn == player) {
-            let availableMoves = showMoves(gameid, player);
             // if edit fails retry;
             try {
-                if(interaction) interaction.editReply(availableMoves);  
+                if(interaction) turnStart(interaction, gameid, player);  
                 return;
             } catch (err) { 
                 console.log(err);
@@ -434,7 +443,7 @@ client.on('interactionCreate', async interaction => {
             // back to turn start menu
             case "turnstart":
                 let turnGameID = getPlayerGameId(interaction.member.id);
-                interaction.update(showMoves(turnGameID, games[turnGameID].turn));     
+                turnStart(interaction, turnGameID, games[turnGameID].turn, true) 
             break;
         }
     }
@@ -466,8 +475,9 @@ client.on('interactionCreate', async interaction => {
                 interaction.reply(msgSpec).then(m => {
                     games[id].msg = m;
                     // player board
-                    let availableMoves = showMoves(id, 0);
-                    interaction.followUp(availableMoves);  
+                    interaction.followUp(emptyMessage()).then(m2 => {
+                        turnStart(m2, id, 0);
+                    });  
                 });
             }
         break;
@@ -512,8 +522,9 @@ client.on('interactionCreate', async interaction => {
                 interaction.reply(msgSpec).then(m => {
                     games[id].msg = m;
                     // player board
-                    let availableMoves = showMoves(id, 0);
-                    interaction.followUp(availableMoves);  
+                    interaction.followUp(emptyMessage()).then(m2 => {
+                        turnStart(m2, id, 0);
+                    });  
                 });
             }
         break;
@@ -691,7 +702,7 @@ function getChessValue(name) {
 
 // creates a piece object
 function getPiece(name, metadata = {}) {
-    var piece = { name: name, team: getTeam(name), chess: getChessName(name), enemyVisible: "Unknown", enemyVisibleStatus: 0 };
+    var piece = { name: name, team: getTeam(name), chess: getChessName(name), enemyVisible: "Unknown", enemyVisibleStatus: 0, active: isActive(name) };
     switch(name) {
         case "Amnesiac":
             piece.convertTo = metadata.amnesiac;
