@@ -189,8 +189,8 @@ function movePiece(interaction, id, from, to, repl = null) {
         case "Wolf Cub":
             moveCurGame.lastMoves.push([moveCurGame.turn, movedPiece.name, movedPiece.disguise, movedPiece.enemyVisible, from, to, movedPiece.enemyVisibleStatus]);
             moveCurGame.lastMoves.push([(moveCurGame.turn+1)%2, beatenPiece.name, false, "", to, to, 7, "🟦" + "2️⃣" + "🇽"]);
-            if(moveCurGame.turn == 0) moveCurGame.doubleMove0 = true;
-            else if(moveCurGame.turn == 1) moveCurGame.doubleMove1 = true;
+            if(moveCurGame.turn == 1) moveCurGame.doubleMove0 = true;
+            else if(moveCurGame.turn == 0) moveCurGame.doubleMove1 = true;
         break;
         // Fortune Apprentice
         case "Fortune Teller":
@@ -1036,7 +1036,7 @@ function concludeGame(id) {
     
     console.log("CONCLUDE UPDATE", id);
     // Update Spectator Board
-    let msgSpec = displayBoard(games[id], "SPECTATOR BOARD", [], -1);
+    let msgSpec = displayBoard(games[id], "SPECTATOR BOARD", [], games[id].players[1] == null ? 0 : -1);
     msgSpec.ephemeral = false;
     games[id].msg.edit(msgSpec);
 }
