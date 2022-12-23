@@ -230,6 +230,7 @@ function movePiece(interaction, id, from, to, repl = null) {
             if(wolfCount == 1 && !moveCurGame.inDoubleMove) moveCurGame.doubleMove1 = true;
     	break;
     }
+    game.inDoubleMove = false;
     
     
     // promote?
@@ -343,13 +344,11 @@ function nextTurn(game) {
         game.doubleMove0 = false;
     	game.inDoubleMove = true;
         nextTurn(game);
-    	game.inDoubleMove = false;
         return;
     } else if(game.turn == 0 && game.doubleMove1 == true) { // double move wolf (Cub)
         game.doubleMove1 = false;
     	game.inDoubleMove = true;
         nextTurn(game);
-    	game.inDoubleMove = false;
         return;
     }
     
