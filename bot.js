@@ -501,13 +501,13 @@ client.on('interactionCreate', async interaction => {
                         for(let y = 0; y < 5; y++) {
                             for(let x = 0; x < 5; x++) {
                                 let xyPiece = curGame.state[y][x];
-                                if(xyPiece.team != abilityPiece.team) {
+                                if(xyPiece.name != null && xyPiece.team != abilityPiece.team) {
                                     aPositions.push([x, y]);
                                 }
                             }
                         }
                         aComponents = interactionsFromPositions(aPositions, arg1, "turnstart", "investigate");
-		        	break;
+                    break;
                 }
                 
                 // update message
