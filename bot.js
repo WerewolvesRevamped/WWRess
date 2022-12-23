@@ -52,7 +52,7 @@ function deepCopy(el) {
     return JSON.parse(JSON.stringify(el));
 }
 
-function turnStart(interaction, gameid, turn, mode = "update") {
+function turnStart(interaction, gameid, turn, mode = "editreply") {
     let availableMoves = showMoves(gameid, turn);
     switch(mode) {
         case "update":
@@ -63,6 +63,9 @@ function turnStart(interaction, gameid, turn, mode = "update") {
         break;
         case "edit":
             interaction.edit(availableMoves);  
+        break;
+        case "editreply":
+            interaction.editReply(availableMoves);  
         break;
     }
 }
@@ -295,7 +298,7 @@ async function busyWaiting(interaction, gameid, player) {
         if(games[gameid].turn == player) {
             // if edit fails retry;
             try {
-                if(interaction) turnStart(interaction, gameid, player, "edit");  
+                if(interaction) turnStart(interaction, gameid, player, "editreply");  
                 return;
             } catch (err) { 
                 console.log(err);
