@@ -730,7 +730,7 @@ function getAbilityText(piece) {
         case "Recluse":
             return "";
         case "Dog":
-            return "";
+            return "Once, becomes a Wolf Cub or Fox.";
         case "Infecting Wolf":
             return "";
         case "Alpha Wolf":
