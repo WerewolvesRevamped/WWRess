@@ -506,6 +506,7 @@ client.on('interactionCreate', async interaction => {
                                 }
                             }
                         }
+                        aComponents = interactionsFromPositions(aPositions, arg1, "turnstart", "investigate");
 		        	break;
                 }
                 
