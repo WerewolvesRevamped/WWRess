@@ -726,7 +726,7 @@ function getAbilityText(piece) {
         case "Bartender":
             return "No ability. Relevant for Alcoholic.";
         case "Fortune Apprentice":
-            return "Replaced FT/AT/CS if they are taken.";
+            return "Replaces FT/AT/CS if they are taken.";
         case "Child":
             return "Additional move, when taken.";
         case "Hooker":
@@ -752,7 +752,7 @@ function getAbilityText(piece) {
         case "Fortune Teller":
             return "Reveal a reachable piece.";
         case "Witch":
-            return "";
+            return "Protects a reachable piece.";
         case "Cursed Civilian":
             return "Becomes a Wolf, when taken.";
         case "Wolf":
@@ -774,7 +774,7 @@ function getAbilityText(piece) {
         case "Psychic Wolf":
             return "Reveal a piece's type.";
         case "Sneaking Wolf":
-            return "";
+            return "Disguised as Wolf.";
         case "Direwolf":
             return "Double moves, if last piece.";
         case "Clairvoyant Fox":
@@ -1040,10 +1040,10 @@ function createGame(playerID, playerID2, gameID, name1, name2, channel, guild) {
     // put pieces on board
     
     //loadDefaultSetup(newBoard);
-    //generateRoleList(newBoard);
+    generateRoleList(newBoard);
     
     //loadPromoteTestSetup(newBoard);
-    loadTestingSetup(newBoard);
+    //loadTestingSetup(newBoard);
     
     // push game to list of games
     games.push({id: gameID, players: [ playerID, playerID2 ], playerNames: [ name1, name2 ], state: newBoard, turn: 0, channel: channel, guild: guild, lastMoves: [], concluded: false, selectedPiece: null, doubleMove0: false, doubleMove1: false, inDoubleMove: false, msg: null });
