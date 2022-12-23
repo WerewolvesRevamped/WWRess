@@ -174,8 +174,16 @@ function movePiece(interaction, id, from, to, repl = null) {
     switch(beatenPiece.name) {
         default: case null:
             // store move
-            if(from == to) moveCurGame.lastMoves.push([moveCurGame.turn, movedPieceCopy.name, movedPiece.disguise, movedPiece.enemyVisibleStatus<4?"Pawn":movedPiece.enemyVisible, from, to, movedPiece.enemyVisibleStatus<4?4:movedPiece.enemyVisibleStatus, "⏫🟦🟦"]);
-            else moveCurGame.lastMoves.push([moveCurGame.turn, movedPiece.name, movedPiece.disguise, movedPiece.enemyVisible, from, to, movedPiece.enemyVisibleStatus]);
+            if(from == to) { // pawn promotion
+                moveCurGame.lastMoves.push([moveCurGame.turn, movedPieceCopy.name, movedPiece.disguise, movedPiece.enemyVisibleStatus<4?"Pawn":movedPiece.enemyVisible, from, to, movedPiece.enemyVisibleStatus<4?4:movedPiece.enemyVisibleStatus, "⏫🟦🟦"]);
+            } else if(beatenPiece.protected) { // protected (Witch)
+                moveCurGame.lastMoves.push([moveCurGame.turn, movedPiece.name, movedPiece.disguise, movedPiece.enemyVisible, from, xyToName(defensiveX, defensiveY), movedPiece.enemyVisibleStatus]);
+                moveCurGame.lastMoves.push([(moveCurGame.turn+1)%2, beatenPiece.name, beatenPiece.disguise, beatenPiece.enemyVisible, to, to, beatenPiece.enemyVisibleStatus, "🛡️🟦🟦"]);
+                moveCurGame.state[defensiveY][defensiveX] = movedPiece;
+                moveCurGame.state[moveTo.y][moveTo.x] = beatenPiece;
+            } else { // piece taken
+                moveCurGame.lastMoves.push([moveCurGame.turn, movedPiece.name, movedPiece.disguise, movedPiece.enemyVisible, from, to, movedPiece.enemyVisibleStatus]);
+            }
         break;
         case "Ranger":
             movedPiece.enemyVisibleStatus = 7;
@@ -485,24 +493,42 @@ client.on('interactionCreate', async interaction => {
                 let abilitySelection = nameToXY(arg1);
                 let abilityPiece = curGame.state[abilitySelection.y][abilitySelection.x];
                 
+                // unprotect
+                for(let y = 0; y < 5; y++) {
+                    for(let x = 0; x < 5; x++) {
+                        let xyPiece = curGame.state[y][x];
+                        if(xyPiece.name != null && xyPiece.team == abilityPiece.team) {
+                            curGame.state[y][x].protected = false; 
+                        }
+                    }
+                }
+                
                 let aPositions, aInteractions, aComponents = [];
                 // provide options
                 switch(abilityPiece.name) {
                     default: case null:
                         aComponents = interactionsFromPositions([], arg1, "turnstart");
                     break;
-                    // Target targetable
+                    // Target targetable enemy
                     case "Fortune Teller":
                     case "Warlock":
                         aPositions = generatePositions(curGame.state, arg1);
                         aPositions = aPositions.filter(el => el[2]).map(el => [el[0], el[1]]); // only select moves with targets
                         aComponents = interactionsFromPositions(aPositions, arg1, "turnstart", "investigate");
                     break;
-                    // Target all
+                    // Target targetable ally
+                    case "Witch":
+                        let modGame = deepCopy(curGame.state);
+                        modGame[abilitySelection.y][abilitySelection.x].team = (modGame[abilitySelection.y][abilitySelection.x].team + 1) % 2;
+                        aPositions = generatePositions(modGame, arg1);
+                        aPositions = aPositions.filter(el => el[2]).map(el => [el[0], el[1]]); // only select moves with targets
+                        aComponents = interactionsFromPositions(aPositions, arg1, "turnstart", "protect");
+                    break;
+                    // Target all enemy
                     case "Clairvoyant Fox":
                     case "Crowd Seeker":
                     case "Psychic Wolf":
-				        aPositions = [];
+                        aPositions = [];
                         for(let y = 0; y < 5; y++) {
                             for(let x = 0; x < 5; x++) {
                                 let xyPiece = curGame.state[y][x];
@@ -552,6 +578,12 @@ client.on('interactionCreate', async interaction => {
                 let transformer = nameToXY(arg1);
                 curGame.state[transformer.y][transformer.x] = getPiece(arg2);
                 turnMove(interaction, gameID, curGame.turn, "update");   
+            break;
+            // transform
+            case "protect":
+                let protectTarget = nameToXY(arg2);
+                curGame.state[investTarget.y][investTarget.x].protected = true;
+                turnMove(interaction, gameID, curGame.turn, "update") 
             break;
         }
     }
@@ -806,7 +838,7 @@ function getChessValue(name) {
 
 // creates a piece object
 function getPiece(name, metadata = {}) {
-    var piece = { name: name, team: getTeam(name), chess: getChessName(name), enemyVisible: "Unknown", enemyVisibleStatus: 0, active: isActive(name), disguise: false };
+    var piece = { name: name, team: getTeam(name), chess: getChessName(name), enemyVisible: "Unknown", enemyVisibleStatus: 0, active: isActive(name), disguise: false, protected: false };
     switch(name) {
         case "Amnesiac":
             piece.convertTo = metadata.amnesiac;
