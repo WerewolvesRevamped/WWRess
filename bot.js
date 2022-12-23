@@ -230,7 +230,7 @@ function movePiece(interaction, id, from, to, repl = null) {
             if(wolfCount == 1 && !moveCurGame.inDoubleMove) moveCurGame.doubleMove1 = true;
     	break;
     }
-    game.inDoubleMove = false;
+    moveCurGame.inDoubleMove = false;
     
     
     // promote?
