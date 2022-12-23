@@ -504,9 +504,9 @@ client.on('interactionCreate', async interaction => {
             // investigate
             case "investigate":
                 let investigator = nameToXY(arg1);
-		        investigator = curGame.state[investigator.y][investigator.x];
+                investigator = curGame.state[investigator.y][investigator.x];
                 let investTarget = nameToXY(arg2);
-                switch(investigator) {
+                switch(investigator.name) {
                     // reveal role
                     case "Fortune Teller":
                     case "Warlock":
