@@ -53,19 +53,28 @@ function deepCopy(el) {
 }
 
 function turnStart(interaction, gameid, turn, mode = "editreply") {
+    let availableAbilities = showMoves(gameid, turn, true);
+    response(interaction, availableAbilities, mode);
+}
+
+function turnMove(interaction, gameid, turn, mode = "editreply") {
     let availableMoves = showMoves(gameid, turn);
+    response(interaction, availableMoves, mode);
+}
+
+function response(interaction, resp, mode) {
     switch(mode) {
         case "update":
-            interaction.update(availableMoves);
+            interaction.update(resp);
         break;
         case "followup":
-            interaction.followUp(availableMoves);  
+            interaction.followUp(resp);  
         break;
         case "edit":
-            interaction.edit(availableMoves);  
+            interaction.edit(resp);  
         break;
         case "editreply":
-            interaction.editReply(availableMoves);  
+            interaction.editReply(resp);  
         break;
     }
 }
@@ -425,40 +434,67 @@ client.on('interactionCreate', async interaction => {
         let type = interaction.customId.split("-")[0];
         let arg1 = interaction.customId.split("-")[1];
         let arg2 = interaction.customId.split("-")[2];
+        let gameID = getPlayerGameId(interaction.member.id);
+        let curGame = games[gameID];
         switch(type) {
             // select a piece; show available moves
             case "select":    
                 let selection = nameToXY(arg1);
-                let selectGameID = getPlayerGameId(interaction.member.id);
-                let currentGame = deepCopy(games[selectGameID]);
+                let currentGame = deepCopy(curGame);
                 
                 // generate list of possible moves
                 console.log("BOARD AT SELECT", currentGame.state.map(el => el.map(el2 => el2.name).join(",")).join("\n"));
                 let positions = generatePositions(currentGame.state, arg1);
                 console.log("POSSIBLE MOVES", positions);
-                let components = interactionsFromPositions(positions, arg1);
+                let components = interactionsFromPositions(positions, arg1, "turnmove", "move");
                 //console.log(components);
                 
                 currentGame.selectedPiece = deepCopy(currentGame.state[selection.y][selection.x]);
                 currentGame.state[selection.y][selection.x] = getPiece("Selected");
-                let selectBoardRender = renderBoard(currentGame);
                 
                 interaction.update(displayBoard(currentGame, "Pick a Move", components));
             break;
             // move a piece to another location; update board
             case "move":
-                let moveGameID = getPlayerGameId(interaction.member.id);
-                movePiece(interaction, moveGameID, arg1, arg2);
+                movePiece(interaction, gameID, arg1, arg2);
             break;
             // promote a piece; update board
             case "promote":
-                let promoteGameID = getPlayerGameId(interaction.member.id);
-                movePiece(interaction, promoteGameID, arg1, arg1, getPiece(arg2));
+                movePiece(interaction, gameID, arg1, arg1, getPiece(arg2));
             break;
             // back to turn start menu
             case "turnstart":
-                let turnGameID = getPlayerGameId(interaction.member.id);
-                turnStart(interaction, turnGameID, games[turnGameID].turn, "update") 
+                turnStart(interaction, gameID, curGame.turn, "update") 
+            break;
+            // back to turn move menu
+            case "turnmove":
+                turnMove(interaction, gameID, curGame.turn, "update") 
+            break;
+             // select an ability piece; show available actions
+            case "ability":    
+                let abilitySelection = nameToXY(arg1);
+                let abilityPiece = curGame.state[abilitySelection.y][abilitySelection.x];
+                
+                let positions, components = [];
+                // provide options
+                switch(abilityPiece.name) {
+                    default: case null:
+                        components = interactionsFromPositions([], arg1, "turnstart");
+                    break;
+                    case "Fortune Teller":
+                        positions = generatePositions(curGame.state, arg1);
+                        components = interactionsFromPositions(positions, arg1, "turnstart", "investigate");
+                    break;
+                }
+                
+                // update message
+                interaction.update(displayBoard(curGame, "Pick a Target", components));
+            break;
+            /** ACTIVE ABILITIES **/
+            // investigate
+            case "investigate":
+                let investTarget = nameToXY(arg2);
+                curGame.state[investTarget.y][investTarget.x].enemyVisibleStatus = 6;
             break;
         }
     }
@@ -741,18 +777,18 @@ function loadPromoteTestSetup(board) {
 }
 
 function loadTestingSetup(board) {
-    let testTown = "Alcoholic";
+    let testTown = "Fortune Teller";
     let testWolf = "Direwolf";
     board[4][0] = getPiece(testTown);
     board[4][1] = getPiece(testTown);
-    board[4][2] = getPiece("Bartender");
+    board[4][2] = getPiece(testTown);
     board[4][3] = getPiece(testTown);
     board[4][4] = getPiece(testTown);
-    board[3][0] = getPiece(testWolf);
-    board[3][1] = getPiece(testWolf);
-    board[2][2] = getPiece(testWolf);
-    board[3][3] = getPiece(testWolf);
-    board[3][4] = getPiece(testWolf);
+    board[0][0] = getPiece(testWolf);
+    board[0][1] = getPiece(testWolf);
+    board[0][2] = getPiece(testWolf);
+    board[0][3] = getPiece(testWolf);
+    board[0][4] = getPiece(testWolf);
 }
 
 function generateRoleList(board) {
@@ -950,10 +986,12 @@ function concludeGame(id) {
 }
 
 // turn = 0 for town, 1 for wolves
-function showMoves(gameID, turn) {
+function showMoves(gameID, turn, abilities = false) {
     let currentGame = games[gameID];
     let board = renderBoard(currentGame);
-    let interactions = generateInteractions(currentGame.state, turn);
+    let interactions;
+    if(!abilities) interactions = generateInteractions(currentGame.state, turn);
+    else interactions = generateAbilities(currentGame.state, turn);
     return { content: board, ephemeral: true, fetchReply: true, components: [ { type: 1, components: interactions } ] }
 }
 
@@ -1175,10 +1213,10 @@ function generatePositions(board, position) {
     return positions;
 }
 
-function interactionsFromPositions(positions, from) {
-    let interactions = [{ type: 2, label: "Back", style: 4, custom_id: "turnstart" }];
+function interactionsFromPositions(positions, from, back = "turnstart", action = "move") {
+    let interactions = [{ type: 2, label: "Back", style: 4, custom_id: back }];
     for(let i = 0; i < positions.length; i++) {
-        interactions.push({ type: 2, label: xyToName(positions[i][0], positions[i][1]) + (positions[i][2]?" ✘":""), style:  (positions[i][2]?3:1), custom_id: "move-" + from + "-" + xyToName(positions[i][0], positions[i][1]) });
+        interactions.push({ type: 2, label: xyToName(positions[i][0], positions[i][1]) + (positions[i][2]?" ✘":""), style:  (positions[i][2]?3:1), custom_id: action + "-" + from + "-" + xyToName(positions[i][0], positions[i][1]) });
     }
     let interactionsOutput = [];
     let interactionsTemp = [];
