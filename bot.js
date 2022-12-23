@@ -475,20 +475,20 @@ client.on('interactionCreate', async interaction => {
                 let abilitySelection = nameToXY(arg1);
                 let abilityPiece = curGame.state[abilitySelection.y][abilitySelection.x];
                 
-                let positions, components = [];
+                let aPositions, aComponents = [];
                 // provide options
                 switch(abilityPiece.name) {
                     default: case null:
-                        components = interactionsFromPositions([], arg1, "turnstart");
+                        aComponents = interactionsFromPositions([], arg1, "turnstart");
                     break;
                     case "Fortune Teller":
-                        positions = generatePositions(curGame.state, arg1);
-                        components = interactionsFromPositions(positions, arg1, "turnstart", "investigate");
+                        aPositions = generatePositions(curGame.state, arg1);
+                        aComponents = interactionsFromPositions(aPositions, arg1, "turnstart", "investigate");
                     break;
                 }
                 
                 // update message
-                interaction.update(displayBoard(curGame, "Pick a Target", components));
+                interaction.update(displayBoard(curGame, "Pick a Target", aComponents));
             break;
             /** ACTIVE ABILITIES **/
             // investigate
