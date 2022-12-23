@@ -1012,7 +1012,7 @@ function concludeGame(id) {
 }
 
 // turn = 0 for town, 1 for wolves
-function showMoves(gameID, turn, abilities = false, messsage = "") {
+function showMoves(gameID, turn, abilities = false, message = "") {
     let currentGame = games[gameID];
     let board = renderBoard(currentGame, message);
     let interactions;
