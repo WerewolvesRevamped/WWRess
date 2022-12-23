@@ -486,15 +486,27 @@ client.on('interactionCreate', async interaction => {
                     default: case null:
                         aComponents = interactionsFromPositions([], arg1, "turnstart");
                     break;
+                    // Target targetable
                     case "Fortune Teller":
-                    case "Crowd Seeker":
                     case "Warlock":
-                    case "Psychic Wolf":
-                    case "Clairvoyant Fox":
                         aPositions = generatePositions(curGame.state, arg1);
                         aPositions = aPositions.filter(el => el[2]).map(el => [el[0], el[1]]); // only select moves with targets
                         aComponents = interactionsFromPositions(aPositions, arg1, "turnstart", "investigate");
                     break;
+                    // Target all
+                    case "Clairvoyant Fox":
+                    case "Crowd Seeker":
+                    case "Psychic Wolf":
+				        aPositions = [];
+                        for(let y = 0; y < 5; y++) {
+                            for(let x = 0; x < 5; x++) {
+                                let xyPiece = CurGame.state[y][x];
+                                if(xyPiece.team != abilityPiece.team) {
+                                    aPositions.push([x, y]);
+                                }
+                            }
+                        }
+		        	break;
                 }
                 
                 // update message
@@ -1017,7 +1029,11 @@ function showMoves(gameID, turn, abilities = false, message = "") {
     let board = renderBoard(currentGame, message);
     let interactions;
     if(!abilities) interactions = generateInteractions(currentGame.state, turn);
-    else interactions = generateAbilities(currentGame.state, turn);
+    else {
+        interactions = { type: 2, label: "Skip", style: 4, custom_id: "turnmove" });
+        interactions.push(...generateAbilities(currentGame.state, turn));
+    }
+    interactions = interactions.slice(0, 4);
     return { content: board, ephemeral: true, fetchReply: true, components: [ { type: 1, components: interactions } ] }
 }
 
