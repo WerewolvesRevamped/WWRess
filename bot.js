@@ -58,6 +58,11 @@ function turnStart(interaction, gameid, turn, mode = "editreply") {
 }
 
 function turnMove(interaction, gameid, turn, mode = "editreply") {
+    // update spec board
+    let msgSpec = displayBoard(games[gameid], "SPECTATOR BOARD", [], games[gameid].players[1] == null ? 0 : -1);
+    msgSpec.ephemeral = false;
+    game.msg.edit(msgSpec);
+    // show movable pieces
     let availableMoves = showMoves(gameid, turn);
     response(interaction, availableMoves, mode);
 }
