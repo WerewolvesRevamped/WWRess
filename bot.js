@@ -52,10 +52,19 @@ function deepCopy(el) {
     return JSON.parse(JSON.stringify(el));
 }
 
-function turnStart(interaction, gameid, turn, update = false) {
+function turnStart(interaction, gameid, turn, mode = "update") {
     let availableMoves = showMoves(gameid, turn);
-    if(update) interaction.update(availableMoves);  
-    else interaction.editReply(availableMoves);  
+    switch(mode) {
+        case "update":
+            interaction.update(availableMoves);
+        break;
+        case "followup":
+            interaction.followUp(availableMoves);  
+        break;
+        case "edit":
+            interaction.edit(availableMoves);  
+        break;
+    }
 }
 
 // moves a piece from one place to another (and/or replaces the piece with another piece)
@@ -286,7 +295,7 @@ async function busyWaiting(interaction, gameid, player) {
         if(games[gameid].turn == player) {
             // if edit fails retry;
             try {
-                if(interaction) turnStart(interaction, gameid, player);  
+                if(interaction) turnStart(interaction, gameid, player, "edit");  
                 return;
             } catch (err) { 
                 console.log(err);
@@ -443,7 +452,7 @@ client.on('interactionCreate', async interaction => {
             // back to turn start menu
             case "turnstart":
                 let turnGameID = getPlayerGameId(interaction.member.id);
-                turnStart(interaction, turnGameID, games[turnGameID].turn, true) 
+                turnStart(interaction, turnGameID, games[turnGameID].turn, "update") 
             break;
         }
     }
@@ -475,9 +484,7 @@ client.on('interactionCreate', async interaction => {
                 interaction.reply(msgSpec).then(m => {
                     games[id].msg = m;
                     // player board
-                    interaction.followUp(emptyMessage()).then(m2 => {
-                        turnStart(m2, id, 0);
-                    });  
+                    turnStart(interaction, id, 0, "followup"); 
                 });
             }
         break;
@@ -522,9 +529,7 @@ client.on('interactionCreate', async interaction => {
                 interaction.reply(msgSpec).then(m => {
                     games[id].msg = m;
                     // player board
-                    interaction.followUp(emptyMessage()).then(m2 => {
-                        turnStart(m2, id, 0);
-                    });  
+                    turnStart(interaction, id, 0, "followup"); 
                 });
             }
         break;
