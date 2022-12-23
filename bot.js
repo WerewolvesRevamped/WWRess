@@ -308,7 +308,7 @@ function nextTurn(game) {
     console.log("VALIDATING TURN", pieces, iterations);
     
     // Update Spectator Board
-    let msgSpec = displayBoard(game, "SPECTATOR BOARD", [], -1);
+    let msgSpec = displayBoard(game, "SPECTATOR BOARD", [], game.players[1] == null ? 0 : -1);
     msgSpec.ephemeral = false;
     game.msg.edit(msgSpec);
     
@@ -441,7 +441,7 @@ client.on('interactionCreate', async interaction => {
                 let id = getPlayerGameId(interaction.member.id);
                 
                 // spectator board
-                let msgSpec = displayBoard(games[id], "SPECTATOR BOARD", [], -1);
+                let msgSpec = displayBoard(games[id], "SPECTATOR BOARD", [], 0);
                 msgSpec.ephemeral = false;
                 interaction.reply(msgSpec).then(m => {
                     games[id].msg = m;
@@ -581,7 +581,7 @@ function getAbilityText(piece) {
         case "Wolf":
             return "No ability.";
         case "Wolf Cub":
-            return "";
+            return "Additional move, when taken.";
         case "Tanner":
             return "";
         case "Archivist Fox":
