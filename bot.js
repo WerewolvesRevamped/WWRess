@@ -1241,25 +1241,27 @@ function loadTestingSetup(board) {
 }
 
 function getWWRValue(piece) {
-	case "Cursed Civilian":
-		return -3;
-	case "Citizen":
-	case "Wolf": case "Sneaking Wolf": case "Fox": case "White Werewolf":
-		return 0;
-	case "Ranger": case "Amnesiac":
-	case "Recluse":
-		return 1;
-	case "Child": case "Idiot": case "Crowd Seeker": case "Aura Teller": case "Royal Knight": case "Witch": case "Bartender":
-	case "Wolf Cub": case "Tanner": case "Archivist Fox": case "Dog": case "Psychic Wolf": case "Direwolf":
-		return 2;
-	case "Fortune Apprentice": case "Fortune Teller": case "Runner":
-	case "Alpha Wolf": case "Clairvoyant Fox": case "Scared Wolf": case "Saboteur Wolf": case "Warlock":
-		return 3;
-	case "Hooker": case "Alcoholic":
-		return 4;
-	case "Huntress":
-	case "Infecting Wolf":
-		return 5;
+        switch(piece) {
+        case "Cursed Civilian":
+            return -3;
+        case "Citizen":
+        case "Wolf": case "Sneaking Wolf": case "Fox": case "White Werewolf":
+            return 0;
+        case "Ranger": case "Amnesiac":
+        case "Recluse":
+            return 1;
+        case "Child": case "Idiot": case "Crowd Seeker": case "Aura Teller": case "Royal Knight": case "Witch": case "Bartender":
+        case "Wolf Cub": case "Tanner": case "Archivist Fox": case "Dog": case "Psychic Wolf": case "Direwolf":
+            return 2;
+        case "Fortune Apprentice": case "Fortune Teller": case "Runner":
+        case "Alpha Wolf": case "Clairvoyant Fox": case "Scared Wolf": case "Saboteur Wolf": case "Warlock":
+            return 3;
+        case "Hooker": case "Alcoholic":
+            return 4;
+        case "Huntress":
+        case "Infecting Wolf":
+            return 5;
+    }
 }
 
 function generateRoleList(board) {
