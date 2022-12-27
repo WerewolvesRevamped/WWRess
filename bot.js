@@ -115,7 +115,7 @@ function AImove(game, iteration = 0) {
     
     // evaluate all possible moves
     let evaluatedPositions = [];
-    let maxValue = -1000;
+    let maxValue = game.turn == 1 ? -1000 : 1000; 
     let bestMove = [];
     // iterate through all pieces
     for(let i = 0; i < pieces.length; i++) {
