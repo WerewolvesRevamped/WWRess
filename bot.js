@@ -736,12 +736,12 @@ client.on('interactionCreate', async interaction => {
             break;
             // move a piece to another location; update board
             case "move":
-                interaction.update(displayBoard(currentGame, "Executing Move", components));
+                interaction.update(displayBoard(curGame, "Executing Move", []));
                 movePiece(interaction, gameID, arg1, arg2);
             break;
             // promote a piece; update board
             case "promote":
-                interaction.update(displayBoard(currentGame, "Executing Move", components));
+                interaction.update(displayBoard(curGame, "Executing Move", []));
                 movePiece(interaction, gameID, arg1, arg1, getPiece(arg2));
             break;
             // back to turn start menu
