@@ -130,8 +130,8 @@ function AImove(game, iteration = 0) {
             let selectedMove = positions[i];
             movePiece(null, gameid, selectedPiece, xyToName(selectedMove[0], selectedMove[1]));
             
-            if(iteration == 0) {
-                AImove(games[gameid], 1);
+            if(iteration <= 3) {
+                AImove(games[gameid], iteration + 1);
             }
             
             let moveValue = evaluate(games[gameid].state);
