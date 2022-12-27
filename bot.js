@@ -92,11 +92,10 @@ function evaluate(board) {
     for(let y = 0; y < board.length; y++) {
         for(let x = 0; x < board[0].length; x++) {
             let evData = getEvaluationData(board[y][x].chess);
-            console.log(evData);
             if(board[y][x].team === 0) {
                 whiteValue += evData.value[gameState] + evData.table[4 - y][x];
             } else if(board[y][x].team === 1) {
-                blackValue += evData.value[gameState] + evData.table[y][x];  
+                blackValue += evData.value[gameState] + evData.table[y][x][0];  
             }
         }
     }
@@ -1722,7 +1721,7 @@ function generateAbilities(board, team) {
 
 function renderBoard(game, message = "Turn", turnOverride = null) {
     let board = game.state;
-    let boardMsg = "**" + game.playerNames[0] + " vs. " + game.playerNames[1] +  "**\n" + "**" + message + "**" + evaluate(board) + "\n";
+    let boardMsg = "**" + game.playerNames[0] + " vs. " + game.playerNames[1] +  "**\n" + "**" + message + "** " + evaluate(board) + "\n";
     let boardRows = ["🟦🇦​🇧​🇨​🇩​🇪"];
     let visiblePieces = [];
     const letterRanks = ["🇦","🇧","🇨","🇩","​🇪"];
