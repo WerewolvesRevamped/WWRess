@@ -526,7 +526,7 @@ function movePiece(interaction, id, from, to, repl = null) {
             components.push({ type: 2, label: promoteKing + " " + getUnicode(getChessName(promoteKing), 0), style: 1, custom_id: "promote-"+to+"-"+promoteKing });
             components.push({ type: 2, label: promoteKnight + " " + getUnicode(getChessName(promoteKnight), 0), style: 1, custom_id: "promote-"+to+"-" + promoteKnight });
             components.push({ type: 2, label: promoteRook + " " + getUnicode(getChessName(promoteRook), 0), style: 1, custom_id: "promote-"+to+"-" + promoteRook });
-            interaction.update(displayBoard(moveCurGame, "Promote " + to, [{ type: 1, components: components }] ));
+            interaction.editReply(displayBoard(moveCurGame, "Promote " + to, [{ type: 1, components: components }] ));
         } else {
             let randomOptions = ["Hooker","Royal Knight","Fortune Teller","Runner","Witch"];
             movePiece(interaction, id, to, to, getPiece(randomOptions[Math.floor(Math.random() * randomOptions.length)]));
@@ -543,7 +543,7 @@ function movePiece(interaction, id, from, to, repl = null) {
             components.push({ type: 2, label: promoteKing + " " + getUnicode(getChessName(promoteKing), 1), style: 1, custom_id: "promote-"+to+"-"+promoteKing });
             components.push({ type: 2, label: promoteKnight + " " + getUnicode(getChessName(promoteKnight), 1), style: 1, custom_id: "promote-"+to+"-" + promoteKnight });
             components.push({ type: 2, label: promoteRook + " " + getUnicode(getChessName(promoteRook), 1), style: 1, custom_id: "promote-"+to+"-" + promoteRook });
-            interaction.update(displayBoard(moveCurGame, "Promote " + to, [{ type: 1, components: components }] ));
+            interaction.editReply(displayBoard(moveCurGame, "Promote " + to, [{ type: 1, components: components }] ));
         } else {
             let randomOptions = ["Alpha Wolf","Direwolf","Warlock","Scared Wolf","Saboteur Wolf"];
             movePiece(interaction, id, to, to, getPiece(randomOptions[Math.floor(Math.random() * randomOptions.length)]));
@@ -551,7 +551,7 @@ function movePiece(interaction, id, from, to, repl = null) {
     } else {
         // turn complete
         if(interaction) {
-            interaction.update(displayBoard(moveCurGame, "Waiting on Opponent"));     
+            interaction.editReply(displayBoard(moveCurGame, "Waiting on Opponent"));     
             busyWaiting(interaction, id, moveCurGame.turn);
         }
         nextTurn(moveCurGame);
@@ -736,10 +736,12 @@ client.on('interactionCreate', async interaction => {
             break;
             // move a piece to another location; update board
             case "move":
+                interaction.update(displayBoard(currentGame, "Executing Move", components));
                 movePiece(interaction, gameID, arg1, arg2);
             break;
             // promote a piece; update board
             case "promote":
+                interaction.update(displayBoard(currentGame, "Executing Move", components));
                 movePiece(interaction, gameID, arg1, arg1, getPiece(arg2));
             break;
             // back to turn start menu
