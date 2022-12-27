@@ -133,7 +133,7 @@ async function AImove(game, iteration = 0, curEval = 0, worseCount = 0) {
     // iterate through all pieces
     for(let i = 0; i < pieces.length; i++) {
         let selectedPiece = pieces[i][1];
-        let positions = generatePositions(game.state, selectedPiece);
+        let positions = generatePositions(game.state, selectedPiece, true);
         // iterate through that piece's moves
         for(let i = 0; i < positions.length; i++) {
             games.push(deepCopy(game)); // create a copy of the game to simulate the move on
@@ -279,7 +279,7 @@ function movePiece(interaction, id, from, to, repl = null) {
     let movedYorig = moveFrom.y - moveTo.y;
     let movedX = Math.abs(movedXorig);
     let movedY = Math.abs(movedYorig);
-    console.log("status", movedPiece.enemyVisibleStatus);
+    //console.log("status", movedPiece.enemyVisibleStatus);
     if(movedPiece.enemyVisibleStatus < 7) { 
         if(!moveCurGame.ai) console.log("MOVED", movedXorig, movedYorig, beatenPiece.name);
         // definitely a knight
@@ -546,7 +546,9 @@ function movePiece(interaction, id, from, to, repl = null) {
         }
     } else {
         // turn complete
+    	console.log("Attempt Update");
         if(interaction) {
+    		console.log("Do Update");
             interaction.update(displayBoard(moveCurGame, "Waiting on Opponent"));     
             busyWaiting(interaction, id, moveCurGame.turn);
         }
@@ -1483,9 +1485,7 @@ function createGame(playerID, playerID2, gameID, name1, name2, channel, guild) {
 // destroys a game
 function destroyGame(id) {
     console.log("DESTROY", id);
-    console.log("PRE", players);
     players = players.filter(el => el[1] != id); // delete players from playing players
-    console.log("POST", players);
     games[id] = null; // remove game from game list
 }
 
@@ -1572,12 +1572,12 @@ function inBounds(x, y = 1) {
     return inBoundsOne(x) && inBoundsOne(y);
 }
 
-function generatePositions(board, position) {
+function generatePositions(board, position, hideLog = false) {
     let positions = [];
     position = nameToXY(position);
     let x = position.x, y = position.y;
     let piece = board[y][x];
-    console.log("Finding moves for ", piece.name, " @ ", x, "|", numToRank(x), " ", y);
+    if(!hideLog) console.log("Finding moves for ", piece.name, " @ ", x, "|", numToRank(x), " ", y);
     const pieceTeam = piece.team;
     const enemyTeam = (pieceTeam + 1) % 2;
     const pieceType = piece.chess;
