@@ -470,7 +470,7 @@ function nextTurn(game) {
         let wolfCount = 0;
         for(let y = 0; y < 5; y++) {
             for(let x = 0; x < 5; x++) {
-                let xyPiece = moveCurGame.state[y][x];
+                let xyPiece = game.state[y][x];
                 if(xyPiece.name == "White Werewolf") {
                     wwwAlive = true;
                 }
