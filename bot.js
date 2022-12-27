@@ -1064,6 +1064,7 @@ function getPiece(name, metadata = {}) {
     switch(name) {
         case "Amnesiac":
             piece.convertTo = metadata.amnesiac;
+            if(!metadata.amnesiac) piece.convertTo = ["Citizen","Ranger","Aura Teller"][Math.floor(Math.random() * 3)]; // for Amnesiac by promotion
         break;
     	case "Sneaking Wolf":
 		    piece.disguise = "Wolf";
