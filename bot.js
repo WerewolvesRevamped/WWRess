@@ -373,7 +373,7 @@ function movePiece(interaction, id, from, to, repl = null) {
             interaction.update(displayBoard(moveCurGame, "Promote " + to, [{ type: 1, components: components }] ));
         } else {
             let randomOptions = ["Alpha Wolf","Direwolf","Warlock","Scared Wolf","Saboteur Wolf"];
-            movePiece(interaction, id, to, to, getPiece(randomOptions[Math.floor(Math.random() * randomOptions)]));
+            movePiece(interaction, id, to, to, getPiece(randomOptions[Math.floor(Math.random() * randomOptions.length)]));
         }
     } else {
         // turn complete
