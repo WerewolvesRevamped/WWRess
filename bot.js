@@ -102,12 +102,12 @@ function evaluate(board) {
     return blackValue - whiteValue;
 }
 
-function AImove(game) {
+function AImove(game, iteration = 0) {
     let board = game.state;
     let pieces = [];
     for(let y = 0; y < board.length; y++) {
         for(let x = 0; x < board[0].length; x++) {
-            if(board[y][x].team == 1) {
+            if(board[y][x].team == game.turn) {
                 pieces.push([board[y][x].name, xyToName(x, y), y, x]);
             }
         }
@@ -128,10 +128,15 @@ function AImove(game) {
 	        games[gameid].ai = true; // mark as AI game
             let selectedMove = positions[i];
             movePiece(null, gameid, selectedPiece, xyToName(selectedMove[0], selectedMove[1]));
+            
+            if(iteration == 0) {
+                AImove(games[gameid], 1);
+            }
+            
             let moveValue = evaluate(games[gameid].state);
             evaluatedPositions.push([selectedPiece, selectedMove, moveValue]);
             // new best move
-            if(moveValue > maxValue) {
+            if((game.turn == 1 && moveValue > maxValue) || (game.turn == 0 && moveValue < maxValue)) {
                 maxValue = moveValue;
                 bestMove = [selectedPiece, selectedMove];
             }
@@ -140,9 +145,9 @@ function AImove(game) {
     }
     
     
-    console.log("EVALUATED", evaluatedPositions.map(el => el[0][0] + " " + el[0][1] + ">" + xyToName(el[1][0], el[1][1]) + " = " + el[2]));
+    console.log(iteration, "EVALUATED", evaluatedPositions.map(el => el[0][0] + " " + el[0][1] + ">" + xyToName(el[1][0], el[1][1]) + " = " + el[2]));
     
-    console.log("AI MOVE", bestMove[0], xyToName(bestMove[1][0], bestMove[1][1]));
+    console.log(iteration, "AI MOVE", bestMove[0], xyToName(bestMove[1][0], bestMove[1][1]));
     movePiece(null, game.id, bestMove[0], xyToName(bestMove[1][0], bestMove[1][1]));
 }
 
@@ -497,7 +502,8 @@ function movePiece(interaction, id, from, to, repl = null) {
             components.push({ type: 2, label: promoteRook + " " + getUnicode(getChessName(promoteRook), 0), style: 1, custom_id: "promote-"+to+"-" + promoteRook });
             interaction.update(displayBoard(moveCurGame, "Promote " + to, [{ type: 1, components: components }] ));
         } else {
-            movePiece(interaction, id, to, to, getPiece("Runner"));
+            let randomOptions = ["Hooker","Royal Knight","Fortune Teller","Runner","Witch"];
+            movePiece(interaction, id, to, to, getPiece(randomOptions[Math.floor(Math.random() * randomOptions.length)]));
         }
     } else if(movedPiece.chess == "Pawn" && moveCurGame.turn == 1 && moveTo.y == 4) {
         if(interaction) {
@@ -566,73 +572,74 @@ async function delayedDestroy(gameid) {
 }
 
 function nextTurn(game) {
-    if(game.ai) return;
     // increment turn
     console.log("NEXT TURN");
     let oldTurn = game.turn;
     game.turn = (game.turn + 1) % 2;
     
-    // find a valid move
-   let board = game.state;
-    let pieces = [];
-    for(let y = 0; y < board.length; y++) {
-        for(let x = 0; x < board[0].length; x++) {
-            if(board[y][x].team == game.turn) {
-                pieces.push([board[y][x].name, xyToName(x, y), y, x]);
+    if(!game.ai) {
+        // find a valid move
+       let board = game.state;
+        let pieces = [];
+        for(let y = 0; y < board.length; y++) {
+            for(let x = 0; x < board[0].length; x++) {
+                if(board[y][x].team == game.turn) {
+                    pieces.push([board[y][x].name, xyToName(x, y), y, x]);
+                }
             }
         }
-    }
-    let iterations = 0;
-    if(pieces.length > 0) {
-        let positions = [];
-        let selectedPiece;
+        let iterations = 0;
+        if(pieces.length > 0) {
+            let positions = [];
+            let selectedPiece;
 
-        while(positions.length == 0 && iterations < 100) {
-            selectedPiece = pieces[Math.floor(Math.random() * pieces.length)][1];
-            positions = generatePositions(game.state, selectedPiece);
-            iterations++;
-        }
-    }
-    console.log("VALIDATING TURN", pieces, iterations);
-    
-    // Update Spectator Board
-    let msgSpec = displayBoard(game, "SPECTATOR BOARD", [], game.players[1] == null ? 0 : -1);
-    msgSpec.ephemeral = false;
-    game.msg.edit(msgSpec);
-    
-    // WIN Message
-    if(pieces == 0 || iterations == 100) {
-        let guild = client.guilds.cache.get(game.guild);
-        let channel = guild.channels.cache.get(game.channel);
-        
-        // look for www
-        let wwwAlive = false;
-        let wolfCount = 0;
-        for(let y = 0; y < 5; y++) {
-            for(let x = 0; x < 5; x++) {
-                let xyPiece = game.state[y][x];
-                if(xyPiece.name == "White Werewolf") {
-                    wwwAlive = true;
-                }
-                if(xyPiece.team == 1) {
-                    wolfCount++;
-                }
+            while(positions.length == 0 && iterations < 100) {
+                selectedPiece = pieces[Math.floor(Math.random() * pieces.length)][1];
+                positions = generatePositions(game.state, selectedPiece);
+                iterations++;
             }
         }
-        // www lose
-        if(wwwAlive && wolfCount > 1 && oldTurn == 1) {
-            oldTurn = 0;
-            game.turn = 1;
-            channel.send("White Werewolf causes a loss!");
-        }
+        console.log("VALIDATING TURN", pieces, iterations);
         
-        if(game.players[1]) channel.send("<@" + game.players[oldTurn] + "> has won against <@" + game.players[game.turn] + ">!");
-        else if(oldTurn == 0 && !game.players[1]) channel.send("<@" + game.players[oldTurn] + "> has won against **AI**!");
-        else if(oldTurn == 1 && !game.players[1]) channel.send("**AI** has won against <@" + game.players[game.turn] + ">!");
-        concludeGame(game.id);
-        delayedDestroy(game.id);
-        console.log("WIN");
-        return;
+        // Update Spectator Board
+        let msgSpec = displayBoard(game, "SPECTATOR BOARD", [], game.players[1] == null ? 0 : -1);
+        msgSpec.ephemeral = false;
+        game.msg.edit(msgSpec);
+
+        // WIN Message
+        if(pieces == 0 || iterations == 100) {
+            let guild = client.guilds.cache.get(game.guild);
+            let channel = guild.channels.cache.get(game.channel);
+
+            // look for www
+            let wwwAlive = false;
+            let wolfCount = 0;
+            for(let y = 0; y < 5; y++) {
+                for(let x = 0; x < 5; x++) {
+                    let xyPiece = game.state[y][x];
+                    if(xyPiece.name == "White Werewolf") {
+                        wwwAlive = true;
+                    }
+                    if(xyPiece.team == 1) {
+                        wolfCount++;
+                    }
+                }
+            }
+            // www lose
+            if(wwwAlive && wolfCount > 1 && oldTurn == 1) {
+                oldTurn = 0;
+                game.turn = 1;
+                channel.send("White Werewolf causes a loss!");
+            }
+
+            if(game.players[1]) channel.send("<@" + game.players[oldTurn] + "> has won against <@" + game.players[game.turn] + ">!");
+            else if(oldTurn == 0 && !game.players[1]) channel.send("<@" + game.players[oldTurn] + "> has won against **AI**!");
+            else if(oldTurn == 1 && !game.players[1]) channel.send("**AI** has won against <@" + game.players[game.turn] + ">!");
+            concludeGame(game.id);
+            delayedDestroy(game.id);
+            console.log("WIN");
+            return;
+        }
     }
     
     // DOUBLE MOVE (CHILD/CUB)
@@ -649,7 +656,7 @@ function nextTurn(game) {
     }
     
     // Do AI Turn if AI in play
-    if(game.turn == 1 && game.players[1] == null) {
+    if(!game.ai && game.turn == 1 && game.players[1] == null) {
         AImove(game)
     }
 }
