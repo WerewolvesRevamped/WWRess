@@ -1292,10 +1292,10 @@ function createGame(playerID, playerID2, gameID, name1, name2, channel, guild) {
     // put pieces on board
     
     //loadDefaultSetup(newBoard);
-    //generateRoleList(newBoard);
+    generateRoleList(newBoard);
     
     //loadPromoteTestSetup(newBoard);
-    loadTestingSetup(newBoard);
+    //loadTestingSetup(newBoard);
     
     // push game to list of games
     games.push({id: gameID, players: [ playerID, playerID2 ], playerNames: [ name1, name2 ], state: newBoard, turn: 0, channel: channel, guild: guild, lastMoves: [], concluded: false, selectedPiece: null, doubleMove0: false, doubleMove1: false, inDoubleMove: false, msg: null });
