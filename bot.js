@@ -1501,7 +1501,7 @@ function generatePositions(board, position) {
                 break;
             }
         }
-        for(let offset = 0; offset < 5; offset++) {
+        for(let offset = 1; offset < 5; offset++) {
             if(inBounds(x+offset, y+offset) && board[y+offset][x+offset].name == null) {
                 positions.push([x+offset, y+offset]);
             } else if(inBounds(x+offset, y+offset) && board[y+offset][x+offset].team == enemyTeam) {
@@ -1511,7 +1511,7 @@ function generatePositions(board, position) {
                 break;
             }
         }
-        for(let offset = 0; offset < 5; offset++) {
+        for(let offset = 1; offset < 5; offset++) {
             if(inBounds(x-offset, y+offset) && board[y+offset][x-offset].name == null) {
                 positions.push([x-offset, y+offset]);
             } else if(inBounds(x-offset, y+offset) && board[y+offset][x-offset].team == enemyTeam) {
@@ -1521,7 +1521,7 @@ function generatePositions(board, position) {
                 break;
             }
         }
-        for(let offset = 0; offset < 5; offset++) {
+        for(let offset = 1; offset < 5; offset++) {
             if(inBounds(x+offset, y-offset) && board[y-offset][x+offset].name == null) {
                 positions.push([x+offset, y-offset]);
             } else if(inBounds(x+offset, y-offset) && board[y-offset][x+offset].team == enemyTeam) {
@@ -1531,7 +1531,7 @@ function generatePositions(board, position) {
                 break;
             }
         }
-        for(let offset = 0; offset < 5; offset++) {
+        for(let offset = 1; offset < 5; offset++) {
             if(inBounds(x-offset, y-offset) && board[y-offset][x-offset].name == null) {
                 positions.push([x-offset, y-offset]);
             } else if(inBounds(x-offset, y-offset) && board[y-offset][x-offset].team == enemyTeam) {
