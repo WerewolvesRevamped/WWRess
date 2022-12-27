@@ -166,6 +166,9 @@ async function AImove(game, iteration = 0, curEval = 0, worseCount = 0) {
         }
     }
     
+	if(!bestMove) {
+        return; // return if no move could be found
+    }
     
     if(iteration == 0) console.log("EVALUATED", evaluatedPositions.map(el => el[0] + ">" + xyToName(el[1][0], el[1][1]) + " = " + el[2]));
     
