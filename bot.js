@@ -148,9 +148,8 @@ function AImove(game, iteration = 0, curEval = 0, worseCount = 0) {
                 // remove horribly bad branches
                 if((game.turn == 1 && curEval >= tempValue) || (game.turn == 0 && curEval <= tempValue)) {
                     worseCount++;
-                    if(worseCount >= 2) return;
                 }
-                AImove(games[gameid], iteration + 1, worseCount);
+                if(worseCount <= 1) AImove(games[gameid], iteration + 1, worseCount);
             }
             
             let moveValue = evaluate(games[gameid].state);
