@@ -169,7 +169,8 @@ async function AImove(game, iteration = 0, curEval = 0, worseCount = 0) {
     
     if(iteration == 0) console.log("EVALUATED", evaluatedPositions.map(el => el[0] + ">" + xyToName(el[1][0], el[1][1]) + " = " + el[2]));
     
-    if(iteration == 0) console.log(iteration, "AI MOVE", bestMove[0], xyToName(bestMove[1][0], bestMove[1][1]));
+    if(iteration == 0) console.log("AI MOVE", bestMove[0], xyToName(bestMove[1][0], bestMove[1][1]));
+    
     movePiece(null, game.id, bestMove[0], xyToName(bestMove[1][0], bestMove[1][1]));
 }
 
@@ -682,7 +683,7 @@ function nextTurn(game) {
     
     // Do AI Turn if AI in play
     if(!game.ai && game.turn == 1 && game.players[1] == null) {
-        //AImove(game)
+        AImove(game)
     }
 }
 
