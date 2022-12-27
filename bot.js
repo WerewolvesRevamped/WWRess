@@ -126,6 +126,7 @@ function AImove(game, iteration = 0) {
             games.push(deepCopy(game)); // create a copy of the game to simulate the move on
             let gameid = games.length - 1;
 	        games[gameid].ai = true; // mark as AI game
+            games[gameid].id = gameid;
             let selectedMove = positions[i];
             movePiece(null, gameid, selectedPiece, xyToName(selectedMove[0], selectedMove[1]));
             
@@ -145,7 +146,7 @@ function AImove(game, iteration = 0) {
     }
     
     
-    console.log(iteration, "EVALUATED", evaluatedPositions.map(el => el[0][0] + " " + el[0][1] + ">" + xyToName(el[1][0], el[1][1]) + " = " + el[2]));
+    console.log(iteration, "EVALUATED", evaluatedPositions.map(el => el[0] + ">" + xyToName(el[1][0], el[1][1]) + " = " + el[2]));
     
     console.log(iteration, "AI MOVE", bestMove[0], xyToName(bestMove[1][0], bestMove[1][1]));
     movePiece(null, game.id, bestMove[0], xyToName(bestMove[1][0], bestMove[1][1]));
