@@ -319,8 +319,10 @@ function movePiece(interaction, id, from, to, repl = null) {
     // move effects
     switch(movedPiece.name) {
         case "Amnesiac": // Amnesiac -> Change role after onhe move
-            console.log("AMNESIAC CHANGE", movedPiece.convertTo);
-            moveCurGame.state[moveTo.y][moveTo.x] = convertPiece(movedPiece, movedPiece.convertTo);
+	    if(from != to) { // dont convert on promotion
+           	 console.log("AMNESIAC CHANGE", movedPiece.convertTo);
+           	 moveCurGame.state[moveTo.y][moveTo.x] = convertPiece(movedPiece, movedPiece.convertTo);
+	    }
         break;
     	case "Direwolf": // Direwolf -> Double move if last piece
             let wolfCount = 0;
