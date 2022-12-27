@@ -247,7 +247,11 @@ function response(interaction, resp, mode) {
             interaction.edit(resp);  
         break;
         case "editreply":
-            interaction.editReply(resp);  
+            try {
+                interaction.editReply(resp);  
+            } catch (err) {
+                interaction.update(resp);  
+            }
         break;
     }
 }
@@ -546,9 +550,7 @@ function movePiece(interaction, id, from, to, repl = null) {
         }
     } else {
         // turn complete
-    	console.log("Attempt Update");
         if(interaction) {
-    		console.log("Do Update");
             interaction.update(displayBoard(moveCurGame, "Waiting on Opponent"));     
             busyWaiting(interaction, id, moveCurGame.turn);
         }
