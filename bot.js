@@ -164,9 +164,9 @@ async function AImove(game, iteration = 0, curEval = 0, worseCount = 0) {
     }
     
     
-    console.log(iteration, "EVALUATED", evaluatedPositions.map(el => el[0] + ">" + xyToName(el[1][0], el[1][1]) + " = " + el[2]));
+    if(iteration == 0) console.log("EVALUATED", evaluatedPositions.map(el => el[0] + ">" + xyToName(el[1][0], el[1][1]) + " = " + el[2]));
     
-    console.log(iteration, "AI MOVE", bestMove[0], xyToName(bestMove[1][0], bestMove[1][1]));
+    if(iteration == 0) console.log(iteration, "AI MOVE", bestMove[0], xyToName(bestMove[1][0], bestMove[1][1]));
     movePiece(null, game.id, bestMove[0], xyToName(bestMove[1][0], bestMove[1][1]));
 }
 
@@ -278,7 +278,7 @@ function movePiece(interaction, id, from, to, repl = null) {
     let movedY = Math.abs(movedYorig);
     console.log("status", movedPiece.enemyVisibleStatus);
     if(movedPiece.enemyVisibleStatus < 7) { 
-        console.log("MOVED", movedXorig, movedYorig, beatenPiece.name);
+        if(!moveCurGame.ai) console.log("MOVED", movedXorig, movedYorig, beatenPiece.name);
         // definitely a knight
         if(movedPiece.enemyVisibleStatus < 3 && ((movedY == 1 && movedX == 2) || (movedY == 2 && movedX == 1))) {
             if(movedPiece.team == 0 && !movedPiece.hasMoved) { // white knights may be amnesiacs
@@ -483,7 +483,7 @@ function movePiece(interaction, id, from, to, repl = null) {
     switch(movedPiece.name) {
         case "Amnesiac": // Amnesiac -> Change role after onhe move
 	    if(from != to) { // dont convert on promotion
-           	 console.log("AMNESIAC CHANGE", movedPiece.convertTo);
+           	 if(!moveCurGame.ai) console.log("AMNESIAC CHANGE", movedPiece.convertTo);
            	 moveCurGame.state[moveTo.y][moveTo.x] = convertPiece(movedPiece, movedPiece.convertTo);
 	    }
         break;
@@ -576,8 +576,10 @@ async function busyWaiting(interaction, gameid, player) {
             await sleep(100);
             // if edit fails retry;
             try {
-                if(interaction) turnStart(interaction, gameid, player, "editreply");  
-                return;
+                if(interaction && interaction.replied) {
+                    turnStart(interaction, gameid, player, "editreply");  
+                    return;
+                }
             } catch (err) { 
                 console.log(err);
                 await sleep(500);
@@ -593,7 +595,7 @@ async function delayedDestroy(gameid) {
 
 function nextTurn(game) {
     // increment turn
-    console.log("NEXT TURN");
+    if(!game.ai) console.log("NEXT TURN");
     let oldTurn = game.turn;
     game.turn = (game.turn + 1) % 2;
     
