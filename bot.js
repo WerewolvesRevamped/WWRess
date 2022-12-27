@@ -114,7 +114,7 @@ function evaluate(board) {
     return blackValue - whiteValue;
 }
 
-function AImove(game, iteration = 0) {
+function AImove(game, iteration = 0, curEval = 0, worseCount = 0) {
     let board = game.state;
     let pieces = [];
     for(let y = 0; y < board.length; y++) {
@@ -129,6 +129,7 @@ function AImove(game, iteration = 0) {
     let evaluatedPositions = [];
     let maxValue = game.turn == 1 ? -1000 : 1000; 
     let bestMove = [];
+    if(iteration == 0) curEval = evaluate(board);
     // iterate through all pieces
     for(let i = 0; i < pieces.length; i++) {
         let selectedPiece = pieces[i][1];
@@ -137,13 +138,19 @@ function AImove(game, iteration = 0) {
         for(let i = 0; i < positions.length; i++) {
             games.push(deepCopy(game)); // create a copy of the game to simulate the move on
             let gameid = games.length - 1;
-	        games[gameid].ai = true; // mark as AI game
+            games[gameid].ai = true; // mark as AI game
             games[gameid].id = gameid;
             let selectedMove = positions[i];
             movePiece(null, gameid, selectedPiece, xyToName(selectedMove[0], selectedMove[1]));
             
             if(iteration <= 3) {
-                AImove(games[gameid], iteration + 1);
+                let tempValue = evaluate(games[gameid].state);
+                // remove horribly bad branches
+                if((game.turn == 1 && curEval >= tempValue) || (game.turn == 0 && curEval <= tempValue)) {
+                    worseCount++;
+                    if(worseCount >= 2) return;
+                }
+                AImove(games[gameid], iteration + 1, worseCount);
             }
             
             let moveValue = evaluate(games[gameid].state);
