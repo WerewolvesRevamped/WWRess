@@ -739,7 +739,7 @@ client.on('interactionCreate', async interaction => {
             // transform
             case "transform":
                 let transformer = nameToXY(arg1);
-                curGame.state[transformer.y][transformer.x] = getPiece(arg2);
+                curGame.state[transformer.y][transformer.x] = convertPiece(curGame.state[transformer.y][transformer.x], arg2);
                 turnMove(interaction, gameID, curGame.turn, "update");   
             break;
             // infect
@@ -1094,8 +1094,8 @@ function loadPromoteTestSetup(board) {
 }
 
 function loadTestingSetup(board) {
-    let testTown = "Aura Teller";
-    let testWolf = "Recluse";
+    let testTown = "Hooker";
+    let testWolf = "Dog";
     board[4][0] = getPiece(testTown);
     board[4][1] = getPiece(testTown);
     board[4][2] = getPiece(testTown);
@@ -1272,8 +1272,8 @@ function createGame(playerID, playerID2, gameID, name1, name2, channel, guild) {
     //loadDefaultSetup(newBoard);
     //generateRoleList(newBoard);
     
-    loadPromoteTestSetup(newBoard);
-    //loadTestingSetup(newBoard);
+    //loadPromoteTestSetup(newBoard);
+    loadTestingSetup(newBoard);
     
     // push game to list of games
     games.push({id: gameID, players: [ playerID, playerID2 ], playerNames: [ name1, name2 ], state: newBoard, turn: 0, channel: channel, guild: guild, lastMoves: [], concluded: false, selectedPiece: null, doubleMove0: false, doubleMove1: false, inDoubleMove: false, msg: null });
@@ -1479,7 +1479,7 @@ function generatePositions(board, position) {
                 break;
             }
         }
-        for(let offset = 0; offset < 5; offset--) {
+        for(let offset = 0; offset < 5; offset++) {
             if(inBounds(x+offset, y+offset) && board[y+offset][x+offset].name == null) {
                 positions.push([x+offset, y+offset]);
             } else if(inBounds(x+offset, y+offset) && board[y+offset][x+offset].team == enemyTeam) {
@@ -1489,7 +1489,7 @@ function generatePositions(board, position) {
                 break;
             }
         }
-        for(let offset = 0; offset < 5; offset--) {
+        for(let offset = 0; offset < 5; offset++) {
             if(inBounds(x-offset, y+offset) && board[y+offset][x-offset].name == null) {
                 positions.push([x-offset, y+offset]);
             } else if(inBounds(x-offset, y+offset) && board[y+offset][x-offset].team == enemyTeam) {
@@ -1499,7 +1499,7 @@ function generatePositions(board, position) {
                 break;
             }
         }
-        for(let offset = 0; offset < 5; offset--) {
+        for(let offset = 0; offset < 5; offset++) {
             if(inBounds(x+offset, y-offset) && board[y-offset][x+offset].name == null) {
                 positions.push([x+offset, y-offset]);
             } else if(inBounds(x+offset, y-offset) && board[y-offset][x+offset].team == enemyTeam) {
@@ -1509,7 +1509,7 @@ function generatePositions(board, position) {
                 break;
             }
         }
-        for(let offset = 0; offset < 5; offset--) {
+        for(let offset = 0; offset < 5; offset++) {
             if(inBounds(x-offset, y-offset) && board[y-offset][x-offset].name == null) {
                 positions.push([x-offset, y-offset]);
             } else if(inBounds(x-offset, y-offset) && board[y-offset][x-offset].team == enemyTeam) {
