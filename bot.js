@@ -692,7 +692,6 @@ function removeEffects(curGame, team) {
                 curGame.state[y][x].disguise = false;
                 if(curGame.state[y][x].name == "Sneaking Wolf") curGame.state[y][x].disguise = "Wolf"; // keep SnW disguise
             } else if(xyPiece.name != null && xyPiece.team != team) {
-                console.log("UNSABOTAGE", curGame.state[y][x]);
                 curGame.state[y][x].sabotaged = false;
             }
         }
