@@ -112,30 +112,37 @@ function AImove(game) {
             }
         }
     }
-    let positions = [];
-    let selectedPiece;
-    let iterations = 0;
-
-    while(positions.length == 0 && iterations < 100) {
-        selectedPiece = pieces[Math.floor(Math.random() * pieces.length)][1];
-        positions = generatePositions(game.state, selectedPiece);
-        iterations++;
-    }
     
-    // duplicate taking moves
-    positionsDuplicate = deepCopy(positions);
-    for(let i = 0; i < positionsDuplicate.length; i++) {
-        if(positionsDuplicate[i][2] === true) {
-            positions.push(positionsDuplicate[i]);
-            positions.push(positionsDuplicate[i]);
-            positions.push(positionsDuplicate[i]);
+    // evaluate all possible moves
+    let evaluatedPositions = [];
+    let maxValue = -1000;
+    let bestMove = [];
+    // iterate through all pieces
+    for(let i = 0; i < pieces.length; i++) {
+        let selectedPiece = pieces[i][1];
+        let positions = generatePositions(game.state, selectedPiece);
+        // iterate through that piece's moves
+        for(let i = 0; i < positions.length; i++) {
+            games.push(deepCopy(game)); // create a copy of the game to simulate the move on
+            let gameid = games.length - 1;
+            let selectedMove = positions[i];
+            movePiece(null, gameid, selectedPiece, xyToName(selectedMove[0], selectedMove[1]));
+            let moveValue = evaluate(games[gameid].state);
+            evaluatedPositions.push([selectedPiece, selectedMove, moveValue]);
+            // new best move
+            if(moveValue > maxValue) {
+                maxValue = moveValue;
+                bestMove = [selectedPiece, selectedMove];
+            }
+            games.splice(gameid, 1); // delete game copy
         }
     }
     
-    let selectedMove = positions[Math.floor(Math.random() * positions.length)];
     
-    console.log("AI MOVE", selectedPiece, xyToName(selectedMove[0], selectedMove[1]));
-    movePiece(null, game.id, selectedPiece, xyToName(selectedMove[0], selectedMove[1]));
+    console.log("EVALUATED", evaluatedPositions.map(el => el[0][0] + " " + el[0][1] + ">" + xyToName(el[1][0], el[1][1]) + " = " + el[2]));
+    
+    console.log("AI MOVE", bestMove[0], xyToName(bestMove[1][0], bestMove[1][1]));
+    movePiece(null, game.id, bestMove[0], xyToName(bestMove[1][0], bestMove[1][1]));
 }
 
 
@@ -558,6 +565,7 @@ async function delayedDestroy(gameid) {
 }
 
 function nextTurn(game) {
+    if(game.ai) return;
     // increment turn
     console.log("NEXT TURN");
     let oldTurn = game.turn;
@@ -1433,7 +1441,7 @@ function createGame(playerID, playerID2, gameID, name1, name2, channel, guild) {
     //loadTestingSetup(newBoard);
     
     // push game to list of games
-    games.push({id: gameID, players: [ playerID, playerID2 ], playerNames: [ name1, name2 ], state: newBoard, turn: 0, channel: channel, guild: guild, lastMoves: [], concluded: false, selectedPiece: null, doubleMove0: false, doubleMove1: false, inDoubleMove: false, msg: null });
+    games.push({id: gameID, players: [ playerID, playerID2 ], playerNames: [ name1, name2 ], state: newBoard, turn: 0, channel: channel, guild: guild, lastMoves: [], concluded: false, selectedPiece: null, doubleMove0: false, doubleMove1: false, inDoubleMove: false, msg: null, ai: false });
 }
 
 // destroys a game
