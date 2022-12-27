@@ -1060,8 +1060,8 @@ function getTeam(piece) {
         case "Infecting Wolf": case "Alpha Wolf": case "Psychic Wolf": case "Sneaking Wolf":
         case "Direwolf": case "Clairvoyant Fox": case "Fox":
         case "Warlock": case "Scared Wolf": case "Saboteur Wolf":
-         case "White Werewolf":
-         case "Attacked Scared Wolf":
+        case "White Werewolf":
+        case "Attacked Scared Wolf":
             return 1;
         case "Selected":
         case null:
@@ -1197,6 +1197,8 @@ function getChessValue(name) {
             return 5;
         case "Queen":
             return 9;
+        case "None":
+            return -1;
     }
 }
 
@@ -1263,6 +1265,8 @@ function getWWRValue(piece) {
             return -3;
         case "Citizen":
         case "Wolf": case "Sneaking Wolf": case "Fox": case "White Werewolf":
+        case "Attacked Runner": case "Attacked Idiot":
+        case "Attacked Scared Wolf": 
             return 0;
         case "Ranger": case "Amnesiac":
         case "Recluse":
