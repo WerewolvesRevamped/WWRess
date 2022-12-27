@@ -1116,7 +1116,7 @@ function loadPromoteTestSetup(board) {
 }
 
 function loadTestingSetup(board) {
-    let testTown = "Citizen";
+    let testTown = "Cursed Civilian";
     let testWolf = "White Werewolf";
     board[4][0] = getPiece(testTown);
     board[4][1] = getPiece(testTown);
