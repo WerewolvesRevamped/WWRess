@@ -128,7 +128,7 @@ async function AImove(game, iteration = 0, curEval = 0, worseCount = 0) {
     // evaluate all possible moves
     let evaluatedPositions = [];
     let maxValue = game.turn == 1 ? -1000 : 1000; 
-    let bestMove = [];
+    let bestMove;
     if(iteration == 0) curEval = evaluate(board);
     // iterate through all pieces
     for(let i = 0; i < pieces.length; i++) {
@@ -141,9 +141,12 @@ async function AImove(game, iteration = 0, curEval = 0, worseCount = 0) {
             games[gameid].ai = true; // mark as AI game
             games[gameid].id = gameid;
             let selectedMove = positions[i];
+		    if(!bestMove) bestMove = [selectedPiece, selectedMove]; // default move
+            // simulate move
             movePiece(null, gameid, selectedPiece, xyToName(selectedMove[0], selectedMove[1]));
             
-            if(iteration <= 3) {
+            // limit amount of iterations
+            if(iteration <= 4) {
                 let tempValue = evaluate(games[gameid].state);
                 // remove horribly bad branches
                 if((game.turn == 1 && curEval >= tempValue) || (game.turn == 0 && curEval <= tempValue)) {
