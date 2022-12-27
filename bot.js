@@ -93,9 +93,9 @@ function evaluate(board) {
         for(let x = 0; x < board[0].length; x++) {
             let evData = getEvaluationData(board[y][x].chess);
             if(board[y][x].team === 0) {
-                whiteValue += evData.value[gameState] + evData.table[4 - y][x][0];
+                whiteValue += evData.value[gameState] + evData.table[4 - y][x][0] + getWWRValue(board[y][x].name);
             } else if(board[y][x].team === 1) {
-                blackValue += evData.value[gameState] + evData.table[y][x][0];  
+                blackValue += evData.value[gameState] + evData.table[y][x][0] + getWWRValue(board[y][x].name);  
             }
         }
     }
@@ -1240,9 +1240,32 @@ function loadTestingSetup(board) {
     board[0][4] = getPiece(testWolf);
 }
 
+function getWWRValue(piece) {
+	case "Cursed Civilian":
+		return -3;
+	case "Citizen":
+	case "Wolf": case "Sneaking Wolf": case "Fox": case "White Werewolf":
+		return 0;
+	case "Ranger": case "Amnesiac":
+	case "Recluse":
+		return 1;
+	case "Child": case "Idiot": case "Crowd Seeker": case "Aura Teller": case "Royal Knight": case "Witch": case "Bartender":
+	case "Wolf Cub": case "Tanner": case "Archivist Fox": case "Dog": case "Psychic Wolf": case "Direwolf":
+		return 2;
+	case "Fortune Apprentice": case "Fortune Teller": case "Runner":
+	case "Alpha Wolf": case "Clairvoyant Fox": case "Scared Wolf": case "Saboteur Wolf": case "Warlock":
+		return 3;
+	case "Hooker": case "Alcoholic":
+		return 4;
+	case "Huntress":
+	case "Infecting Wolf":
+		return 5;
+}
+
 function generateRoleList(board) {
     // name, chess value, wwr value, incompatible with, requires
     // all town pieces
+	 /// !!!!!!! USE getWWRValue for town[2]/wolf[2]
     let town = [
         ["Citizen", 1, 0, [], ""],
         ["Ranger", 1, 1, [], ""],
@@ -1281,7 +1304,7 @@ function generateRoleList(board) {
         ["Fox", 3, 0, ["Dog"], ""],
         ["Scared Wolf", 5, 3, [], ""],
         ["Saboteur Wolf", 5, 3, ["Infecting Wolf"], ""],
-        ["Warlock", 5, 5, ["Psychic Wolf","Clairvoyant Fox"], ""],
+        ["Warlock", 5, 3, ["Psychic Wolf","Clairvoyant Fox"], ""],
         ["White Werewolf", 9, 0, [], ""],
     ];
     // preparation
