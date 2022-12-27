@@ -92,6 +92,7 @@ function evaluate(board) {
     for(let y = 0; y < board.length; y++) {
         for(let x = 0; x < board[0].length; x++) {
             let evData = getEvaluationData(board[y][x].chess);
+            console.log(evData);
             if(board[y][x].team === 0) {
                 whiteValue += evData.value[gameState] + evData.table[4 - y][x];
             } else if(board[y][x].team === 1) {
