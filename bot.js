@@ -604,6 +604,7 @@ client.on('interactionCreate', async interaction => {
                     // Target all enemy
                     case "Clairvoyant Fox":
                     case "Crowd Seeker":
+                    case "Archivist Fox":
                     case "Psychic Wolf":
                     case "Aura Teller":
                         aPositions = [];
@@ -677,9 +678,14 @@ client.on('interactionCreate', async interaction => {
             /** ACTIVE ABILITIES **/
             // investigate
             case "investigate":
-                let investigator = nameToXY(arg1);
-                investigator = curGame.state[investigator.y][investigator.x];
+                let investigatorC = nameToXY(arg1);
+                let investigator = curGame.state[investigatorC.y][investigatorC.x];
                 let investTarget = nameToXY(arg2);
+	        	if(investTarget.name == "Recluse") { // recluse reveal
+                    curGame.lastMoves.push([curGame.turn, investigator.name, false, "", arg1, arg2, 7, "👁️"]);
+                    curGame.state[investigatorC.y][investigatorC.x].enemyVisibleStatus = 7;
+                    curGame.state[investTarget.y][investTarget.x].enemyVisibleStatus = 7;
+                }
                 switch(investigator.name) {
                     // reveal role
                     case "Fortune Teller":
@@ -687,9 +693,10 @@ client.on('interactionCreate', async interaction => {
                     case "Clairvoyant Fox":
                         curGame.state[investTarget.y][investTarget.x].enemyVisibleStatus = 6;
                     break;
-                    // reveal movement tyoe
+                    // reveal movement type
                     case "Crowd Seeker":
                     case "Psychic Wolf":
+                    case "Archivist Fox":
                         curGame.state[investTarget.y][investTarget.x].enemyVisibleStatus = 4;
                         curGame.state[investTarget.y][investTarget.x].enemyVisible = curGame.state[investTarget.y][investTarget.x].chess;
                     break;
@@ -946,9 +953,9 @@ function getAbilityText(piece) {
         case "Tanner":
             return "Disguise one piece.";
         case "Archivist Fox":
-            return "WIP !!!";
+            return "Reveal a piece's type.";
         case "Recluse":
-            return "WIP !!!";
+            return "Reveals if investigated.";
         case "Dog":
             return "Once, becomes a Wolf Cub or Fox.";
         case "Infecting Wolf":
@@ -1063,7 +1070,7 @@ function loadPromoteTestSetup(board) {
 
 function loadTestingSetup(board) {
     let testTown = "Aura Teller";
-    let testWolf = "Saboteur Wolf";
+    let testWolf = "Recluse";
     board[4][0] = getPiece(testTown);
     board[4][1] = getPiece(testTown);
     board[4][2] = getPiece(testTown);
