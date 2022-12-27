@@ -344,15 +344,36 @@ function movePiece(interaction, id, from, to, repl = null) {
     // promote?
     if(movedPiece.chess == "Pawn" && moveCurGame.turn == 0 && moveTo.y == 0) {
         if(interaction) {
-            interaction.update(displayBoard(moveCurGame, "Promote " + to, [{ type: 1, components: [{ type: 2, label: "Runner ♖", style: 1, custom_id: "promote-"+to+"-Runner" }, { type: 2, label: "Hooker ♔", style: 1, custom_id: "promote-"+to+"-Hooker" }] }]));
+            let kings = ["Hooker","Idiot","Crowd Seeker","Aura Teller"];
+            let knights = ["Royal Knight","Amnesiac"];
+            let rooks = ["Fortune Teller","Runner","Witch"];
+            let promoteKing = kings[Math.floor(Math.random() * kings.length)];
+            let promoteKnight = knights[Math.floor(Math.random() * knights.length)];
+            let promoteRook = rooks[Math.floor(Math.random() * rooks.length)];
+            let components = [];
+            components.push({ type: 2, label: promoteKing + " " + getUnicode(getChessName(promoteKing), 0), style: 1, custom_id: "promote-"+to+"-"+promoteKing });
+            components.push({ type: 2, label: promoteKnight + " " + getUnicode(getChessName(promoteKnight), 0), style: 1, custom_id: "promote-"+to+"-" + promoteKnight });
+            components.push({ type: 2, label: promoteRook + " " + getUnicode(getChessName(promoteRook), 0), style: 1, custom_id: "promote-"+to+"-" + promoteRook });
+            interaction.update(displayBoard(moveCurGame, "Promote " + to, [{ type: 1, components: components }] ));
         } else {
             movePiece(interaction, id, to, to, getPiece("Runner"));
         }
     } else if(movedPiece.chess == "Pawn" && moveCurGame.turn == 1 && moveTo.y == 4) {
         if(interaction) {
-            interaction.update(displayBoard(moveCurGame, "Promote " + to, [{ type: 1, components: [{ type: 2, label: "Warlock ♜", style: 1, custom_id: "promote-"+to+"-Warlock" }, { type: 2, label: "Alpha Wolf ♚", style: 1, custom_id: "promote-"+to+"-Alpha Wolf" }] }]));
+            let kings = ["Alpha Wolf","Psychic Wolf","Sneaking Wolf"];
+            let knights = ["Direwolf","Clairvoyant Fox","Fox"];
+            let rooks = ["Warlock","Scared Wolf","Saboteur Wolf"];
+            let promoteKing = kings[Math.floor(Math.random() * kings.length)];
+            let promoteKnight = knights[Math.floor(Math.random() * knights.length)];
+            let promoteRook = rooks[Math.floor(Math.random() * rooks.length)];
+            let components = [];
+            components.push({ type: 2, label: promoteKing + " " + getUnicode(getChessName(promoteKing), 1), style: 1, custom_id: "promote-"+to+"-"+promoteKing });
+            components.push({ type: 2, label: promoteKnight + " " + getUnicode(getChessName(promoteKnight), 1), style: 1, custom_id: "promote-"+to+"-" + promoteKnight });
+            components.push({ type: 2, label: promoteRook + " " + getUnicode(getChessName(promoteRook), 1), style: 1, custom_id: "promote-"+to+"-" + promoteRook });
+            interaction.update(displayBoard(moveCurGame, "Promote " + to, [{ type: 1, components: components }] ));
         } else {
-            movePiece(interaction, id, to, to, getPiece("Warlock"));
+            let randomOptions = ["Alpha Wolf","Direwolf","Warlock","Scared Wolf","Saboteur Wolf"];
+            movePiece(interaction, id, to, to, getPiece(randomOptions[Math.floor(Math.random() * randomOptions)]));
         }
     } else {
         // turn complete
@@ -1248,8 +1269,8 @@ function createGame(playerID, playerID2, gameID, name1, name2, channel, guild) {
     //loadDefaultSetup(newBoard);
     //generateRoleList(newBoard);
     
-    //loadPromoteTestSetup(newBoard);
-    loadTestingSetup(newBoard);
+    loadPromoteTestSetup(newBoard);
+    //loadTestingSetup(newBoard);
     
     // push game to list of games
     games.push({id: gameID, players: [ playerID, playerID2 ], playerNames: [ name1, name2 ], state: newBoard, turn: 0, channel: channel, guild: guild, lastMoves: [], concluded: false, selectedPiece: null, doubleMove0: false, doubleMove1: false, inDoubleMove: false, msg: null });
