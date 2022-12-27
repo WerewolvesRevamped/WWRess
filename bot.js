@@ -463,7 +463,29 @@ function nextTurn(game) {
     // WIN Message
     if(pieces == 0 || iterations == 100) {
         let guild = client.guilds.cache.get(game.guild);
-        let channel = guild.channels.cache.get(game.channel)
+        let channel = guild.channels.cache.get(game.channel);
+        
+        // look for www
+        let wwwAlive = false;
+        let wolfCount = 0;
+        for(let y = 0; y < 5; y++) {
+            for(let x = 0; x < 5; x++) {
+                let xyPiece = moveCurGame.state[y][x];
+                if(xyPiece.name == "White Werewolf") {
+                    wwwAlive = true;
+                }
+                if(xyPiece.team == 1) {
+                    wolfCount++;
+                }
+            }
+        }
+        // www lose
+        if(wwwAlive && wolfCount > 1 && oldTurn == 1) {
+            oldTurn = 0;
+            game.turn = 1;
+            channel.send("White Werewolf causes a loss!");
+        }
+        
         if(game.players[1]) channel.send("<@" + game.players[oldTurn] + "> has won against <@" + game.players[game.turn] + ">!");
         else if(oldTurn == 0 && !game.players[1]) channel.send("<@" + game.players[oldTurn] + "> has won against **AI**!");
         else if(oldTurn == 1 && !game.players[1]) channel.send("**AI** has won against <@" + game.players[game.turn] + ">!");
@@ -1005,7 +1027,7 @@ function getAbilityText(piece) {
         case "Saboteur Wolf":
             return "Block a piece's movement/active ability.";
          case "White Werewolf":
-            return "WIP !!!";
+            return "Must either be dead or the only remaining piece. Loses the game otherwise.";
     }
 }
 
@@ -1094,8 +1116,8 @@ function loadPromoteTestSetup(board) {
 }
 
 function loadTestingSetup(board) {
-    let testTown = "Hooker";
-    let testWolf = "Dog";
+    let testTown = "Citizen";
+    let testWolf = "White Werewolf";
     board[4][0] = getPiece(testTown);
     board[4][1] = getPiece(testTown);
     board[4][2] = getPiece(testTown);
