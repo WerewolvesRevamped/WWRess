@@ -15,6 +15,7 @@ const KingValue = [3.5, 5.5];
 const KnightValue = [4.0, 5.0];
 const RookValue = [6.0, 8.0];
 const QueenValue = [13.0, 16.0];
+const NoneValue = [-0.5, 0.0];
 
 const PawnTable = [
     [[0.5], [1.0], [-1.0], [1.0], [0.5]],
@@ -56,6 +57,14 @@ const QueenTable = [
     [[-1.5], [-0.5], [-0.5], [-0.5], [-1.5]]
 ];
 
+const NoneTable = [
+    [[0.0], [-0.5], [-1.0], [-0.5], [0.0]],
+    [[0.0], [-0.5], [-1.5], [-0.5], [0.0]],
+    [[0.0], [-0.5], [-2.0], [-0.5], [0.0]],
+    [[0.5], [-1.5], [-2.5], [-1.5], [0.5]],
+    [[0.5], [1.0], [1.5], [1.0], [0.5]]
+];
+
 function getEvaluationData(piece) {
     switch(piece) {
         case "Pawn":
@@ -72,6 +81,9 @@ function getEvaluationData(piece) {
         break;
         case "Queen":
             return { value: QueenValue, table: QueenTable };    
+        break;
+        case "None":
+            return { value: NoneValue, table: NoneTable };    
         break;
     }
 }
