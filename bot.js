@@ -681,11 +681,6 @@ client.on('interactionCreate', async interaction => {
                 let investigatorC = nameToXY(arg1);
                 let investigator = curGame.state[investigatorC.y][investigatorC.x];
                 let investTarget = nameToXY(arg2);
-	        	if(investTarget.name == "Recluse") { // recluse reveal
-                    curGame.lastMoves.push([curGame.turn, investigator.name, false, "", arg1, arg2, 7, "👁️"]);
-                    curGame.state[investigatorC.y][investigatorC.x].enemyVisibleStatus = 7;
-                    curGame.state[investTarget.y][investTarget.x].enemyVisibleStatus = 7;
-                }
                 switch(investigator.name) {
                     // reveal role
                     case "Fortune Teller":
@@ -708,8 +703,14 @@ client.on('interactionCreate', async interaction => {
                         }
                     break;
                 }
-                let investTargetObject = curGame.state[investTarget.y][investTarget.x];
-                curGame.lastMoves.push([curGame.turn, investTargetObject.name, investTargetObject.disguise, investTargetObject.enemyVisible, arg2, arg2, investTargetObject.enemyVisibleStatus, "👁️🟦🟦"]);
+				if(investTarget.name == "Recluse") { // recluse reveal
+                    curGame.lastMoves.push([curGame.turn, investigator.name, false, "", arg1, arg2, 7, "👁️"]);
+                    curGame.state[investigatorC.y][investigatorC.x].enemyVisibleStatus = 7;
+                    curGame.state[investTarget.y][investTarget.x].enemyVisibleStatus = 7;
+                } else {
+                	let investTargetObject = curGame.state[investTarget.y][investTarget.x];
+			  		curGame.lastMoves.push([curGame.turn, investTargetObject.name, investTargetObject.disguise, investTargetObject.enemyVisible, arg2, arg2, investTargetObject.enemyVisibleStatus, "👁️🟦🟦"]);
+				}
                 turnMove(interaction, gameID, curGame.turn, "update") 
             break;
             // transform
