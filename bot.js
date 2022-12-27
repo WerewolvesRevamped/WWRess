@@ -9,6 +9,137 @@ client.on("ready", () => {
     registerCommands();
 });
 
+/** AI **/
+const PawnValue = [1.0, 1.5];
+const KingValue = [3.5, 5.5]; 
+const KnightValue = [4.0, 5.0];
+const RookValue = [6.0, 8.0];
+const QueenValue = [13.0, 16.0];
+
+const PawnTable = [
+    [[0.5], [1.0], [-1.0], [1.0], [0.5]],
+    [[0.5], [-1.0], [0.0], [-1.0], [0.5]],
+    [[0.5], [1.5], [2.5], [1.5], [0.5]],
+    [[2.0], [3.0], [5.0], [3.0], [2.0]],
+    [[0.0], [0.0], [0.0], [0.0], [0.0]]
+];
+
+const KingTable = [
+    [[-2.0], [-1.0], [-1.0], [-1.0], [-2.0]],
+    [[-1.0], [1.0], [1.5], [1.0], [-1.0]],
+    [[-1.0], [1.5], [2.0], [1.5], [-1.0]],
+    [[-1.0], [1.0], [1.5], [1.0], [-1.0]],
+    [[-2.0], [-1.0], [-1.0], [-1.0], [-2.0]]
+];
+
+const KnightTable = [
+    [[-5.0], [-4.0], [-3.0], [-4.0], [-5.0]],
+    [[-4.0], [-2.0], [0.5], [-2.0], [-4.0]],
+    [[-3.0], [0.5], [2.0], [0.5], [-3.0]],
+    [[-4.0], [-2.0], [0.5], [-2.0], [-4.0]],
+    [[-5.0], [-4.0], [-3.0], [-4.0], [-5.0]]
+];
+
+const RookTable = [
+    [[0.0], [0.5], [0.5], [0.5], [0.0]],
+    [[-0.5], [0.0], [0.0], [0.0], [-0.5]],
+    [[-0.5], [0.0], [0.0], [0.0], [-0.5]],
+    [[-0.5], [0.0], [0.0], [0.0], [-0.5]],
+    [[0.0], [1.0], [1.0], [1.0], [0.0]]
+];
+
+const QueenTable = [
+    [[0.5], [2.0], [1.0], [2.0], [0.5]],
+    [[0.0], [0.5], [0.5], [0.5], [0.0]],
+    [[0.0], [0.5], [0.5], [0.5], [0.0]],
+    [[-0.5], [0.5], [0.5], [0.5], [-0.5]],
+    [[-1.5], [-0.5], [-0.5], [-0.5], [-1.5]]
+];
+
+function getEvaluationData(piece) {
+    switch(piece) {
+        case "Pawn":
+            return { value: PawnValue, table: PawnTable };    
+        break;
+        case "King":
+            return { value: KingValue, table: KingTable };    
+        break;
+        case "Knight":
+            return { value: KnightValue, table: KnightTable };    
+        break;
+        case "Rook":
+            return { value: RookValue, table: RookTable };    
+        break;
+        case "Queen":
+            return { value: QueenValue, table: QueenTable };    
+        break;
+    }
+}
+
+function evaluate(board) {
+    // count pieces
+    let pieceCount = 0;
+    for(let y = 0; y < board.length; y++) {
+        for(let x = 0; x < board[0].length; x++) {
+            if(board[y][x].name != null) {
+                pieceCount++;
+            }
+        }
+    }
+    let gameState = pieceCount > 6 ? 0 : 1;
+    // determine material + position
+    let whiteValue = 0, blackValue = 0;
+    for(let y = 0; y < board.length; y++) {
+        for(let x = 0; x < board[0].length; x++) {
+            let evData = getEvaluationData(board[y][x].chess);
+            if(board[y][x].team === 0) {
+                whiteValue += evData.value[gameState] + evData.table[4 - y][x];
+            } else if(board[y][x].team === 1) {
+                blackValue += evData.value[gameState] + evData.table[y][x];  
+            }
+        }
+    }
+    return blackValue - whiteValue;
+}
+
+function AImove(game) {
+    let board = game.state;
+    let pieces = [];
+    for(let y = 0; y < board.length; y++) {
+        for(let x = 0; x < board[0].length; x++) {
+            if(board[y][x].team == 1) {
+                pieces.push([board[y][x].name, xyToName(x, y), y, x]);
+            }
+        }
+    }
+    let positions = [];
+    let selectedPiece;
+    let iterations = 0;
+
+    while(positions.length == 0 && iterations < 100) {
+        selectedPiece = pieces[Math.floor(Math.random() * pieces.length)][1];
+        positions = generatePositions(game.state, selectedPiece);
+        iterations++;
+    }
+    
+    // duplicate taking moves
+    positionsDuplicate = deepCopy(positions);
+    for(let i = 0; i < positionsDuplicate.length; i++) {
+        if(positionsDuplicate[i][2] === true) {
+            positions.push(positionsDuplicate[i]);
+            positions.push(positionsDuplicate[i]);
+            positions.push(positionsDuplicate[i]);
+        }
+    }
+    
+    let selectedMove = positions[Math.floor(Math.random() * positions.length)];
+    
+    console.log("AI MOVE", selectedPiece, xyToName(selectedMove[0], selectedMove[1]));
+    movePiece(null, game.id, selectedPiece, xyToName(selectedMove[0], selectedMove[1]));
+}
+
+
+
 // check if user is a Game Master
 function isGameMaster(member) {
     if(!member) return false;
@@ -512,42 +643,6 @@ function nextTurn(game) {
     if(game.turn == 1 && game.players[1] == null) {
         AImove(game)
     }
-}
-
-function AImove(game) {
-    let board = game.state;
-    let pieces = [];
-    for(let y = 0; y < board.length; y++) {
-        for(let x = 0; x < board[0].length; x++) {
-            if(board[y][x].team == 1) {
-                pieces.push([board[y][x].name, xyToName(x, y), y, x]);
-            }
-        }
-    }
-    let positions = [];
-    let selectedPiece;
-    let iterations = 0;
-
-    while(positions.length == 0 && iterations < 100) {
-        selectedPiece = pieces[Math.floor(Math.random() * pieces.length)][1];
-        positions = generatePositions(game.state, selectedPiece);
-        iterations++;
-    }
-    
-    // duplicate taking moves
-    positionsDuplicate = deepCopy(positions);
-    for(let i = 0; i < positionsDuplicate.length; i++) {
-        if(positionsDuplicate[i][2] === true) {
-            positions.push(positionsDuplicate[i]);
-            positions.push(positionsDuplicate[i]);
-            positions.push(positionsDuplicate[i]);
-        }
-    }
-    
-    let selectedMove = positions[Math.floor(Math.random() * positions.length)];
-    
-    console.log("AI MOVE", selectedPiece, xyToName(selectedMove[0], selectedMove[1]));
-    movePiece(null, game.id, selectedPiece, xyToName(selectedMove[0], selectedMove[1]));
 }
 
 function removeEffects(curGame, team) {
@@ -1626,7 +1721,7 @@ function generateAbilities(board, team) {
 
 function renderBoard(game, message = "Turn", turnOverride = null) {
     let board = game.state;
-    let boardMsg = "**" + game.playerNames[0] + " vs. " + game.playerNames[1] +  "**\n" + "**" + message + "**\n";
+    let boardMsg = "**" + game.playerNames[0] + " vs. " + game.playerNames[1] +  "**\n" + "**" + message + "**" + evaluate(board) + "\n";
     let boardRows = ["🟦🇦​🇧​🇨​🇩​🇪"];
     let visiblePieces = [];
     const letterRanks = ["🇦","🇧","🇨","🇩","​🇪"];
