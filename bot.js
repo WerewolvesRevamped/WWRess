@@ -1607,7 +1607,8 @@ function renderBoard(game, message = "Turn", turnOverride = null) {
                     lmMsg += numberRow[moveTo.y];
                 } else {
                     lmMsg += lm[7];
-                    if(lm[7].length < 3) {
+                    // Array.from("").length is more precise than "".length
+                    if(Array.from(lm[7]).length < 3) {
                         lmMsg += letterRanks[moveTo.x];
                         lmMsg += numberRow[moveTo.y];
                     }
