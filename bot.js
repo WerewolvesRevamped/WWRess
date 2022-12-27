@@ -125,6 +125,7 @@ function AImove(game) {
         for(let i = 0; i < positions.length; i++) {
             games.push(deepCopy(game)); // create a copy of the game to simulate the move on
             let gameid = games.length - 1;
+	        games[gameid].ai = true; // mark as AI game
             let selectedMove = positions[i];
             movePiece(null, gameid, selectedPiece, xyToName(selectedMove[0], selectedMove[1]));
             let moveValue = evaluate(games[gameid].state);
