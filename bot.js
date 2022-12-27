@@ -247,11 +247,7 @@ function response(interaction, resp, mode) {
             interaction.edit(resp);  
         break;
         case "editreply":
-            try {
-                interaction.editReply(resp);  
-            } catch (err) {
-                interaction.update(resp);  
-            }
+	        interaction.editReply(resp);  
         break;
     }
 }
@@ -686,7 +682,7 @@ function nextTurn(game) {
     
     // Do AI Turn if AI in play
     if(!game.ai && game.turn == 1 && game.players[1] == null) {
-        AImove(game)
+        //AImove(game)
     }
 }
 
