@@ -114,7 +114,7 @@ function evaluate(board) {
     return blackValue - whiteValue;
 }
 
-async function AImove(game, iteration = 0, curEval = 0, worseCount = 0) {
+function AImove(game, iteration = 0, curEval = 0, worseCount = 0) {
     let board = game.state;
     let pieces = [];
     for(let y = 0; y < board.length; y++) {
@@ -149,7 +149,7 @@ async function AImove(game, iteration = 0, curEval = 0, worseCount = 0) {
                 if((game.turn == 1 && curEval >= tempValue) || (game.turn == 0 && curEval <= tempValue)) {
                     worseCount++;
                 }
-                if(worseCount <= 1) await AImove(games[gameid], iteration + 1, worseCount);
+                if(worseCount <= 1) AImove(games[gameid], iteration + 1, worseCount);
             }
             
             let moveValue = evaluate(games[gameid].state);
@@ -573,6 +573,7 @@ async function busyWaiting(interaction, gameid, player) {
         }
         // attempt turn
         if(games[gameid].turn == player) {
+            await sleep(100);
             // if edit fails retry;
             try {
                 if(interaction) turnStart(interaction, gameid, player, "editreply");  
