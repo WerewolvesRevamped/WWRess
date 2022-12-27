@@ -837,6 +837,10 @@ client.on('interactionCreate', async interaction => {
                 interaction.editReply("✅ Pong! Latency is " + latency + "ms. API Latency is " + ping + "ms");
             })
         break;
+        case "help":
+            // Send pinging message
+            interaction.reply({ content: "**WWRess**\nWWRess is a variant of chess, played on a 5x5 grid. In each game, each of the two sides (white/town & black/wolves) gets 5 pieces. Each piece comes with a movement type (Pawn, King, Knight, Rook or Queen) and an ability. Each team has 17 unique pieces (6 pawns, 4 kings, 3 knights, 3 rooks, 1 queen). The pieces of the teams differ, so the two sides usually have completely different abilities.\n\nEach turn consists of two actions: first, using an active ability (if a piece with an active ability is available) and second, moving a piece. The game is won if the enemy cannot make a move (Kings are not part of the win condition in any way).\n\nThe only available special move is Pawn Promotion.\n\nInitially, all enemy pieces are hidden. The movement type of enemy pieces will automatically be marked where possible (only a knight can jump so that move makes the piece clearly identifiable as a knight (though not which knight), moving a single step forward does not) and additionally investigative pieces may be used to reveal them. Sometimes this is not fully accurate, as some pieces can change role (e.g. Dog) and some can be disguised (e.g. Sneaking Wolf).\n\nStart a game against the (terrible) AI with `/play`, challenge another player with `/challenge <name>`. Accept or deny a challenge with `/accept` and `/deny`. Use `/resign` to give up." });
+        break;
         case "play":
             if(isPlaying(interaction.member.id)) {
                 interaction.reply({ content: "❎ You're already in a game!", ephemeral: true });
@@ -865,6 +869,17 @@ client.on('interactionCreate', async interaction => {
                 destroyGame(id);
                 interaction.reply("✅ " + interaction.member.user.username + " resigned!");
                 console.log("RESIGN");
+            }
+        break;
+        case "deny":
+            if(!isOutstanding(interaction.member.id)) {
+                interaction.reply({ content: "❎ You have no outstanding challenges!", ephemeral: true });
+            } else {
+                let id = getPlayerGameId(interaction.member.id);
+                concludeGame(id);
+                destroyGame(id);
+                interaction.reply("✅ " + interaction.member.user.username + " denied the challenge!");
+                console.log("DENY");
             }
         break;
         case "challenge":
@@ -1733,6 +1748,14 @@ function registerCommands() {
     client.application?.commands.create({
         name: 'accept',
         description: 'Accepts a challenge.'
+    });
+    client.application?.commands.create({
+        name: 'deny',
+        description: 'Denies a challenge.'
+    });
+    client.application?.commands.create({
+        name: 'help',
+        description: 'Explains the game.'
     });
 }
 
