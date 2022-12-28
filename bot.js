@@ -165,8 +165,8 @@ function minimax(game, depth, alpha = -Infinity, beta = Infinity, maximizingPlay
     let board = game.state;
     // Base case: if we have reached the maximum search depth or the game is over, return the heuristic value of the state
     if (depth === 0 || gameOver(board)) {
-        let value = evaluate(board); // this is positive for the maximizing player -> so rn Player#2 is hardcoded as that
-        return value;
+        // this is positive for the maximizing player -> so rn Player#2 is hardcoded as that
+        return evaluate(board);
     }
 
     if (maximizingPlayer) {
@@ -208,7 +208,7 @@ async function AImove(game) {
     let bestValue = -Infinity;
     let bestMove = null;
     for (const child of children) {
-        let minmax = minimax(child[2], 5);
+        let minmax = minimax(child[2], 4);
         if(minmax > bestValue) {
             bestValue = minmax;
             bestMove = child;
@@ -650,21 +650,10 @@ function canMove(board, player) {
         for(let x = 0; x < board[0].length; x++) {
             if(board[y][x].team == player) {
                 pieces.push([board[y][x].name, xyToName(x, y), y, x]);
+                if(generatePositions(board, xyToName(x, y), true).length > 0) return true;
             }
         }
     }
-    // if no pieces exist, no move is possible
-    if(pieces.length == 0) return false;
-    
-    // if a piece exists, iterate them and look for a valid move.
-    let positions = [];
-    let selectedPiece;
-    for(let i = 0; i < pieces.length; i++) {
-        selectedPiece = pieces[i][1];
-        positions = generatePositions(board, selectedPiece);
-        if(positions.length > 0) return true; // if a valid move is found, return true
-    }
-    
     // if no move is found, return false
     return false;
 }
