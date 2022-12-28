@@ -661,9 +661,12 @@ function canMove(board, player) {
     let selectedPiece;
     for(let i = 0; i < positions.length; i++) {
         selectedPiece = pieces[i][1];
-        positions = generatePositions(game.state, selectedPiece);
+        positions = generatePositions(board, selectedPiece);
         if(positions.length > 0) return true; // if a valid move is found, return true
     }
+    
+    // if no move is found, return false
+    return false;
 }
 
 function nextTurn(game) {
