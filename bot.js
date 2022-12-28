@@ -9,6 +9,9 @@ client.on("ready", () => {
     registerCommands();
 });
 
+/* Board */
+const boardSize = 5; // not consistently used
+
 /** AI **/
 const PawnValue = [1.0, 1.5];
 const KingValue = [3.5, 5.5]; 
@@ -88,23 +91,30 @@ function getEvaluationData(piece) {
     }
 }
 
-function evaluate(board) {
+function determineGameState(board) {
     // count pieces
     let pieceCount = 0;
-    for(let y = 0; y < board.length; y++) {
-        for(let x = 0; x < board[0].length; x++) {
+    for(let y = 0; y < boardSize; y++) {
+        for(let x = 0; x < boardSize; x++) {
             if(board[y][x].name != null) {
                 pieceCount++;
+                if(pieceCount > 6) {
+                    return 0;
+                }
             }
         }
     }
-    let gameState = pieceCount > 6 ? 0 : 1;
-	let tableMultiplier = gameState?0.5:1;
+    return 1;
+}
+
+function evaluate(board) {
+    let gameState = determineGameState(board);
+	let tableMultiplier = gameState ? 0.5 : 1;
     // determine material + position
     let whiteValue = 0, blackValue = 0;
     let whiteReveal = 0, blackReveal = 0;
-    for(let y = 0; y < board.length; y++) {
-        for(let x = 0; x < board[0].length; x++) {
+    for(let y = 0; y < boardSize; y++) {
+        for(let x = 0; x < boardSize; x++) {
             let evData = getEvaluationData(board[y][x].chess);
             if(board[y][x].team === 0) {
                 whiteValue += evData.value[gameState] * 2 + evData.table[4 - y][x][0] * tableMultiplier + getWWRValue(board[y][x].name);
@@ -126,10 +136,10 @@ function getChildren(game) {
     let board = game.state;
     // get all available pieces
     let pieces = [];
-    for(let y = 0; y < board.length; y++) {
-        for(let x = 0; x < board[0].length; x++) {
+    for(let y = 0; y < boardSize; y++) {
+        for(let x = 0; x < boardSize; x++) {
             if(board[y][x].team == game.turn) {
-                pieces.push([board[y][x].name, xyToName(x, y), y, x]);
+                pieces.push(xyToName(x, y));
             }
         }
     }
@@ -147,7 +157,7 @@ function getChildren(game) {
     // iterate through all pieces
     let children = [];
     for(let i = 0; i < pieces.length; i++) {
-        let selectedPiece = pieces[i][1];
+        let selectedPiece = pieces[i];
         let positions = generatePositions(game.state, selectedPiece, true);
         // iterate through that piece's moves
         for(let j = 0; j < positions.length; j++) {
@@ -185,7 +195,7 @@ function minimax(game, depth, alpha = -Infinity, beta = Infinity, maximizingPlay
         }
         // destroy games
         for (const child of children) {
-            games = games.filter(el => el.id != child[2].id);
+            games.splice(games.findIndex(el => el.id === child[2].id), 1);
         }
         return value;
     } else {
@@ -200,7 +210,7 @@ function minimax(game, depth, alpha = -Infinity, beta = Infinity, maximizingPlay
         }
         // destroy games
         for (const child of children) {
-            games = games.filter(el => el.id != child[2].id);
+            games.splice(games.findIndex(el => el.id === child[2].id), 1);
         }
         return value;
     }
@@ -217,7 +227,7 @@ async function AImove(game) {
             bestValue = minmax;
             bestMove = child;
         }
-        games = games.filter(el => el.id != child[2].id);
+        games.splice(games.findIndex(el => el.id === child[2].id), 1);
     }
 
     console.log("AI MOVE", bestMove[0], xyToName(bestMove[1][0], bestMove[1][1]));
