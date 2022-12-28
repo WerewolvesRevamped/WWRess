@@ -326,9 +326,9 @@ function movePiece(interaction, id, from, to, repl = null) {
     let movedYorig = moveFrom.y - moveTo.y;
     let movedX = Math.abs(movedXorig);
     let movedY = Math.abs(movedYorig);
+    if(!moveCurGame.ai) console.log("MOVED", movedXorig, movedYorig, beatenPiece.name);
     //console.log("status", movedPiece.enemyVisibleStatus);
     if(movedPiece.enemyVisibleStatus < 7) { 
-        if(!moveCurGame.ai) console.log("MOVED", movedXorig, movedYorig, beatenPiece.name);
         // definitely a knight
         if(movedPiece.enemyVisibleStatus < 3 && ((movedY == 1 && movedX == 2) || (movedY == 2 && movedX == 1))) {
             if(movedPiece.team == 0 && !movedPiece.hasMoved) { // white knights may be amnesiacs
