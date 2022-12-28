@@ -649,12 +649,10 @@ async function delayedDestroy(gameid) {
 
 function canMove(board, player) {
     // check if a piece is available
-    let pieces = [];
     for(let y = 0; y < board.length; y++) {
         for(let x = 0; x < board[0].length; x++) {
             if(board[y][x].team == player) {
-                pieces.push([board[y][x].name, xyToName(x, y), y, x]);
-                if(generatePositions(board, xyToName(x, y), true).length > 0) return true;
+                if(hasAvailableMove(board, xyToName(x, y), true)) return true;
             }
         }
     }
@@ -1789,6 +1787,114 @@ function generatePositions(board, position, hideLog = false) {
     }
     positions.sort((a,b) => (xyToName(a[0], a[1]) > xyToName(b[0], b[1])) ? 1 : ((xyToName(b[0], b[1]) > xyToName(a[0], a[1])) ? -1 : 0));
     return positions;
+}
+
+function hasAvailableMove(board, position) {
+    position = nameToXY(position);
+    let x = position.x, y = position.y;
+    let piece = board[y][x];
+    const pieceTeam = piece.team;
+    const enemyTeam = (pieceTeam + 1) % 2;
+    const pieceType = piece.chess;
+    // Movement Logic
+    /* PAWN */
+    if(pieceType == "Pawn" && pieceTeam == 0) {
+        if(y>0) {
+            if(board[y-1][x].name == null) return true;
+            if(x>0 && board[y-1][x-1].name != null && board[y-1][x-1].team == enemyTeam) return true;
+            if(x<4 && board[y-1][x+1].name != null && board[y-1][x+1].team == enemyTeam) return true;
+        }            
+    } else if(pieceType == "Pawn" && pieceTeam == 1) {
+        if(y<4) {
+            if(board[y+1][x].name == null) return true;
+            if(x>0 && board[y+1][x-1].name != null && board[y+1][x-1].team == enemyTeam) return true;
+            if(x<4 && board[y+1][x+1].name != null && board[y+1][x+1].team == enemyTeam) return true;
+        }            
+    } 
+    /* ROOK */
+    else if(pieceType == "Rook") {
+        for(let xt1 = x+1; xt1 < 5; xt1++) {
+            if(inBounds(xt1) && board[y][xt1].team != pieceTeam) {
+                return true;
+            }
+        }
+        for(let xt2 = x-1; xt2 >= 0; xt2--) {
+            if(inBounds(xt2) && board[y][xt2].team != pieceTeam) {
+                return true;
+            }
+        }
+        for(let yt1 = y+1; yt1 < 5; yt1++) {
+            if(inBounds(yt1) && board[yt1][x].team != pieceTeam) {
+                return true;
+            }
+        }
+        for(let yt2 = y-1; yt2 >= 0; yt2--) {
+            if(inBounds(yt2) && board[yt2][x].team != pieceTeam) {
+                return true;
+            }
+        }
+    } /* QUEEN */
+    else if(pieceType == "Queen") {
+        for(let xt1 = x+1; xt1 < 5; xt1++) {
+            if(inBounds(xt1) && board[y][xt1].team != pieceTeam) {
+                return true;
+            }
+        }
+        for(let xt2 = x-1; xt2 >= 0; xt2--) {
+            if(inBounds(xt2) && board[y][xt2].team != pieceTeam) {
+                return true;
+            }
+        }
+        for(let yt1 = y+1; yt1 < 5; yt1++) {
+            if(inBounds(yt1) && board[yt1][x].team != pieceTeam) {
+                return true;
+            }
+        }
+        for(let yt2 = y-1; yt2 >= 0; yt2--) {
+            if(inBounds(yt2) && board[yt2][x].team != pieceTeam) {
+                return true;
+            }
+        }
+        for(let offset = 1; offset < 5; offset++) {
+            if(inBounds(x+offset, y+offset) && board[y+offset][x+offset].team != pieceTeam) {
+                return true;
+            }
+        }
+        for(let offset = 1; offset < 5; offset++) {
+            if(inBounds(x-offset, y+offset) && board[y+offset][x-offset].team != pieceTeam) {
+                return true;
+            }
+        }
+        for(let offset = 1; offset < 5; offset++) {
+            if(inBounds(x+offset, y-offset) && board[y-offset][x+offset].team != pieceTeam) {
+                return true;
+            }
+        }
+        for(let offset = 1; offset < 5; offset++) {
+            if(inBounds(x-offset, y-offset) && board[y-offset][x-offset].team != pieceTeam) {
+                return true;
+            }
+        }
+    }
+    /* KING */
+    else if(pieceType == "King") {
+        let possibleMoves = [[1,0],[-1,0],[0,1],[0,-1],[1,1],[-1,1],[1,-1],[-1,-1]];
+        for(let i = 0; i < possibleMoves.length; i++) {
+            let px = x + possibleMoves[i][0];
+            let py = y + possibleMoves[i][1];
+            if(inBounds(px, py) && board[py][px].team != pieceTeam) return true;
+        }
+    }
+    /* KNIGHT */
+    else if(pieceType == "Knight") {
+        let possibleMoves = [[2,1],[-2,1],[2,-1],[-2,-1],[1,2],[-1,2],[1,-2],[-1,-2]];
+        for(let i = 0; i < possibleMoves.length; i++) {
+            let px = x + possibleMoves[i][0];
+            let py = y + possibleMoves[i][1];
+            if(inBounds(px, py) && board[py][px].team != pieceTeam) return true;
+        }
+    }
+    return false;
 }
 
 function interactionsFromPositions(positions, from, back = "turnstart", action = "move", styleOverride = false) {
