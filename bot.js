@@ -13,7 +13,7 @@ client.on("ready", () => {
 const PawnValue = [1.0, 1.5];
 const KingValue = [3.5, 5.5]; 
 const KnightValue = [4.0, 5.0];
-const RookValue = [6.0, 8.0];
+const RookValue = [7.0, 9.0];
 const QueenValue = [13.0, 16.0];
 const NoneValue = [-0.5, 0.0];
 
@@ -99,15 +99,16 @@ function evaluate(board) {
         }
     }
     let gameState = pieceCount > 6 ? 0 : 1;
+	let tableMultiplier = gameState?0.5:1;
     // determine material + position
     let whiteValue = 0, blackValue = 0;
     for(let y = 0; y < board.length; y++) {
         for(let x = 0; x < board[0].length; x++) {
             let evData = getEvaluationData(board[y][x].chess);
             if(board[y][x].team === 0) {
-                whiteValue += evData.value[gameState] * 2 + evData.table[4 - y][x][0] + getWWRValue(board[y][x].name);
+                whiteValue += evData.value[gameState] * 2 + evData.table[4 - y][x][0] * tableMultiplier + getWWRValue(board[y][x].name);
             } else if(board[y][x].team === 1) {
-                blackValue += evData.value[gameState] * 2 + evData.table[y][x][0] + getWWRValue(board[y][x].name);  
+                blackValue += evData.value[gameState] * 2 + evData.table[y][x][0] * tableMultiplier + getWWRValue(board[y][x].name);  
             }
         }
     }
