@@ -154,7 +154,7 @@ function getChildren(game) {
             let selectedMove = positions[j];
             // simulate move
             movePiece(null, gameid, selectedPiece, xyToName(selectedMove[0], selectedMove[1]));
-            children.push([selectedPiece, selectedMove, games[gameid]);
+            children.push([selectedPiece, selectedMove, games[gameid]]);
         }
     }
     
