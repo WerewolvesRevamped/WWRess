@@ -105,9 +105,9 @@ function evaluate(board) {
         for(let x = 0; x < board[0].length; x++) {
             let evData = getEvaluationData(board[y][x].chess);
             if(board[y][x].team === 0) {
-                whiteValue += evData.value[gameState] + evData.table[4 - y][x][0] + getWWRValue(board[y][x].name);
+                whiteValue += evData.value[gameState] * 2 + evData.table[4 - y][x][0] + getWWRValue(board[y][x].name);
             } else if(board[y][x].team === 1) {
-                blackValue += evData.value[gameState] + evData.table[y][x][0] + getWWRValue(board[y][x].name);  
+                blackValue += evData.value[gameState] * 2 + evData.table[y][x][0] + getWWRValue(board[y][x].name);  
             }
         }
     }
