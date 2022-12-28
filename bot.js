@@ -180,8 +180,8 @@ function minimax(game, depth, alpha = -Infinity, beta = Infinity, maximizingPlay
             }
         }
         // destroy games
-        for(let i = children.length - 1; i >= 0; i--) {
-            games.splice(children[i].id, 1);
+        for (const child of children) {
+            games = games.filter(el => el.id != child[2].id);
         }
         return value;
     } else {
@@ -195,8 +195,8 @@ function minimax(game, depth, alpha = -Infinity, beta = Infinity, maximizingPlay
             }
         }
         // destroy games
-        for(let i = children.length - 1; i >= 0; i--) {
-            games.splice(children[i].id, 1);
+        for (const child of children) {
+            games = games.filter(el => el.id != child[2].id);
         }
         return value;
     }
@@ -207,13 +207,13 @@ async function AImove(game) {
     let children = getChildren(game);
     let bestValue = -Infinity;
     let bestMove = null;
-    for(let i = children.length - 1; i >= 0; i--) {
-        let minmax = minimax(children[i][2], 3);
+    for (const child of children) {
+        let minmax = minimax(child[2], 3);
         if(minmax > bestValue) {
             bestValue = minmax;
-            bestMove = children[i];
+            bestMove = child;
         }
-        games.splice(children[i][2].id, 1);
+        games = games.filter(el => el.id != child[2].id);
     }
 
     console.log("AI MOVE", bestMove[0], xyToName(bestMove[1][0], bestMove[1][1]));
