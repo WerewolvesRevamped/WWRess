@@ -114,8 +114,13 @@ function evaluate(board) {
     return blackValue - whiteValue;
 }
 
-async function AImove(game, iteration = 0, curEval = 0, worseCount = 0) {
+function gameOver(board) {
+    return !canMove(board, 0) || !canMove(board, 1);
+}
+
+function getChildren(game) {
     let board = game.state;
+    // get all available pieces
     let pieces = [];
     for(let y = 0; y < board.length; y++) {
         for(let x = 0; x < board[0].length; x++) {
@@ -135,12 +140,8 @@ async function AImove(game, iteration = 0, curEval = 0, worseCount = 0) {
         }
     }**/
     
-    // evaluate all possible moves
-    let evaluatedPositions = [];
-    let maxValue = game.turn == 1 ? (iteration==0?-1000:1000) : (iteration==0?1000:-1000); 
-    let bestMove, output;
-    if(iteration == 0) curEval = evaluate(board);
     // iterate through all pieces
+    let children = [];
     for(let i = 0; i < pieces.length; i++) {
         let selectedPiece = pieces[i][1];
         let positions = generatePositions(game.state, selectedPiece, true);
@@ -151,46 +152,72 @@ async function AImove(game, iteration = 0, curEval = 0, worseCount = 0) {
             games[gameid].ai = true; // mark as AI game
             games[gameid].id = gameid;
             let selectedMove = positions[j];
-		    if(!bestMove) bestMove = [selectedPiece, selectedMove]; // default move
             // simulate move
             movePiece(null, gameid, selectedPiece, xyToName(selectedMove[0], selectedMove[1]));
-            
-            // limit amount of iterations
-            if(iteration <= 4) {
-                let tempValue = evaluate(games[gameid].state);
-                // remove horribly bad branches
-                if((game.turn == 1 && curEval >= tempValue) || (game.turn == 0 && curEval <= tempValue)) {
-                    worseCount++;
-                }
-                if(worseCount <= 1) output = await AImove(games[gameid], iteration + 1, curEval, worseCount);
-            }
-            
-            let moveValue = evaluate(games[gameid].state);
-            evaluatedPositions.push([selectedPiece, selectedMove, moveValue, output]);
-            // new best move
-            if((iteration == 0 && (game.turn == 1 && moveValue > maxValue) || (game.turn == 0 && moveValue < maxValue)) || (iteration != 0 && (game.turn == 1 && moveValue < maxValue) || (game.turn == 0 && moveValue > maxValue))) {
-                maxValue = moveValue;
-                bestMove = [selectedPiece, selectedMove, output];
-            }
-            games.splice(gameid, 1); // delete game copy
+            children.push([selectedPiece, selectedMove, games[gameid]);
         }
     }
     
-	if(!bestMove) {
-        return output + " 🇽​"; // return if no move could be found
+	return children; // 0 -> piece, 1 -> move, 2 -> state
+}
+
+function minimax(game, depth, alpha = -Infinity, beta = Infinity, maximizingPlayer = true) {
+    let board = game.board;
+    // Base case: if we have reached the maximum search depth or the game is over, return the heuristic value of the state
+    if (depth === 0 || gameOver(board)) {
+        let value = evaluate(board); // this is positive for the maximizing player -> so rn Player#2 is hardcoded as that
+        return value;
     }
-    
-    if(iteration == 0) console.log("EVALUATED", evaluatedPositions.map(el => el[0] + ">" + xyToName(el[1][0], el[1][1]) + " = " + el[2]));
-    if(iteration == 0) console.log("AI MOVE", bestMove[0], xyToName(bestMove[1][0], bestMove[1][1]));
-    if(iteration == 0) console.log("CHAIN", output + " " + bestMove[0] + ">" + xyToName(bestMove[1][0], bestMove[1][1]));
-    
-    
-    
-    
+
+    if (maximizingPlayer) {
+        let value = -Infinity;
+        let children = getChildren(game);
+        for (const child of children) {
+            value = Math.max(value, minimax(child[2], depth - 1, alpha, beta, false));
+            alpha = Math.max(alpha, value);
+            if (beta <= alpha) {
+                break;  // Beta cut-off
+            }
+        }
+        // destroy games
+        for(const child of children) {
+            games.splice(child.id, 1);
+        }
+        return value;
+    } else {
+        let value = Infinity;
+        let children = getChildren(game);
+        for (const child of children) {
+            value = Math.min(value, minimax(child[2], depth - 1, alpha, beta, true));
+            beta = Math.min(beta, value);
+            if (beta <= alpha) {
+                break;  // Alpha cut-off
+            }
+        }
+        // destroy games
+        for(const child of children) {
+            games.splice(child.id, 1);
+        }
+        return value;
+    }
+}
+
+
+async function AImove(game) {
+    let children = getChildren(game);
+    let bestValue = -Infinity;
+    let bestMove = null;
+    for (const child of children) {
+        let minmax = minimax(game, 3);
+        if(minmax > bestValue) {
+            bestValue = minmax;
+            bestMove = child;
+        }
+        games.splice(child.id, 1);
+    }
+
+    console.log("AI MOVE", bestMove[0], xyToName(bestMove[1][0], bestMove[1][1]));
     movePiece(null, game.id, bestMove[0], xyToName(bestMove[1][0], bestMove[1][1]));
-    
-    
-    if(iteration != 0) return bestMove[0] + ">" + xyToName(bestMove[1][0], bestMove[1][1]) + " " + bestMove[2];
 }
 
 
@@ -616,6 +643,29 @@ async function delayedDestroy(gameid) {
     if(games[gameid]) destroyGame(gameid);
 }
 
+function canMove(board, player) {
+    // check if a piece is available
+    let pieces = [];
+    for(let y = 0; y < board.length; y++) {
+        for(let x = 0; x < board[0].length; x++) {
+            if(board[y][x].team == player) {
+                pieces.push([board[y][x].name, xyToName(x, y), y, x]);
+            }
+        }
+    }
+    // if no pieces exist, no move is possible
+    if(pieces.length == 0) return false;
+    
+    // if a piece exists, iterate them and look for a valid move.
+    let positions = [];
+    let selectedPiece;
+    for(let i = 0; i < positions.length; i++) {
+        selectedPiece = pieces[i][1];
+        positions = generatePositions(game.state, selectedPiece);
+        if(positions.length > 0) return true; // if a valid move is found, return true
+    }
+}
+
 function nextTurn(game) {
     // increment turn
     if(!game.ai) console.log("NEXT TURN");
@@ -624,34 +674,15 @@ function nextTurn(game) {
     
     if(!game.ai) {
         // find a valid move
-       let board = game.state;
-        let pieces = [];
-        for(let y = 0; y < board.length; y++) {
-            for(let x = 0; x < board[0].length; x++) {
-                if(board[y][x].team == game.turn) {
-                    pieces.push([board[y][x].name, xyToName(x, y), y, x]);
-                }
-            }
-        }
-        let iterations = 0;
-        if(pieces.length > 0) {
-            let positions = [];
-            let selectedPiece;
-
-            for(let i = 0; i < positions.length; i++) {
-                selectedPiece = pieces[i][1];
-                positions = generatePositions(game.state, selectedPiece);
-            }
-        }
-        console.log("VALIDATING TURN", pieces, iterations);
-        
+        let board = game.state;
+      
         // Update Spectator Board
         let msgSpec = displayBoard(game, "SPECTATOR BOARD", [], game.players[1] == null ? 0 : -1);
         msgSpec.ephemeral = false;
         game.msg.edit(msgSpec);
 
         // WIN Message
-        if(pieces == 0 || iterations == 100) {
+        if(!canMove(board, game.turn)) {
             let guild = client.guilds.cache.get(game.guild);
             let channel = guild.channels.cache.get(game.channel);
 
