@@ -208,7 +208,7 @@ async function AImove(game) {
     let bestValue = -Infinity;
     let bestMove = null;
     for (const child of children) {
-        let minmax = minimax(child[2], 3);
+        let minmax = minimax(child[2], 5);
         if(minmax > bestValue) {
             bestValue = minmax;
             bestMove = child;
