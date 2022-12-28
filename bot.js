@@ -102,17 +102,20 @@ function evaluate(board) {
 	let tableMultiplier = gameState?0.5:1;
     // determine material + position
     let whiteValue = 0, blackValue = 0;
+    let whiteReveal = 0, blackReveal = 0;
     for(let y = 0; y < board.length; y++) {
         for(let x = 0; x < board[0].length; x++) {
             let evData = getEvaluationData(board[y][x].chess);
             if(board[y][x].team === 0) {
                 whiteValue += evData.value[gameState] * 2 + evData.table[4 - y][x][0] * tableMultiplier + getWWRValue(board[y][x].name);
+                whiteReveal += board[y][x].enemyVisibleStatus / 7;
             } else if(board[y][x].team === 1) {
                 blackValue += evData.value[gameState] * 2 + evData.table[y][x][0] * tableMultiplier + getWWRValue(board[y][x].name);  
+                blackReveal += board[y][x].enemyVisibleStatus / 7;
             }
         }
     }
-    return blackValue - whiteValue;
+    return (blackValue + whiteReveal) - (whiteValue + blackReveal);
 }
 
 function gameOver(board) {
