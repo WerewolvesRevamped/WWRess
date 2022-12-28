@@ -185,7 +185,7 @@ function minimax(game, depth, alpha = -Infinity, beta = Infinity, maximizingPlay
         }
         // destroy games
         for (const child of children) {
-            games = games.filter(el => el.id && el.id != child[2].id);
+            games = games.filter(el => el.id != child[2].id);
         }
         return value;
     } else {
@@ -200,7 +200,7 @@ function minimax(game, depth, alpha = -Infinity, beta = Infinity, maximizingPlay
         }
         // destroy games
         for (const child of children) {
-            games = games.filter(el => el.id && el.id != child[2].id);
+            games = games.filter(el => el.id != child[2].id);
         }
         return value;
     }
@@ -217,7 +217,7 @@ async function AImove(game) {
             bestValue = minmax;
             bestMove = child;
         }
-        games = games.filter(el => el.id && el.id != child[2].id);
+        games = games.filter(el => el.id != child[2].id);
     }
 
     console.log("AI MOVE", bestMove[0], xyToName(bestMove[1][0], bestMove[1][1]));
@@ -1532,7 +1532,7 @@ function createGame(playerID, playerID2, gameID, name1, name2, channel, guild) {
 function destroyGame(id) {
     console.log("DESTROY", id);
     players = players.filter(el => el[1] != id); // delete players from playing players
-    games[id] = null; // remove game from game list
+    games = games.filter(el => el.id != id);
 }
 
 // concludes a game (reveals all pieces)
