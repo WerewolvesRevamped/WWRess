@@ -162,7 +162,7 @@ function getChildren(game) {
 }
 
 function minimax(game, depth, alpha = -Infinity, beta = Infinity, maximizingPlayer = true) {
-    let board = game.board;
+    let board = game.state;
     // Base case: if we have reached the maximum search depth or the game is over, return the heuristic value of the state
     if (depth === 0 || gameOver(board)) {
         let value = evaluate(board); // this is positive for the maximizing player -> so rn Player#2 is hardcoded as that
