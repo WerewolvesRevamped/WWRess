@@ -659,7 +659,7 @@ function canMove(board, player) {
     // if a piece exists, iterate them and look for a valid move.
     let positions = [];
     let selectedPiece;
-    for(let i = 0; i < positions.length; i++) {
+    for(let i = 0; i < pieces.length; i++) {
         selectedPiece = pieces[i][1];
         positions = generatePositions(board, selectedPiece);
         if(positions.length > 0) return true; // if a valid move is found, return true
