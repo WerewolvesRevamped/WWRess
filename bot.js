@@ -542,6 +542,7 @@ async function AImove(game) {
     let gameCopy = deepCopy(game); // create a copy of the game to simulate the move on
     gameCopy.ai = true; // mark as AI game
     gameCopy.id = null;
+    removeEffects(gameCopy, gameCopy.turn); // remove effects
     let minmax = minimaxStart(gameCopy, 4);
     if(minmax.move == null) minmax = { value: null, move: getChildren(game, 0, true)[0].slice(0, 4) };
     let bestMove = minmax.move;
@@ -746,7 +747,22 @@ function movePiece(interaction, moveCurGame, from, to, repl = null) {
     // death effects
     if(notAiTurn || moveCurGame.players[moveCurGame.turn] == null || beatenPiece.enemyVisibleStatus >= 6) { // only run in normal turns, ai's own turns or when effect is visible
         if(!notAiTurn && moveCurGame.players[moveCurGame.turn] != null && beatenPiece.enemyVisibleStatus == 6 && beatenPiece.disguise) beatenPiece.name = beatenPiece.disguise; // see role with disguise if applicable
+        
+        if(beatenPiece.protected) { // protected (Witch)
+            defensive = getDefensivePosition(moveFrom, moveTo, movedX, movedY);
+            if(notAiTurn) {
+                moveCurGame.lastMoves.push([moveCurGame.turn, movedPiece.name, movedPiece.disguise, movedPiece.enemyVisible, from, xyToName(defensive.x, defensive.y), movedPiece.enemyVisibleStatus]);
+                moveCurGame.lastMoves.push([(moveCurGame.turn+1)%2, beatenPiece.name, beatenPiece.disguise, beatenPiece.enemyVisible, to, to, beatenPiece.enemyVisibleStatus, "🛡️🟦🟦"]);
+            }
+            moveCurGame.state[defensive.y][defensive.x] = movedPiece;
+            moveCurGame.state[moveTo.y][moveTo.x] = deepCopy(beatenPiece);
+            beatenPiece.name = "protected";
+        } 
+        
         switch(beatenPiece.name) {
+            case "protected":
+                // nothing
+            break;
             case null:
                 if(from == to) { // pawn promotion
                     if(notAiTurn) moveCurGame.lastMoves.push([moveCurGame.turn, movedPieceCopy.name, movedPiece.disguise, movedPiece.enemyVisibleStatus<4?"Pawn":movedPiece.enemyVisible, from, to, movedPiece.enemyVisibleStatus<4?4:movedPiece.enemyVisibleStatus, "⏫🟦🟦"]);
@@ -756,17 +772,7 @@ function movePiece(interaction, moveCurGame, from, to, repl = null) {
             break;
             default:
                 // store move
-                if(beatenPiece.protected) { // protected (Witch)
-                    defensive = getDefensivePosition(moveFrom, moveTo, movedX, movedY);
-                    if(notAiTurn) {
-                        moveCurGame.lastMoves.push([moveCurGame.turn, movedPiece.name, movedPiece.disguise, movedPiece.enemyVisible, from, xyToName(defensive.x, defensive.y), movedPiece.enemyVisibleStatus]);
-                        moveCurGame.lastMoves.push([(moveCurGame.turn+1)%2, beatenPiece.name, beatenPiece.disguise, beatenPiece.enemyVisible, to, to, beatenPiece.enemyVisibleStatus, "🛡️🟦🟦"]);
-                    }
-                    moveCurGame.state[defensive.y][defensive.x] = movedPiece;
-                    moveCurGame.state[moveTo.y][moveTo.x] = beatenPiece;
-                } else { // piece taken
-                    moveCurGame.lastMoves.push([moveCurGame.turn, movedPiece.name, movedPiece.disguise, movedPiece.enemyVisible, from, to, movedPiece.enemyVisibleStatus, "🇽​"]);
-                }
+                moveCurGame.lastMoves.push([moveCurGame.turn, movedPiece.name, movedPiece.disguise, movedPiece.enemyVisible, from, to, movedPiece.enemyVisibleStatus, "🇽​"]);
             break; // Hooker defense
             case "Hooker":
                 if(beatenPiece.hidden) {
