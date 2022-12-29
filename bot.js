@@ -2178,7 +2178,7 @@ function hasAvailableMove(board, position) {
         if(y>0) {
             if(board[y-1][x].name == null) return true;
             if(x>0 && board[y-1][x-1].name != null && enemyTeam(pieceTeam, board[y-1][x-1].team)) return true;
-            if(x<4 && board[y-1][x+1].name != null && enemyTeam(pieceTeam, board[y-1][x+1].team)m) return true;
+            if(x<4 && board[y-1][x+1].name != null && enemyTeam(pieceTeam, board[y-1][x+1].team)) return true;
         }            
     } else if(pieceType == "Pawn" && pieceTeam == 1) {
         if(y<4) {
