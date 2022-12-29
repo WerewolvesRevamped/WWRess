@@ -312,7 +312,7 @@ function getChildren(game, depth = 0) {
                 let status = 0;
                 // only select the investigation that reveals most
                 while(status < 7) {
-                    abilityPositions = enemyPieces.filter(el => el[2] == status);
+                    abilityPositions = enemyPieces.filter(el => el[2] == status).map(el => [el[0], el[1]]);
                     if(abilityPositions.length > 1) break;
                     status++;
                 }
@@ -1616,12 +1616,12 @@ function getWWRevalValue(piece) {
             case "Crowd Seeker": case "Aura Teller": case "Royal Knight": case "Witch": 
             case "Wolf Cub": case "Tanner": case "Archivist Fox": case "Dog": case "Psychic Wolf":
                 return 2;
-            case "Fortune Apprentice": case "Fortune Teller": case "Runner": case "Bartender":
+            case "Fortune Apprentice": case "Fortune Teller": case "Runner":
             case "Alpha Wolf": case "Clairvoyant Fox": case "Scared Wolf": case "Saboteur Wolf": case "Warlock":
                 return 3;
             case "Hooker": case "Alcoholic":
                 return 4;
-            case "Infecting Wolf": case "Direwolf":
+            case "Infecting Wolf": case "Direwolf": case "Bartender":
                 return 5;
     }
 }
