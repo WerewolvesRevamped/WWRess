@@ -399,6 +399,7 @@ async function AImove(game) {
     let minmax = minimaxStart(gameCopy, 4);
     if(minmax.move == null) minmax = { value: null, move: getChildren(game)[0].slice(0, 4) };
     let bestMove = minmax.move;
+	console.log("AI BEST MOVE DEBUG", bestMove);
     
     if(bestMove[0] == null) {
         console.log("NO ABILITY");
