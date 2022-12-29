@@ -318,7 +318,7 @@ function getChildren(game, depth = 0, maximizingPlayer = true) {
                     }
                     // end priorities
                 }
-            } else if(board[y][x].team == (game.turn+1)%2) {
+            } else if(enemyTeam(game.turn, board[y][x].team)) {
                 enemyPieces.push([x, y, board[y][x].enemyVisibleStatus]);
             }
         }
@@ -1041,6 +1041,10 @@ function canMove(board, player) {
     }
     // if no move is found, return false
     return false;
+}
+
+function enemyTeam(turn, pieceTeam) {
+    return pieceTeam != -1 && turn != pieceTeam;
 }
 
 function nextTurn(game) {
@@ -1991,21 +1995,20 @@ function generatePositions(board, position, hideLog = false, pieceTypeOverride =
     let piece = board[y][x];
     if(!hideLog) console.log("Finding moves for ", piece.name, " @ ", x, "|", numToRank(x), " ", y);
     const pieceTeam = piece.team;
-    const enemyTeam = (pieceTeam + 1) % 2;
     const pieceType = pieceTypeOverride ? pieceTypeOverride : piece.chess;
     // Movement Logic
     /* PAWN */
     if(pieceType == "Pawn" && pieceTeam == 0) {
         if(y>0) {
             if(board[y-1][x].name == null) positions.push([x, y-1]);
-            if(x>0 && board[y-1][x-1].name != null && board[y-1][x-1].team == enemyTeam) positions.push([x-1, y-1, true]);
-            if(x<4 && board[y-1][x+1].name != null && board[y-1][x+1].team == enemyTeam) positions.push([x+1, y-1, true]);
+            if(x>0 && board[y-1][x-1].name != null && enemyTeam(pieceTeam, board[y-1][x-1].team)) positions.push([x-1, y-1, true]);
+            if(x<4 && board[y-1][x+1].name != null && enemyTeam(pieceTeam, board[y-1][x+1].team)) positions.push([x+1, y-1, true]);
         }            
     } else if(pieceType == "Pawn" && pieceTeam == 1) {
         if(y<4) {
             if(board[y+1][x].name == null) positions.push([x, y+1]);
-            if(x>0 && board[y+1][x-1].name != null && board[y+1][x-1].team == enemyTeam) positions.push([x-1, y+1, true]);
-            if(x<4 && board[y+1][x+1].name != null && board[y+1][x+1].team == enemyTeam) positions.push([x+1, y+1, true]);
+            if(x>0 && board[y+1][x-1].name != null && enemyTeam(pieceTeam, board[y+1][x-1].team)) positions.push([x-1, y+1, true]);
+            if(x<4 && board[y+1][x+1].name != null && enemyTeam(pieceTeam, board[y+1][x+1].team)) positions.push([x+1, y+1, true]);
         }            
     } 
     /* ROOK */
@@ -2013,7 +2016,7 @@ function generatePositions(board, position, hideLog = false, pieceTypeOverride =
         for(let xt1 = x+1; xt1 < 5; xt1++) {
             if(inBounds(xt1) && board[y][xt1].name == null) {
                 positions.push([xt1, y]);
-            } else if(inBounds(xt1) && board[y][xt1].team == enemyTeam) {
+            } else if(inBounds(xt1) && enemyTeam(pieceTeam, board[y][xt1].team)) {
                 positions.push([xt1, y, true]);
                 break;
             } else {
@@ -2023,7 +2026,7 @@ function generatePositions(board, position, hideLog = false, pieceTypeOverride =
         for(let xt2 = x-1; xt2 >= 0; xt2--) {
             if(inBounds(xt2) && board[y][xt2].name == null) {
                 positions.push([xt2, y]);
-            } else if(inBounds(xt2) && board[y][xt2].team == enemyTeam) {
+            } else if(inBounds(xt2) && enemyTeam(pieceTeam, board[y][xt2].team)) {
                 positions.push([xt2, y, true]);
                 break;
             } else {
@@ -2033,7 +2036,7 @@ function generatePositions(board, position, hideLog = false, pieceTypeOverride =
         for(let yt1 = y+1; yt1 < 5; yt1++) {
             if(inBounds(yt1) && board[yt1][x].name == null) {
                 positions.push([x, yt1]);
-            } else if(inBounds(yt1) && board[yt1][x].team == enemyTeam) {
+            } else if(inBounds(yt1) && enemyTeam(pieceTeam, board[yt1][x].team)) {
                 positions.push([x, yt1, true]);
                 break;
             } else {
@@ -2043,7 +2046,7 @@ function generatePositions(board, position, hideLog = false, pieceTypeOverride =
         for(let yt2 = y-1; yt2 >= 0; yt2--) {
             if(inBounds(yt2) && board[yt2][x].name == null) {
                 positions.push([x, yt2]);
-            } else if(inBounds(yt2) && board[yt2][x].team == enemyTeam) {
+            } else if(inBounds(yt2) && enemyTeam(pieceTeam, board[yt2][x].team)) {
                 positions.push([x, yt2, true]);
                 break;
             } else {
@@ -2055,7 +2058,7 @@ function generatePositions(board, position, hideLog = false, pieceTypeOverride =
         for(let xt1 = x+1; xt1 < 5; xt1++) {
             if(inBounds(xt1) && board[y][xt1].name == null) {
                 positions.push([xt1, y]);
-            } else if(inBounds(xt1) && board[y][xt1].team == enemyTeam) {
+            } else if(inBounds(xt1) && enemyTeam(pieceTeam, board[y][xt1].team)) {
                 positions.push([xt1, y, true]);
                 break;
             } else {
@@ -2065,7 +2068,7 @@ function generatePositions(board, position, hideLog = false, pieceTypeOverride =
         for(let xt2 = x-1; xt2 >= 0; xt2--) {
             if(inBounds(xt2) && board[y][xt2].name == null) {
                 positions.push([xt2, y]);
-            } else if(inBounds(xt2) && board[y][xt2].team == enemyTeam) {
+            } else if(inBounds(xt2) && enemyTeam(pieceTeam, board[y][xt2].team)) {
                 positions.push([xt2, y, true]);
                 break;
             } else {
@@ -2075,7 +2078,7 @@ function generatePositions(board, position, hideLog = false, pieceTypeOverride =
         for(let yt1 = y+1; yt1 < 5; yt1++) {
             if(inBounds(yt1) && board[yt1][x].name == null) {
                 positions.push([x, yt1]);
-            } else if(inBounds(yt1) && board[yt1][x].team == enemyTeam) {
+            } else if(inBounds(yt1) && enemyTeam(pieceTeam, board[yt1][x].team)) {
                 positions.push([x, yt1, true]);
                 break;
             } else {
@@ -2085,7 +2088,7 @@ function generatePositions(board, position, hideLog = false, pieceTypeOverride =
         for(let yt2 = y-1; yt2 >= 0; yt2--) {
             if(inBounds(yt2) && board[yt2][x].name == null) {
                 positions.push([x, yt2]);
-            } else if(inBounds(yt2) && board[yt2][x].team == enemyTeam) {
+            } else if(inBounds(yt2) && enemyTeam(pieceTeam, board[yt2][x].team)) {
                 positions.push([x, yt2, true]);
                 break;
             } else {
@@ -2095,7 +2098,7 @@ function generatePositions(board, position, hideLog = false, pieceTypeOverride =
         for(let offset = 1; offset < 5; offset++) {
             if(inBounds(x+offset, y+offset) && board[y+offset][x+offset].name == null) {
                 positions.push([x+offset, y+offset]);
-            } else if(inBounds(x+offset, y+offset) && board[y+offset][x+offset].team == enemyTeam) {
+            } else if(inBounds(x+offset, y+offset) && enemyTeam(pieceTeam, board[y+offset][x+offset].team)) {
                 positions.push([x+offset, y+offset, true]);
                 break;
             } else {
@@ -2105,7 +2108,7 @@ function generatePositions(board, position, hideLog = false, pieceTypeOverride =
         for(let offset = 1; offset < 5; offset++) {
             if(inBounds(x-offset, y+offset) && board[y+offset][x-offset].name == null) {
                 positions.push([x-offset, y+offset]);
-            } else if(inBounds(x-offset, y+offset) && board[y+offset][x-offset].team == enemyTeam) {
+            } else if(inBounds(x-offset, y+offset) && enemyTeam(pieceTeam, oard[y+offset][x-offset].team)) {
                 positions.push([x-offset, y+offset, true]);
                 break;
             } else {
@@ -2115,7 +2118,7 @@ function generatePositions(board, position, hideLog = false, pieceTypeOverride =
         for(let offset = 1; offset < 5; offset++) {
             if(inBounds(x+offset, y-offset) && board[y-offset][x+offset].name == null) {
                 positions.push([x+offset, y-offset]);
-            } else if(inBounds(x+offset, y-offset) && board[y-offset][x+offset].team == enemyTeam) {
+            } else if(inBounds(x+offset, y-offset) && enemyTeam(pieceTeam, board[y-offset][x+offset].team)) {
                 positions.push([x+offset, y-offset, true]);
                 break;
             } else {
@@ -2125,7 +2128,7 @@ function generatePositions(board, position, hideLog = false, pieceTypeOverride =
         for(let offset = 1; offset < 5; offset++) {
             if(inBounds(x-offset, y-offset) && board[y-offset][x-offset].name == null) {
                 positions.push([x-offset, y-offset]);
-            } else if(inBounds(x-offset, y-offset) && board[y-offset][x-offset].team == enemyTeam) {
+            } else if(inBounds(x-offset, y-offset) && enemyTeam(pieceTeam, board[y-offset][x-offset].team)) {
                 positions.push([x-offset, y-offset, true]);
                 break;
             } else {
@@ -2140,7 +2143,7 @@ function generatePositions(board, position, hideLog = false, pieceTypeOverride =
             let px = x + possibleMoves[i][0];
             let py = y + possibleMoves[i][1];
             if(inBounds(px, py) && board[py][px].name == null) positions.push([px, py]);
-            else if(inBounds(px, py) && board[py][px].team == enemyTeam) positions.push([px, py, true]);
+            else if(inBounds(px, py) && enemyTeam(pieceTeam, board[py][px].team)) positions.push([px, py, true]);
         }
     }
     /* KNIGHT */
@@ -2150,7 +2153,7 @@ function generatePositions(board, position, hideLog = false, pieceTypeOverride =
             let px = x + possibleMoves[i][0];
             let py = y + possibleMoves[i][1];
             if(inBounds(px, py) && board[py][px].name == null) positions.push([px, py]);
-            else if(inBounds(px, py) && board[py][px].team == enemyTeam) positions.push([px, py, true]);
+            else if(inBounds(px, py) && enemyTeam(pieceTeam, board[py][px].team)) positions.push([px, py, true]);
         }
     }
     positions.sort((a,b) => (xyToName(a[0], a[1]) > xyToName(b[0], b[1])) ? 1 : ((xyToName(b[0], b[1]) > xyToName(a[0], a[1])) ? -1 : 0));
@@ -2162,21 +2165,20 @@ function hasAvailableMove(board, position) {
     let x = position.x, y = position.y;
     let piece = board[y][x];
     const pieceTeam = piece.team;
-    const enemyTeam = (pieceTeam + 1) % 2;
     const pieceType = piece.chess;
     // Movement Logic
     /* PAWN */
     if(pieceType == "Pawn" && pieceTeam == 0) {
         if(y>0) {
             if(board[y-1][x].name == null) return true;
-            if(x>0 && board[y-1][x-1].name != null && board[y-1][x-1].team == enemyTeam) return true;
-            if(x<4 && board[y-1][x+1].name != null && board[y-1][x+1].team == enemyTeam) return true;
+            if(x>0 && board[y-1][x-1].name != null && enemyTeam(pieceTeam, board[y-1][x-1].team)) return true;
+            if(x<4 && board[y-1][x+1].name != null && enemyTeam(pieceTeam, board[y-1][x+1].team)m) return true;
         }            
     } else if(pieceType == "Pawn" && pieceTeam == 1) {
         if(y<4) {
             if(board[y+1][x].name == null) return true;
-            if(x>0 && board[y+1][x-1].name != null && board[y+1][x-1].team == enemyTeam) return true;
-            if(x<4 && board[y+1][x+1].name != null && board[y+1][x+1].team == enemyTeam) return true;
+            if(x>0 && board[y+1][x-1].name != null && enemyTeam(pieceTeam, board[y+1][x-1].team)) return true;
+            if(x<4 && board[y+1][x+1].name != null && enemyTeam(pieceTeam, board[y+1][x+1].team)) return true;
         }            
     } 
     /* ROOK */
