@@ -116,6 +116,7 @@ function executeActiveAbility(game, abilityPiece, abilityPieceLocation, position
         case null: default:
             return false;
         break;
+        case "Recall":
         case "Alpha Wolf":
             let recallSubject = { x: position[0], y: position[1] };
             let recallSubjectObject = game.state[recallSubject.y][recallSubject.x];
@@ -124,7 +125,7 @@ function executeActiveAbility(game, abilityPiece, abilityPieceLocation, position
             if(log) game.lastMoves.push([game.turn, recallSubjectObject.name, recallSubjectObject.disguise, recallSubjectObject.enemyVisible, xyToName(position[0], position[1]), xyToName(position[0], 0), recallSubjectObject.enemyVisibleStatus, "⤴️"]);
             return true;
         break;
-        case "Tanner Disguise": // Tanner - Player
+        case "Tan": // Tanner - Player
             let tanDisSubject = position[0];
             game.state[tanDisSubject.y][tanDisSubject.x].disguise = position[1];
             return false;
@@ -152,18 +153,90 @@ function executeActiveAbility(game, abilityPiece, abilityPieceLocation, position
             game.state[tanSubject.y][tanSubject.x].disguise = disguise;
             return false;
         break;
+        case "Hide":
         case "Hooker":
             let hideSubject = { x: abilityPieceLocation[0], y: abilityPieceLocation[1] };
             let hideTarget = xyToName(position[0], position[1]);
             game.state[hideSubject.y][hideSubject.x].hidden = hideTarget;
             return false;
         break;
+        case "Sabotage":
         case "Saboteur Wolf":
-            let sabotageTarget = { x: abilityPieceLocation[0], y: abilityPieceLocation[1] };
+            let sabotageTarget = { x: position[0], y: position[1] };
             let sabotageTargetObject = game.state[sabotageTarget.y][sabotageTarget.x];
             game.state[sabotageTarget.y][sabotageTarget.x].sabotaged = true;
-            let targetName = xyToName(sabotageTarget.x, sabotageTarget.y);
-            if(log) game.lastMoves.push([game.turn, sabotageTargetObject.name, sabotageTargetObject.disguise, sabotageTargetObject.enemyVisible, targetName, targetName, sabotageTargetObject.enemyVisibleStatus, "⛔🟦🟦"]);
+            let sabotageTargetName = xyToName(sabotageTarget.x, sabotageTarget.y);
+            if(log) game.lastMoves.push([game.turn, sabotageTargetObject.name, sabotageTargetObject.disguise, sabotageTargetObject.enemyVisible, sabotageTargetName, sabotageTargetName, sabotageTargetObject.enemyVisibleStatus, "⛔🟦🟦"]);
+            return false;
+        break;
+        case "Protect":
+        case "Witch":
+        case "Royal Knight":
+            let protectTarget = { x: position[0], y: position[1] };
+            game.state[protectTarget.y][protectTarget.x].protected = true;
+            return false;
+        break;
+        case "Infect":
+        case "Infecting Wolf":
+            let iwSource = { x: abilityPieceLocation[0], y: abilityPieceLocation[1] };
+            let iwTarget = { x: position[0], y: position[1] };
+            let iwTargetName = xyToName(iwTarget.x, iwTarget.y);
+            if(log) game.lastMoves.push([game.turn, game.state[iwTarget.y][iwTarget.x].name, false, "", iwTargetName, iwTargetName, 7, "🔀" + findEmoji("Wolf") + "🟦"]);
+            game.state[iwSource.y][iwSource.x] = getPiece("Wolf");
+            game.state[iwTarget.y][iwTarget.x] = getPiece("Wolf");
+            game.state[iwSource.y][iwSource.x].enemyVisibleStatus = 7;
+            game.state[iwTarget.y][iwTarget.x].enemyVisibleStatus = 7;
+            return true;
+        break;
+        case "Transform":
+        case "Dog":
+            let transformer = { x: abilityPieceLocation[0], y: abilityPieceLocation[1] };
+            game.state[transformer.y][transformer.x] = convertPiece(game.state[transformer.y][transformer.x], position);
+            return false;
+        break;
+        case "Invest":
+        case "Fortune Teller":
+        case "Warlock":
+        case "Clairvoyant Fox":
+        case "Crowd Seeker":
+        case "Psychic Wolf":
+        case "Archivist Fox":
+        case "Aura Teller":
+            let investigatorC = { x: abilityPieceLocation[0], y: abilityPieceLocation[1] };
+            let investigator = game.state[investigatorC.y][investigatorC.x];
+            let investTarget = { x: position[0], y: position[1] };
+            switch(investigator.name) {
+                // reveal role
+                case "Fortune Teller":
+                case "Warlock":
+                case "Clairvoyant Fox":
+                    game.state[investTarget.y][investTarget.x].enemyVisibleStatus = 6;
+                break;
+                // reveal movement type
+                case "Crowd Seeker":
+                case "Psychic Wolf":
+                case "Archivist Fox":
+                    game.state[investTarget.y][investTarget.x].enemyVisibleStatus = 4;
+                    game.state[investTarget.y][investTarget.x].enemyVisible = game.state[investTarget.y][investTarget.x].chess;
+                break;
+                // reveal movement type if active
+                case "Aura Teller":
+                    if(game.state[investTarget.y][investTarget.x].active) {
+                        game.state[investTarget.y][investTarget.x].enemyVisibleStatus = 5;
+                        game.state[investTarget.y][investTarget.x].enemyVisible = "Active" + game.state[investTarget.y][investTarget.x].chess;
+                    }
+                break;
+            }
+            if(game.state[investTarget.y][investTarget.x].name == "Recluse") { // recluse reveal
+                if(log) game.lastMoves.push([game.turn, investigator.name, false, "", xyToName(investigatorC.x, investigatorC.y), xyToName(investTarget.x, investTarget.y), 7, "👁️"]);
+                game.state[investigatorC.y][investigatorC.x].enemyVisibleStatus = 7;
+                game.state[investTarget.y][investTarget.x].enemyVisibleStatus = 7;
+            } else {
+                if(log) {
+                    let investTargetObject = game.state[investTarget.y][investTarget.x];
+                    game.lastMoves.push([game.turn, investTargetObject.name, investTargetObject.disguise, investTargetObject.enemyVisible, xyToName(investigatorC.x, investigatorC.y), xyToName(investigatorC.x, investigatorC.y), investTargetObject.enemyVisibleStatus, "👁️🟦🟦"]);
+                }
+            }
             return false;
         break;
     }
@@ -1144,72 +1217,39 @@ client.on('interactionCreate', async interaction => {
                 let investigatorC = nameToXY(arg1);
                 let investigator = curGame.state[investigatorC.y][investigatorC.x];
                 let investTarget = nameToXY(arg2);
-                switch(investigator.name) {
-                    // reveal role
-                    case "Fortune Teller":
-                    case "Warlock":
-                    case "Clairvoyant Fox":
-                        curGame.state[investTarget.y][investTarget.x].enemyVisibleStatus = 6;
-                    break;
-                    // reveal movement type
-                    case "Crowd Seeker":
-                    case "Psychic Wolf":
-                    case "Archivist Fox":
-                        curGame.state[investTarget.y][investTarget.x].enemyVisibleStatus = 4;
-                        curGame.state[investTarget.y][investTarget.x].enemyVisible = curGame.state[investTarget.y][investTarget.x].chess;
-                    break;
-                    // reveal movement type if active
-                    case "Aura Teller":
-                        if(curGame.state[investTarget.y][investTarget.x].active) {
-                            curGame.state[investTarget.y][investTarget.x].enemyVisibleStatus = 5;
-                            curGame.state[investTarget.y][investTarget.x].enemyVisible = "Active" + curGame.state[investTarget.y][investTarget.x].chess;
-                        }
-                    break;
-                }
-                if(curGame.state[investTarget.y][investTarget.x].name == "Recluse") { // recluse reveal
-                    curGame.lastMoves.push([curGame.turn, investigator.name, false, "", arg1, arg2, 7, "👁️"]);
-                    curGame.state[investigatorC.y][investigatorC.x].enemyVisibleStatus = 7;
-                    curGame.state[investTarget.y][investTarget.x].enemyVisibleStatus = 7;
-                } else {
-                    let investTargetObject = curGame.state[investTarget.y][investTarget.x];
-                    curGame.lastMoves.push([curGame.turn, investTargetObject.name, investTargetObject.disguise, investTargetObject.enemyVisible, arg2, arg2, investTargetObject.enemyVisibleStatus, "👁️🟦🟦"]);
-                }
+			    executeActiveAbility(curGame, "Invest", [investigatorC.x, investigatorC.y], [investTarget.x, investTarget.y]);
                 turnMove(interaction, gameID, curGame.turn, "update") 
             break;
             // transform
             case "transform":
                 let transformer = nameToXY(arg1);
-                curGame.state[transformer.y][transformer.x] = convertPiece(curGame.state[transformer.y][transformer.x], arg2);
+			    executeActiveAbility(curGame, "Transform", [transformer.x, transformer.y], arg2);
                 turnMove(interaction, gameID, curGame.turn, "update");   
             break;
             // infect
             case "infect":
                 let iwSource = nameToXY(arg1);
                 let iwTarget = nameToXY(arg2);
-                curGame.lastMoves.push([curGame.turn, curGame.state[iwTarget.y][iwTarget.x].name, false, "", arg2, arg2, 7, "🔀" + findEmoji("Wolf") + "🟦"]);
-                curGame.state[iwSource.y][iwSource.x] = getPiece("Wolf");
-                curGame.state[iwTarget.y][iwTarget.x] = getPiece("Wolf");
-                curGame.state[iwSource.y][iwSource.x].enemyVisibleStatus = 7;
-                curGame.state[iwTarget.y][iwTarget.x].enemyVisibleStatus = 7;
+			    executeActiveAbility(curGame, "Infect", [iwSource.x, iwSource.y], [iwTarget.x, iwTarget.y]);
                 turnMove(interaction, gameID, curGame.turn, "update");   
             break;
             // active protect
             case "protect":
                 let protectTarget = nameToXY(arg2);
-                curGame.state[protectTarget.y][protectTarget.x].protected = true;
+			    executeActiveAbility(curGame, "Protect", null, [protectTarget.x, protectTarget.y]);
                 turnMove(interaction, gameID, curGame.turn, "update");
             break;
             // sabotage
             case "sabotage":
                 let sabotageTarget = nameToXY(arg2);
-			    executeActiveAbility(curGame, "Saboteur Wolf", null, [sabotageTarget.x, sabotageTarget.y]);
+			    executeActiveAbility(curGame, "Sabotage", null, [sabotageTarget.x, sabotageTarget.y]);
                 turnMove(interaction, gameID, curGame.turn, "update");
             break;
             // hooker hide
             case "hide":
                 let hideSubject = nameToXY(arg1);
                 let hideTarget = nameToXY(arg2);
-			    executeActiveAbility(curGame, "Hooker", [hideSubject.x, hideSubject.y], [hideTarget.x, hideTarget.y]);
+			    executeActiveAbility(curGame, "Hide", [hideSubject.x, hideSubject.y], [hideTarget.x, hideTarget.y]);
                 turnMove(interaction, gameID, curGame.turn, "update");
             break;
             // tanner tan
@@ -1227,13 +1267,13 @@ client.on('interactionCreate', async interaction => {
             // tanner tan
             case "tan":
                 let tanSubject = nameToXY(arg1);
-			    executeActiveAbility(curGame, "Tanner Disguise", null, [tanSubject, arg2], true);
+			    executeActiveAbility(curGame, "Tan", null, [tanSubject, arg2], true);
                 turnMove(interaction, gameID, curGame.turn, "update") 
             break;
             // alpha wolf recall
             case "recall":
                 let recallSubject = nameToXY(arg2);
-			    executeActiveAbility(curGame, "Alpha Wolf", null, [recallSubject.x, recallSubject.y]);
+			    executeActiveAbility(curGame, "Recall", null, [recallSubject.x, recallSubject.y]);
                 turnMove(interaction, gameID, curGame.turn, "update");
             break;
         }
