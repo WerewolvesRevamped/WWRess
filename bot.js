@@ -313,7 +313,7 @@ function getChildren(game, depth = 0) {
                 // only select the investigation that reveals most
                 while(status < 7) {
                     abilityPositions = enemyPieces.filter(el => el[2] == status).map(el => [el[0], el[1]]);
-                    if(abilityPositions.length > 1) break;
+                    if(abilityPositions.length > 0) break;
                     status++;
                 }
                 // there is no real priority otherwise
@@ -324,9 +324,9 @@ function getChildren(game, depth = 0) {
             // all ally
             case "Tanner":
                 abilityPositions = pieces.map(el => {
-			let tanXY = nameToXY(el);
-			return [el.x, el.y];
-		});
+					let tanXY = nameToXY(el);
+					return [el.x, el.y];
+				});
             break;
             // dog
             case "Dog":
