@@ -2114,7 +2114,7 @@ function generatePositions(board, position, hideLog = false, pieceTypeOverride =
         for(let offset = 1; offset < 5; offset++) {
             if(inBounds(x-offset, y+offset) && board[y+offset][x-offset].name == null) {
                 positions.push([x-offset, y+offset]);
-            } else if(inBounds(x-offset, y+offset) && enemyTeam(pieceTeam, oard[y+offset][x-offset].team)) {
+            } else if(inBounds(x-offset, y+offset) && enemyTeam(pieceTeam, board[y+offset][x-offset].team)) {
                 positions.push([x-offset, y+offset, true]);
                 break;
             } else {
