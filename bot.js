@@ -243,7 +243,7 @@ function executeActiveAbility(game, abilityPiece, abilityPieceLocation, position
     return false;
 }
 
-function getChildren(game, depth = 0) {
+function getChildren(game, depth = 0, maximizingPlayer = true) {
     let board = game.state;
     // get all available pieces
     let pieces = [];
@@ -254,9 +254,10 @@ function getChildren(game, depth = 0) {
         for(let x = 0; x < boardSize; x++) {
             if(board[y][x].team == game.turn) {
                 pieces.push(xyToName(x, y));
-                if(board[y][x].active && !board[y][x].sabotaged) {
+                if(board[y][x].active && !board[y][x].sabotaged && (maximizingPlayer || board[y][x].enemyVisibleStatus >= 6)) {
+			        let abilityPieceName = (!maximizingPlayer && board[y][x].disguise && board[y][x].enemyVisibleStatus == 6) ? board[y][x].disguise : board[y][x].name;
                     // active ability priorities
-                    switch(board[y][x].name) {
+                    switch(abilityPieceName) {
                         // done by self this turn
                         case "Crowd Seeker": case "Archivist Fox": case "Psychic Wolf": case "Aura Teller": case "Tanner":
                             if(depth >= 4) {
@@ -380,7 +381,44 @@ function getChildren(game, depth = 0) {
             // iterate through all pieces
             for(let i = 0; i < pieces.length; i++) {
                 let selectedPiece = pieces[i];
-                let positions = generatePositions(gameCopy.state, selectedPiece, true);
+                let positions;
+                if(maximizingPlayer) { // own piece
+                    positions = generatePositions(gameCopy.state, selectedPiece, true);
+                } else { // enemy piece
+                    let selectedPieceCoords = nameToXY(selectedPiece);
+                    let selectedPieceObject = gameCopy.state[selectedPieceCoords.y][selectedPieceCoords.x];
+                    switch(selectedPieceObject.enemyVisibleStatus) {
+                        default: case 7: // type known
+                            positions = generatePositions(gameCopy.state, selectedPiece, true);
+                        break;
+                        case 4: case 5: case 6: // type could be disguise
+                            if(selectedPieceObject.disguise) {
+                                positions = generatePositions(gameCopy.state, selectedPiece, true, getChessName(selectedPieceObject.disguise));
+                            } else {
+                                positions = generatePositions(gameCopy.state, selectedPiece, true);
+                            }
+                        break;
+                        case 0: case 1: case 2: case 3: // type unknown
+                            switch(selectedPieceObject.enemyVisible) {
+                                default:
+                                    positions = generatePositions(gameCopy.state, selectedPiece, true);
+                                break;
+                                case "LikelyRook":
+                                    positions = generatePositions(gameCopy.state, selectedPiece, true, "Rook");
+                                break;
+                                case "LikelyKing":
+                                    positions = generatePositions(gameCopy.state, selectedPiece, true, "King");
+                                break;
+                                case "LikelyPawn":
+                                    positions = generatePositions(gameCopy.state, selectedPiece, true, "Pawn");
+                                break;
+                                case "LikelyKnight":
+                                    positions = generatePositions(gameCopy.state, selectedPiece, true, "Knight");
+                                break;
+                            }
+                        break;
+                    }
+                }
                 // iterate through that piece's moves
                 for(let j = 0; j < positions.length; j++) {
                     let gameInnerCopy = deepCopy(gameCopy); // create a copy of the game to simulate the move on
@@ -412,7 +450,7 @@ function minimaxStart(game, depth, alpha = -Infinity, beta = Infinity) {
     // maximizing player (minimizing does not exist)
     let value = -Infinity;
     let bestMove = null;
-    let children = getChildren(game, depth);
+    let children = getChildren(game, depth, true);
     console.log("POSSIBLE MOVES", children.length/**, children.map(el => (el[0]==null?"":(el[0] + "~" + (el[1].length==2?xyToName(el[1][0], el[1][1]):el[1]) + " & "))  + el[2] + ">" + xyToName(el[3][0], el[3][1]))**/);
     for (const child of children) {
         const result = minimax(child[4], depth - 1, alpha, beta, false);
@@ -444,7 +482,7 @@ function minimax(game, depth, alpha = -Infinity, beta = Infinity, maximizingPlay
    
     if (maximizingPlayer) {
         let value = -Infinity;
-        let children = getChildren(game, depth);
+        let children = getChildren(game, depth, true);
         for (const child of children) {
             value = Math.max(value, minimax(child[4], depth - 1, alpha, beta, false));
             alpha = Math.max(alpha, value);
@@ -455,7 +493,7 @@ function minimax(game, depth, alpha = -Infinity, beta = Infinity, maximizingPlay
         return value;
     } else {
         let value = Infinity;
-        let children = getChildren(game, depth);
+        let children = getChildren(game, depth, false);
         for (const child of children) {
             value = Math.min(value, minimax(child[4], depth - 1, alpha, beta, true));
             beta = Math.min(beta, value);
@@ -473,7 +511,7 @@ async function AImove(game) {
     gameCopy.ai = true; // mark as AI game
     gameCopy.id = null;
     let minmax = minimaxStart(gameCopy, 4);
-    if(minmax.move == null) minmax = { value: null, move: getChildren(game)[0].slice(0, 4) };
+    if(minmax.move == null) minmax = { value: null, move: getChildren(game, 0, true)[0].slice(0, 4) };
     let bestMove = minmax.move;
 	console.log("AI BEST MOVE DEBUG", bestMove);
     
@@ -1914,7 +1952,7 @@ function inBounds(x, y = 1) {
     return inBoundsOne(x) && inBoundsOne(y);
 }
 
-function generatePositions(board, position, hideLog = false) {
+function generatePositions(board, position, hideLog = false, pieceTypeOverride = null) {
     let positions = [];
     position = nameToXY(position);
     let x = position.x, y = position.y;
@@ -1922,7 +1960,7 @@ function generatePositions(board, position, hideLog = false) {
     if(!hideLog) console.log("Finding moves for ", piece.name, " @ ", x, "|", numToRank(x), " ", y);
     const pieceTeam = piece.team;
     const enemyTeam = (pieceTeam + 1) % 2;
-    const pieceType = piece.chess;
+    const pieceType = pieceTypeOverride ? pieceTypeOverride : piece.chess;
     // Movement Logic
     /* PAWN */
     if(pieceType == "Pawn" && pieceTeam == 0) {
