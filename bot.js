@@ -285,7 +285,7 @@ function getChildren(game, depth = 0) {
                     }
                     // end priorities
                 }
-            } else {
+            } else if(board[y][x].team == (game.turn+1)%2) {
                 enemyPieces.push([x, y, board[y][x].enemyVisibleStatus]);
             }
         }
