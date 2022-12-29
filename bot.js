@@ -20,6 +20,11 @@ const RookValue = 7.0;
 const QueenValue = 13.0;
 const NoneValue = 0.25;
 
+const LikelyPawnValue = 3.0;
+const LikelyKingValue = 5.0;
+const LikelyKnightValue = 4.5;
+const LikelyRookValue = 8.0;
+
 const PawnTable = [
     [0.5, 1.0, -1.0, 1.0, 0.5],
     [0.5, -1.0, 0.0, -1.0, 0.5],
@@ -70,40 +75,67 @@ const NoneTable = [
 
 function getEvaluationData(piece) {
     switch(piece) {
-        case "Pawn":
-            return { value: PawnValue, table: PawnTable };    
-        break;
-        case "King":
-            return { value: KingValue, table: KingTable };    
-        break;
-        case "Knight":
-            return { value: KnightValue, table: KnightTable };    
-        break;
-        case "Rook":
+        case "Pawn": case "ActivePawn":
+            return { value: PawnValue, table: PawnTable };
+        case "King": case "ActiveKing":
+            return { value: KingValue, table: KingTable };
+        case "Knight": case "ActiveKnight":
+            return { value: KnightValue, table: KnightTable };
+        case "Rook": case "ActiveRook":
             return { value: RookValue, table: RookTable };    
-        break;
-        case "Queen":
-            return { value: QueenValue, table: QueenTable };    
-        break;
+        case "Queen": case "ActiveQueen":
+            return { value: QueenValue, table: QueenTable };   
         case "None":
             return { value: NoneValue, table: NoneTable };    
-        break;
+        case "LikelyPawn":
+            return { value: LikelyPawnValue, table: PawnTable };    
+        case "LikelyKing":
+            return { value: LikelyKingValue, table: KingTable };    
+        case "LikelyKnight":
+            return { value: LikelyKnightValue, table: KnightTable };    
+        case "LikelyRook": case "LikelyRook":
+            return { value: LikelyRookValue, table: RookTable };    
+        default:
+            return { value: PawnValue, table: PawnTable };
     }
 }
 
-function evaluate(board) {
+function evaluate(board, hiddenPieces = null) {
     // determine material + position
     let whiteValue = 0, blackValue = 0;
     let whiteReveal = 0, blackReveal = 0;
     for(let y = 0; y < boardSize; y++) {
         for(let x = 0; x < boardSize; x++) {
-            let evData = getEvaluationData(board[y][x].chess);
-            if(board[y][x].team === 0) {
-                whiteValue += evData.value + evData.table[4 - y][x] + getWWRevalValue(board[y][x].name);
-                whiteReveal += board[y][x].enemyVisibleStatus / 7;
-            } else if(board[y][x].team === 1) {
-                blackValue += evData.value + evData.table[y][x] + getWWRevalValue(board[y][x].name);  
-                blackReveal += board[y][x].enemyVisibleStatus / 7;
+            let piece = board[y][x];
+            // get piece value
+            if(piece.team === 0) { // team white
+                if(hiddenPieces == 0 && (piece.enemyVisibleStatus < 6 || (piece.enemyVisibleStatus == 6 && piece.disguise))) { // hidden piece
+                    if(piece.enemyVisibleStatus < 6) {
+                        let evData = getEvaluationData(piece.enemyVisibleStatus);
+                        whiteValue += evData.value + evData.table[4 - y][x] + 4;
+                    } else if(piece.enemyVisibleStatus == 6) {
+                        let evData = getEvaluationData(getChessName(piece.disguise));
+                        whiteValue += evData.value + evData.table[4 - y][x] + getWWRevalValue(piece.disguise);
+                    }
+                } else { // revealed piece
+                    let evData = getEvaluationData(piece.chess);
+                    whiteValue += evData.value + evData.table[4 - y][x] + getWWRevalValue(piece.name);
+                }
+                whiteReveal += piece.enemyVisibleStatus / 7;
+            } else if(piece.team === 1) { // team black
+                if(hiddenPieces == 1 && (piece.enemyVisibleStatus < 6 || (piece.enemyVisibleStatus == 6 && piece.disguise))) { // hidden piece
+                    if(piece.enemyVisibleStatus < 6) {
+                        let evData = getEvaluationData(piece.enemyVisibleStatus);
+                        blackValue += evData.value + evData.table[y][x] + 4;
+                    } else if(piece.enemyVisibleStatus == 6) {
+                        let evData = getEvaluationData(getChessName(piece.disguise));
+                        blackValue += evData.value + evData.table[y][x] + getWWRevalValue(piece.disguise);
+                    }
+                } else { // revealed piece
+                    let evData = getEvaluationData(piece.chess);
+                    blackValue += evData.value + evData.table[y][x] + getWWRevalValue(piece.name);  
+                }
+                blackReveal += piece.enemyVisibleStatus / 7;
             }
         }
     }
