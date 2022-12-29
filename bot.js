@@ -110,10 +110,9 @@ function evaluate(board) {
     return (blackValue + whiteReveal) - (whiteValue + blackReveal);
 }
 
-function executeActiveAbility(game, abilityPiece, position, log = false) {
-    let executor = nameToXY(abilityPiece);
-    let executorObject = game.state[executor.y][executor.x];
-    switch(executorObject.name) {
+// takes a game, a piece name, an argument for the ability + log value
+function executeActiveAbility(game, abilityPiece, abilityPieceLocation, position, log = true) {
+    switch(abilityPiece) {
         case null: default:
             return false;
         break;
@@ -124,6 +123,48 @@ function executeActiveAbility(game, abilityPiece, position, log = false) {
             game.state[recallSubject.y][recallSubject.x] = getPiece(null);
             if(log) game.lastMoves.push([game.turn, recallSubjectObject.name, recallSubjectObject.disguise, recallSubjectObject.enemyVisible, xyToName(position[0], position[1]), xyToName(position[0], 0), recallSubjectObject.enemyVisibleStatus, "⤴️"]);
             return true;
+        break;
+        case "Tanner Disguise": // Tanner - Player
+            let tanDisSubject = position[0];
+            game.state[tanDisSubject.y][tanDisSubject.x].disguise = position[1];
+            return false;
+        break;
+        case "Tanner": // Tanner - AI
+            let tanSubject = { x: position[0], y: position[1] };
+            let tanSubjectObject = game.state[tanSubject.y][tanSubject.x];
+            let disguise;
+            switch(tanSubjectObject.enemyVisibleStatus < 6 ? tanSubjectObject.enemyVisible : tanSubjectObject.chess) {
+                case "LikelyPawn": case "Pawn":
+                default:
+                    disguise = "Wolf";
+                break;
+                case "LikelyKing": case "King":
+                    disguise = "Psychic Wolf";
+                break;
+                case "LikelyKnight": case "Knight":
+                    disguise = "Fox";
+                break;
+                case "LikelyRook": case "Rook":
+                case "LikelyQueen": case "Queen":
+                    disguise = "Scared Wolf";
+                break;
+            }
+            game.state[tanSubject.y][tanSubject.x].disguise = disguise;
+            return false;
+        break;
+        case "Hooker":
+            let hideSubject = { x: abilityPieceLocation[0], y: abilityPieceLocation[1] };
+            let hideTarget = xyToName(position[0], position[1]);
+            game.state[hideSubject.y][hideSubject.x].hidden = hideTarget;
+            return false;
+        break;
+        case "Saboteur Wolf":
+            let sabotageTarget = { x: sabotageTarget[0], y: sabotageTarget[1] };
+            let sabotageTargetObject = game.state[sabotageTarget.y][sabotageTarget.x];
+            game.state[sabotageTarget.y][sabotageTarget.x].sabotaged = true;
+            let targetName = xyToName(sabotageTarget.x, sabotageTarget.y);
+            if(log) game.lastMoves.push([game.turn, sabotageTargetObject.name, sabotageTargetObject.disguise, sabotageTargetObject.enemyVisible, targetName, targetName, sabotageTargetObject.enemyVisibleStatus, "⛔🟦🟦"]);
+            return false;
         break;
     }
     return false;
@@ -151,7 +192,10 @@ function getChildren(game, depth = 0) {
                             }
                         break;
                         case "Fortune Teller": case "Warlock": case "Clairvoyant Fox": 
-                            if(depth >= 4) abilityPieces.push([board[y][x].name, x, y]);
+                            if(depth >= 4) {
+                                abilityPieces.push([board[y][x].name, x, y]);
+                                if(abilityPieces.length > 0) skipPointless = true;
+                            }
                         break;
                         // done by enemy next turn 
                         case "Hooker":
@@ -241,7 +285,7 @@ function getChildren(game, depth = 0) {
             // execute ability
             let piecesChanged = false
             if(abilityPiece[0] != null) {
-                piecesChanged = executeActiveAbility(gameCopy, xyToName(abilityPiece[1], abilityPiece[2]), abilityPosition);
+                piecesChanged = executeActiveAbility(gameCopy, abilityPiece[0], [abilityPiece[1], abilityPiece[2]], abilityPosition, false);
             }
             
             // redetermine pieces if positions have changed
@@ -268,7 +312,7 @@ function getChildren(game, depth = 0) {
                     // simulate move
                     movePiece(null, gameInnerCopy, selectedPiece, xyToName(selectedMove[0], selectedMove[1]));
                     if(depth==4) console.log(abilityPiece, "~", abilityPosition, "|", selectedPiece, ">", selectedMove);
-                    children.push([abilityPiece[0]===null ? null : xyToName(abilityPiece[1], abilityPiece[2]), abilityPosition, selectedPiece, selectedMove, gameInnerCopy]);
+                    children.push([abilityPiece, abilityPosition, selectedPiece, selectedMove, gameInnerCopy]);
                 }
             }
             // END normal move section
@@ -359,8 +403,8 @@ async function AImove(game) {
     if(bestMove[0] == null) {
         console.log("NO ABILITY");
     } else {
-        console.log("AI ABILITY", bestMove[0] + ">" + bestMove[1].length == 2 ? xyToName(bestMove[1][0], bestMove[1][1]) : bestMove[1]);
-        executeActiveAbility(game, bestMove[0], bestMove[1], true);
+        console.log("AI ABILITY", bestMove[0] + "~" + bestMove[1].length == 2 ? xyToName(bestMove[1][0], bestMove[1][1]) : bestMove[1]);
+        executeActiveAbility(game, bestMove[0][0], [bestMove[0][1], bestMove[0][2]], bestMove[1]);
     }
     console.log("AI MOVE", bestMove[2] + ">" + xyToName(bestMove[3][0], bestMove[3][1]), minmax.value);
     movePiece(null, game, bestMove[2], xyToName(bestMove[3][0], bestMove[3][1]));
@@ -1157,15 +1201,14 @@ client.on('interactionCreate', async interaction => {
             // sabotage
             case "sabotage":
                 let sabotageTarget = nameToXY(arg2);
-                let sabotageTargetObject = curGame.state[sabotageTarget.y][sabotageTarget.x];
-                curGame.state[sabotageTarget.y][sabotageTarget.x].sabotaged = true;
-                curGame.lastMoves.push([curGame.turn, sabotageTargetObject.name, sabotageTargetObject.disguise, sabotageTargetObject.enemyVisible, arg2, arg2, sabotageTargetObject.enemyVisibleStatus, "⛔🟦🟦"]);
+			    executeActiveAbility(curGame, "Saboteur Wolf", null, [sabotageTarget.x, sabotageTarget.y]);
                 turnMove(interaction, gameID, curGame.turn, "update");
             break;
             // hooker hide
             case "hide":
                 let hideSubject = nameToXY(arg1);
-                curGame.state[hideSubject.y][hideSubject.x].hidden = arg2;
+                let hideTarget = nameToXY(arg2);
+			    executeActiveAbility(curGame, "Hooker", [hideSubject.x, hideSubject.y], [hideTarget.x, hideTarget.y]);
                 turnMove(interaction, gameID, curGame.turn, "update");
             break;
             // tanner tan
@@ -1183,16 +1226,13 @@ client.on('interactionCreate', async interaction => {
             // tanner tan
             case "tan":
                 let tanSubject = nameToXY(arg1);
-                curGame.state[tanSubject.y][tanSubject.x].disguise = arg2;
+			    executeActiveAbility(curGame, "Tanner Disguise", null, [tanSubject, arg2], true);
                 turnMove(interaction, gameID, curGame.turn, "update") 
             break;
             // alpha wolf recall
             case "recall":
                 let recallSubject = nameToXY(arg2);
-                let recallSubjectObject = curGame.state[recallSubject.y][recallSubject.x];
-                curGame.lastMoves.push([curGame.turn, recallSubjectObject.name, recallSubjectObject.disguise, recallSubjectObject.enemyVisible, arg2, xyToName(recallSubject.x, 0), recallSubjectObject.enemyVisibleStatus, "⤴️"]);
-                curGame.state[0][recallSubject.x] = deepCopy(recallSubjectObject);
-                curGame.state[recallSubject.y][recallSubject.x] = getPiece(null);
+			    executeActiveAbility(curGame, "Alpha Wolf", null, [recallSubject.x, recallSubject.y]);
                 turnMove(interaction, gameID, curGame.turn, "update");
             break;
         }
