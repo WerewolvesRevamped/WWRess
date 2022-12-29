@@ -159,7 +159,7 @@ function executeActiveAbility(game, abilityPiece, abilityPieceLocation, position
             return false;
         break;
         case "Saboteur Wolf":
-            let sabotageTarget = { x: sabotageTarget[0], y: sabotageTarget[1] };
+            let sabotageTarget = { x: abilityPieceLocation[0], y: abilityPieceLocation[1] };
             let sabotageTargetObject = game.state[sabotageTarget.y][sabotageTarget.x];
             game.state[sabotageTarget.y][sabotageTarget.x].sabotaged = true;
             let targetName = xyToName(sabotageTarget.x, sabotageTarget.y);
