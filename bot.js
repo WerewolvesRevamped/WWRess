@@ -480,7 +480,7 @@ async function AImove(game) {
     if(bestMove[0] == null || bestMove[0][0] == null) {
         console.log("NO ABILITY");
     } else {
-        console.log("AI ABILITY", bestMove[0] + "~" + (bestMove[1].length == 2 ? xyToName(bestMove[1][0], bestMove[1][1]) : bestMove[1]));
+        console.log("AI ABILITY", bestMove[0][0], xyToName(bestMove[0][1], bestMove[0][2]) + "~" + (bestMove[1].length == 2 ? xyToName(bestMove[1][0], bestMove[1][1]) : bestMove[1]));
         executeActiveAbility(game, bestMove[0][0], [bestMove[0][1], bestMove[0][2]], bestMove[1]);
     }
     console.log("AI MOVE", bestMove[2] + ">" + xyToName(bestMove[3][0], bestMove[3][1]), minmax.value);
