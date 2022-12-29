@@ -13,59 +13,59 @@ client.on("ready", () => {
 const boardSize = 5; // not consistently used
 
 /** AI **/
-const PawnValue = [1.0, 1.5];
-const KingValue = [3.5, 5.5]; 
-const KnightValue = [4.0, 5.0];
-const RookValue = [7.0, 9.0];
-const QueenValue = [13.0, 16.0];
-const NoneValue = [-0.5, 0.0];
+const PawnValue = 2.0;
+const KingValue = 4.0; 
+const KnightValue = 4.0;
+const RookValue = 7.0;
+const QueenValue = 13.0;
+const NoneValue = 0.25;
 
 const PawnTable = [
-    [[0.5], [1.0], [-1.0], [1.0], [0.5]],
-    [[0.5], [-1.0], [0.0], [-1.0], [0.5]],
-    [[0.5], [1.5], [2.5], [1.5], [0.5]],
-    [[2.0], [3.0], [5.0], [3.0], [2.0]],
-    [[0.0], [0.0], [0.0], [0.0], [0.0]]
+    [0.5, 1.0, -1.0, 1.0, 0.5],
+    [0.5, -1.0, 0.0, -1.0, 0.5],
+    [0.5, 1.5, 2.5, 1.5, 0.5],
+    [2.0, 3.0, 5.0, 3.0, 2.0],
+    [0.0, 0.0, 0.0, 0.0, 0.0]
 ];
 
 const KingTable = [
-    [[-2.0], [-1.0], [-1.0], [-1.0], [-2.0]],
-    [[-1.0], [1.0], [1.5], [1.0], [-1.0]],
-    [[-1.0], [1.5], [2.0], [1.5], [-1.0]],
-    [[-1.0], [1.0], [1.5], [1.0], [-1.0]],
-    [[-2.0], [-1.0], [-1.0], [-1.0], [-2.0]]
+    [-2.0, -1.0, -1.0, -1.0, -2.0],
+    [-1.0, 1.0, 1.5, 1.0, -1.0],
+    [-1.0, 1.5, 2.0, 1.5, -1.0],
+    [-1.0, 1.0, 1.5, 1.0, -1.0],
+    [-2.0, -1.0, -1.0, -1.0, -2.0]
 ];
 
 const KnightTable = [
-    [[-5.0], [-4.0], [-3.0], [-4.0], [-5.0]],
-    [[-4.0], [-2.0], [0.5], [-2.0], [-4.0]],
-    [[-3.0], [0.5], [2.0], [0.5], [-3.0]],
-    [[-4.0], [-2.0], [0.5], [-2.0], [-4.0]],
-    [[-5.0], [-4.0], [-3.0], [-4.0], [-5.0]]
+    [-5.0, -4.0, -3.0, -4.0, -5.0],
+    [-4.0, -2.0, 0.5, -2.0, -4.0],
+    [-3.0, 0.5, 2.0, 0.5, -3.0],
+    [-4.0, -2.0, 0.5, -2.0, -4.0],
+    [-5.0, -4.0, -3.0, -4.0, -5.0]
 ];
 
 const RookTable = [
-    [[0.0], [0.5], [0.5], [0.5], [0.0]],
-    [[-0.5], [0.0], [0.0], [0.0], [-0.5]],
-    [[-0.5], [0.0], [0.0], [0.0], [-0.5]],
-    [[-0.5], [0.0], [0.0], [0.0], [-0.5]],
-    [[0.0], [1.0], [1.0], [1.0], [0.0]]
+    [0.0, 0.5, 0.5, 0.5, 0.0],
+    [-0.5, 0.0, 0.0, 0.0, -0.5],
+    [-0.5, 0.0, 0.0, 0.0, -0.5],
+    [-0.5, 0.0, 0.0, 0.0, -0.5],
+    [0.0, 1.0, 1.0, 1.0, 0.0]
 ];
 
 const QueenTable = [
-    [[0.5], [2.0], [1.0], [2.0], [0.5]],
-    [[0.0], [0.5], [0.5], [0.5], [0.0]],
-    [[0.0], [0.5], [0.5], [0.5], [0.0]],
-    [[-0.5], [0.5], [0.5], [0.5], [-0.5]],
-    [[-1.5], [-0.5], [-0.5], [-0.5], [-1.5]]
+    [0.5, 2.0, 1.0, 2.0, 0.5],
+    [0.0, 0.5, 0.5, 0.5, 0.0],
+    [0.0, 0.5, 0.5, 0.5, 0.0],
+    [-0.5, 0.5, 0.5, 0.5, -0.5],
+    [-1.5, -0.5, -0.5, -0.5, -1.5]
 ];
 
 const NoneTable = [
-    [[0.0], [-0.5], [-1.0], [-0.5], [0.0]],
-    [[0.0], [-0.5], [-1.5], [-0.5], [0.0]],
-    [[0.0], [-0.5], [-2.0], [-0.5], [0.0]],
-    [[0.5], [-1.5], [-2.5], [-1.5], [0.5]],
-    [[0.5], [1.0], [1.5], [1.0], [0.5]]
+    [0.0, -0.5, -1.0, -0.5, 0.0],
+    [0.0, -0.5, -1.5, -0.5, 0.0],
+    [0.0, -0.5, -2.0, -0.5, 0.0],
+    [0.5, -1.5, -2.5, -1.5, 0.5],
+    [0.5, 1.0, 1.5, 1.0, 0.5]
 ];
 
 function getEvaluationData(piece) {
@@ -91,25 +91,7 @@ function getEvaluationData(piece) {
     }
 }
 
-function determineGameState(board) {
-    // count pieces
-    let pieceCount = 0;
-    for(let y = 0; y < boardSize; y++) {
-        for(let x = 0; x < boardSize; x++) {
-            if(board[y][x].name != null) {
-                pieceCount++;
-                if(pieceCount > 6) {
-                    return 0;
-                }
-            }
-        }
-    }
-    return 1;
-}
-
 function evaluate(board) {
-    let gameState = determineGameState(board);
-	let tableMultiplier = gameState ? 0.5 : 1;
     // determine material + position
     let whiteValue = 0, blackValue = 0;
     let whiteReveal = 0, blackReveal = 0;
@@ -117,10 +99,10 @@ function evaluate(board) {
         for(let x = 0; x < boardSize; x++) {
             let evData = getEvaluationData(board[y][x].chess);
             if(board[y][x].team === 0) {
-                whiteValue += evData.value[gameState] * 2 + evData.table[4 - y][x][0] * tableMultiplier + getWWRValue(board[y][x].name);
+                whiteValue += evData.value + evData.table[4 - y][x] + getWWRevalValue(board[y][x].name);
                 whiteReveal += board[y][x].enemyVisibleStatus / 7;
             } else if(board[y][x].team === 1) {
-                blackValue += evData.value[gameState] * 2 + evData.table[y][x][0] * tableMultiplier + getWWRValue(board[y][x].name);  
+                blackValue += evData.value + evData.table[y][x] + getWWRevalValue(board[y][x].name);  
                 blackReveal += board[y][x].enemyVisibleStatus / 7;
             }
         }
@@ -128,89 +110,238 @@ function evaluate(board) {
     return (blackValue + whiteReveal) - (whiteValue + blackReveal);
 }
 
-function gameOver(board) {
-    return !canMove(board, 0) || !canMove(board, 1);
+function executeActiveAbility(game, abilityPiece, position, log = false) {
+    let executor = nameToXY(abilityPiece);
+    let executorObject = game.state[executor.y][executor.x];
+    switch(executorObject.name) {
+        case null: default:
+            return false;
+        break;
+        case "Alpha Wolf":
+            let recallSubject = { x: position[0], y: position[1] };
+            let recallSubjectObject = game.state[recallSubject.y][recallSubject.x];
+            game.state[0][recallSubject.x] = deepCopy(recallSubjectObject);
+            game.state[recallSubject.y][recallSubject.x] = getPiece(null);
+            if(log) game.lastMoves.push([game.turn, recallSubjectObject.name, recallSubjectObject.disguise, recallSubjectObject.enemyVisible, xyToName(position[0], position[1]), xyToName(position[0], 0), recallSubjectObject.enemyVisibleStatus, "⤴️"]);
+            return true;
+        break;
+    }
+    return false;
 }
 
-function getChildren(game) {
+function getChildren(game, depth = 0) {
     let board = game.state;
     // get all available pieces
     let pieces = [];
+    let abilityPieces = [];
+    let enemyPieces = [];
+    let skipPointless = false; // some abilities are unlimited, so always better than nothing
     for(let y = 0; y < boardSize; y++) {
         for(let x = 0; x < boardSize; x++) {
             if(board[y][x].team == game.turn) {
                 pieces.push(xyToName(x, y));
+                if(board[y][x].active && !board[y][x].sabotaged) {
+                    // active ability priorities
+                    switch(board[y][x].name) {
+                        // done by self this turn
+                        case "Crowd Seeker": case "Archivist Fox": case "Psychic Wolf": case "Aura Teller": case "Tanner":
+                            if(depth >= 4) {
+                                abilityPieces.push([board[y][x].name, x, y]);
+                                skipPointless = true;
+                            }
+                        break;
+                        case "Fortune Teller": case "Warlock": case "Clairvoyant Fox": 
+                            if(depth >= 4) abilityPieces.push([board[y][x].name, x, y]);
+                        break;
+                        // done by enemy next turn 
+                        case "Hooker":
+                            if(depth >= 3) abilityPieces.push([board[y][x].name, x, y]);
+                        break;
+                        // done by self in next turn
+                        case "Saboteur Wolf": 
+                            if(depth >= 2) abilityPieces.push([board[y][x].name, x, y]);
+                        break;
+                        // whenever
+                        case "Infecting Wolf": case "Dog": case "Alpha Wolf":
+                            abilityPieces.push([board[y][x].name, x, y]);
+                        break;
+                    }
+                    // end priorities
+                }
+            } else {
+                enemyPieces.push([x, y, board[y][x].enemyVisibleStatus]);
             }
         }
     }
     
-    /** WIP
-    let abilityPieces = [];
-    for(let y = 0; y < board.length; y++) {
-        for(let x = 0; x < board[0].length; x++) {
-            if(board[y][x].team == game.turn && board[y][x].active && !board[y][x].sabotaged) {
-                abilityPieces.push([board[y][x].name, x, y]);
-            }
-        }
-    }**/
-    
-    // iterate through all pieces
+    // find all possible ability/move combinations
     let children = [];
-    for(let i = 0; i < pieces.length; i++) {
-        let selectedPiece = pieces[i];
-        let positions = generatePositions(game.state, selectedPiece, true);
-        // iterate through that piece's moves
-        for(let j = 0; j < positions.length; j++) {
-            games.push(deepCopy(game)); // create a copy of the game to simulate the move on
-            let gameid = games.length - 1;
-            games[gameid].ai = true; // mark as AI game
-            games[gameid].id = gameid;
-            let selectedMove = positions[j];
-            // simulate move
-            movePiece(null, gameid, selectedPiece, xyToName(selectedMove[0], selectedMove[1]));
-            children.push([selectedPiece, selectedMove, games[gameid]]);
+    // option to not use an ability
+    if(!skipPointless) abilityPieces.unshift([null,0,0]);
+    // iterate ability pieces
+    for(const abilityPiece of abilityPieces) {
+        // find valid options for ability
+        let abilityPositions = [];
+        switch(abilityPiece[0]) {
+            case null: default:
+                abilityPositions = [null];
+            break;
+            // targetable enemy
+            case "Fortune Teller": case "Warlock": case "Infecting Wolf": case "Saboteur Wolf":
+                abilityPositions = generatePositions(game.state, xyToName(abilityPiece[1], abilityPiece[2]), true).filter(el => el[2]).map(el => [el[0], el[1]]); // only select moves with targets
+            break;
+            // all enemy
+            case "Clairvoyant Fox": case "Crowd Seeker": case "Archivist Fox": case "Psychic Wolf": case "Aura Teller":
+                let status = 0;
+                // only select the investigation that reveals most
+                while(status < 7) {
+                    abilityPositions = enemyPieces.filter(el => el[2] == status);
+                    if(abilityPositions.length > 1) break;
+                    status++;
+                }
+                // there is no real priority otherwise
+                if(abilityPositions.length > 1) { 
+                    abilityPositions = abilityPositions.slice(0, 1);
+                }
+            break;
+            // all ally
+            case "Tanner":
+                abilityPositions = pieces.map(el => [el[0], el[1]]);
+            break;
+            // dog
+            case "Dog":
+                abilityPositions = ["Wolf Cub","Fox"];
+            break;
+            // adjacent ally
+            case "Hooker":
+                let ax = abilityPiece[1], ay = abilityPiece[2];
+                if(inBounds(ax, ay-1) && game.state[ay-1][ax].team == 0) abilityPositions.push([ax, ay-1]);
+                if(inBounds(ax, ay+1) && game.state[ay+1][ax].team == 0) abilityPositions.push([ax, ay+1]);
+                if(inBounds(ax-1, ay-1) && game.state[ay-1][ax-1].team == 0) abilityPositions.push([ax-1, ay-1]);
+                if(inBounds(ax-1, ay) && game.state[ay][ax-1].team == 0) abilityPositions.push([ax-1, ay]);
+                if(inBounds(ax-1, ay+1) && game.state[ay+1][ax-1].team == 0) abilityPositions.push([ax-1, ay+1]);
+                if(inBounds(ax+1, ay-1) && game.state[ay-1][ax+1].team == 0) abilityPositions.push([ax+1, ay-1]);
+                if(inBounds(ax+1, ay) && game.state[ay][ax+1].team == 0) abilityPositions.push([ax+1, ay]);
+                if(inBounds(ax+1, ay+1) && game.state[ay+1][ax+1].team == 0) abilityPositions.push([ax+1, ay+1]);
+            break;
+            // alpha wolf
+            case "Alpha Wolf":
+                for(let i = 0; i < pieces.length; i++) {
+                        let coords = nameToXY(pieces[i]);
+                        if(game.state[0][coords.x].name == null) abilityPositions.push([coords.x, coords.y]);
+                }
+            break;
+        }
+        
+        for(const abilityPosition of abilityPositions) {
+            // make a copy
+            let gameCopy = deepCopy(game); // create a copy of the game to simulate the move on
+            gameCopy.ai = true; // mark as AI game
+            gameCopy.id = null;
+            // execute ability
+            let piecesChanged = false
+            if(abilityPiece[0] != null) {
+                piecesChanged = executeActiveAbility(gameCopy, xyToName(abilityPiece[1], abilityPiece[2]), abilityPosition);
+            }
+            
+            // redetermine pieces if positions have changed
+            if(piecesChanged) {
+                pieces = [];
+                for(let y = 0; y < boardSize; y++) {
+                    for(let x = 0; x < boardSize; x++) {
+                        if(gameCopy.state[y][x].team == gameCopy.turn) {
+                            pieces.push(xyToName(x, y));
+                        }
+                    }
+                }
+            }
+            
+            // START continue with normal move
+            // iterate through all pieces
+            for(let i = 0; i < pieces.length; i++) {
+                let selectedPiece = pieces[i];
+                let positions = generatePositions(gameCopy.state, selectedPiece, true);
+                // iterate through that piece's moves
+                for(let j = 0; j < positions.length; j++) {
+                    let gameInnerCopy = deepCopy(gameCopy); // create a copy of the game to simulate the move on
+                    let selectedMove = positions[j];
+                    // simulate move
+                    movePiece(null, gameInnerCopy, selectedPiece, xyToName(selectedMove[0], selectedMove[1]));
+                    if(depth==4) console.log(abilityPiece, "~", abilityPosition, "|", selectedPiece, ">", selectedMove);
+                    children.push([abilityPiece[0]===null ? null : xyToName(abilityPiece[1], abilityPiece[2]), abilityPosition, selectedPiece, selectedMove, gameInnerCopy]);
+                }
+            }
+            // END normal move section
         }
     }
+    // END ability section
     
-	return children; // 0 -> piece, 1 -> move, 2 -> state
+	return children; // 0 -> ability piece, 1 -> ability usage, 2 -> piece, 3 -> move, 4 -> state
+}
+
+// on the first iteration save and return the move
+function minimaxStart(game, depth, alpha = -Infinity, beta = Infinity) {
+    let board = game.state;
+    if (!canMove(board, 0)) {
+        return { value: Infinity, move: null };
+    }
+    if (!canMove(board, 1)) {
+        return { value: -Infinity, move: null };
+    }
+    
+    // maximizing player (minimizing does not exist)
+    let value = -Infinity;
+    let bestMove = null;
+    let children = getChildren(game, depth);
+    console.log("POSSIBLE MOVES", children.length/**, children.map(el => (el[0]==null?"":(el[0] + "~" + (el[1].length==2?xyToName(el[1][0], el[1][1]):el[1]) + " & "))  + el[2] + ">" + xyToName(el[3][0], el[3][1]))**/);
+    for (const child of children) {
+        const result = minimax(child[4], depth - 1, alpha, beta, false);
+        if (result > value) {
+            value = result;
+            bestMove = child.slice(0, 4);
+        }
+        alpha = Math.max(alpha, value);
+        if (beta <= alpha) {
+            break;  // Beta cut-off
+        }
+    }
+    return { value, move: bestMove };
 }
 
 function minimax(game, depth, alpha = -Infinity, beta = Infinity, maximizingPlayer = true) {
     let board = game.state;
     // Base case: if we have reached the maximum search depth or the game is over, return the heuristic value of the state
-    if (depth === 0 || gameOver(board)) {
+    if (depth === 0) {
         // this is positive for the maximizing player -> so rn Player#2 is hardcoded as that
         return evaluate(board);
     }
-
+    if (!canMove(board, 0)) {
+        return Infinity;
+    }
+    if (!canMove(board, 1)) {
+        return -Infinity;
+    }
+   
     if (maximizingPlayer) {
         let value = -Infinity;
-        let children = getChildren(game);
+        let children = getChildren(game, depth);
         for (const child of children) {
-            value = Math.max(value, minimax(child[2], depth - 1, alpha, beta, false));
+            value = Math.max(value, minimax(child[4], depth - 1, alpha, beta, false));
             alpha = Math.max(alpha, value);
             if (beta <= alpha) {
                 break;  // Beta cut-off
             }
         }
-        // destroy games
-        for (const child of children) {
-            games.splice(games.findIndex(el => el.id === child[2].id), 1);
-        }
         return value;
     } else {
         let value = Infinity;
-        let children = getChildren(game);
+        let children = getChildren(game, depth);
         for (const child of children) {
-            value = Math.min(value, minimax(child[2], depth - 1, alpha, beta, true));
+            value = Math.min(value, minimax(child[4], depth - 1, alpha, beta, true));
             beta = Math.min(beta, value);
             if (beta <= alpha) {
                 break;  // Alpha cut-off
             }
-        }
-        // destroy games
-        for (const child of children) {
-            games.splice(games.findIndex(el => el.id === child[2].id), 1);
         }
         return value;
     }
@@ -218,20 +349,21 @@ function minimax(game, depth, alpha = -Infinity, beta = Infinity, maximizingPlay
 
 
 async function AImove(game) {
-    let children = getChildren(game);
-    let bestValue = -Infinity;
-    let bestMove = null;
-    for (const child of children) {
-        let minmax = minimax(child[2], 4);
-        if(minmax > bestValue) {
-            bestValue = minmax;
-            bestMove = child;
-        }
-        games.splice(games.findIndex(el => el.id === child[2].id), 1);
+    let gameCopy = deepCopy(game); // create a copy of the game to simulate the move on
+    gameCopy.ai = true; // mark as AI game
+    gameCopy.id = null;
+    let minmax = minimaxStart(gameCopy, 4);
+    if(minmax.move == null) minmax = { value: null, move: getChildren(game)[0].slice(0, 4) };
+    let bestMove = minmax.move;
+    
+    if(bestMove[0] == null) {
+        console.log("NO ABILITY");
+    } else {
+        console.log("AI ABILITY", bestMove[0] + ">" + bestMove[1].length == 2 ? xyToName(bestMove[1][0], bestMove[1][1]) : bestMove[1]);
+        executeActiveAbility(game, bestMove[0], bestMove[1], true);
     }
-
-    console.log("AI MOVE", bestMove[0], xyToName(bestMove[1][0], bestMove[1][1]));
-    movePiece(null, game.id, bestMove[0], xyToName(bestMove[1][0], bestMove[1][1]));
+    console.log("AI MOVE", bestMove[2] + ">" + xyToName(bestMove[3][0], bestMove[3][1]), minmax.value);
+    movePiece(null, game, bestMove[2], xyToName(bestMove[3][0], bestMove[3][1]));
 }
 
 
@@ -276,7 +408,7 @@ function getPlayerGameId(id) {
 
 // create a deep copy of an element by JSON stringifying and then parsing it
 function deepCopy(el) {
-    return JSON.parse(JSON.stringify(el));
+    return structuredClone(el);
 }
 
 function turnStart(interaction, gameid, turn, mode = "editreply") {
@@ -313,14 +445,28 @@ function response(interaction, resp, mode) {
     }
 }
 
+function getDefensivePosition(moveFrom, moveTo, movedX, movedY) {
+    let defensive = {};
+    defensive.x = moveTo.x;
+    defensive.y = moveTo.y;
+    if(moveTo.x != moveFrom.x) defensive.x -= Math.sign(moveTo.x - moveFrom.x)
+    if(moveTo.y != moveFrom.y) defensive.y -= Math.sign(moveTo.y - moveFrom.y)
+    if((movedY == 1 && movedX == 2) || (movedY == 2 && movedX == 1)) { // knight has no intermediate steps and stays if blocked
+        defensive.x = moveFrom.x;
+        defensive.y = moveFrom.y;
+    }
+    return defensive;
+}
+
 // moves a piece from one place to another (and/or replaces the piece with another piece)
-function movePiece(interaction, id, from, to, repl = null) {
+function movePiece(interaction, moveCurGame, from, to, repl = null) {
+    // is ai fake turn
+    const notAiTurn = !moveCurGame.ai;
     // get coords
     let moveFrom = nameToXY(from);
     let moveTo = nameToXY(to);
             
     // move piece
-    let moveCurGame = games[id];
     let movedPieceCopy = deepCopy(moveCurGame.state[moveFrom.y][moveFrom.x]);
     let movedPiece = deepCopy(moveCurGame.state[moveFrom.y][moveFrom.x]);
     let beatenPiece = deepCopy(moveCurGame.state[moveTo.y][moveTo.x]);
@@ -340,11 +486,16 @@ function movePiece(interaction, id, from, to, repl = null) {
     let movedYorig = moveFrom.y - moveTo.y;
     let movedX = Math.abs(movedXorig);
     let movedY = Math.abs(movedYorig);
-    if(!moveCurGame.ai) console.log("MOVED", movedXorig, movedYorig, beatenPiece.name);
+    if(notAiTurn) console.log("MOVED", movedXorig, movedYorig, beatenPiece?beatenPiece.name:"");
     //console.log("status", movedPiece.enemyVisibleStatus);
-    if(movedPiece.enemyVisibleStatus < 7) { 
+    const mEVS = movedPiece.enemyVisibleStatus;
+    const mDis = movedPiece.disguise;
+    const mDisChess = getChessName(mDis);
+    const p1Turn = moveCurGame.turn === 0;
+    const beaten = beatenPiece.name != null;
+    if(mEVS < 7) { 
         // definitely a knight
-        if(movedPiece.enemyVisibleStatus < 3 && ((movedY == 1 && movedX == 2) || (movedY == 2 && movedX == 1))) {
+        if(mEVS < 3 && ((movedY == 1 && movedX == 2) || (movedY == 2 && movedX == 1))) {
             if(movedPiece.team == 0 && !movedPiece.hasMoved) { // white knights may be amnesiacs
                 movedPiece.enemyVisibleStatus = 0;
                 movedPiece.enemyVisible = "LikelyKnight";  
@@ -353,225 +504,244 @@ function movePiece(interaction, id, from, to, repl = null) {
                 movedPiece.enemyVisible = "Knight";
             }
         }
-        if(movedPiece.enemyVisibleStatus == 6 && ((movedY == 1 && movedX == 2) || (movedY == 2 && movedX == 1)) && movedPiece.disguise && getChessName(movedPiece.disguise) != "Knight") { // was disguised
+        if(mEVS == 6 && ((movedY == 1 && movedX == 2) || (movedY == 2 && movedX == 1)) && mDis && mDisChess != "Knight") { // was disguised
             movedPiece.enemyVisibleStatus = 4;
             movedPiece.enemyVisible = "Knight";
         }
         // pawn condition
-        else if(movedPiece.enemyVisibleStatus < 1 && moveCurGame.turn == 0 && movedYorig == 1 && movedX == 0 && beatenPiece.name == null) { // white pawn move
+        else if(mEVS < 1 && p1Turn && movedYorig == 1 && movedX == 0 && beatenPiece.name == null) { // white pawn move
             movedPiece.enemyVisibleStatus = 1;
             movedPiece.enemyVisible = "LikelyPawn";
-        } else if((movedPiece.enemyVisibleStatus < 1 || (movedPiece.enemyVisibleStatus == 6 && movedPiece.disguise && getChessName(movedPiece.disguise) == "Rook")) && moveCurGame.turn == 0 && movedYorig == 1 && movedX == 1 && beatenPiece.name != null) { // white pawn beat
+        } else if((mEVS < 1 || (mEVS == 6 && mDis && mDisChess == "Rook")) && p1Turn && movedYorig == 1 && movedX == 1 && beaten) { // white pawn beat
             movedPiece.enemyVisibleStatus = 1;
             movedPiece.enemyVisible = "LikelyPawn";
-        } else if(movedPiece.enemyVisibleStatus < 1 && moveCurGame.turn == 1 && movedYorig == -1 && movedX == 0 && beatenPiece.name == null) { // black pawn move
+        } else if(mEVS < 1 && !p1Turn && movedYorig == -1 && movedX == 0 && beatenPiece.name == null) { // black pawn move
             movedPiece.enemyVisibleStatus = 1;
             movedPiece.enemyVisible = "LikelyPawn";
-        } else if((movedPiece.enemyVisibleStatus < 1 || (movedPiece.enemyVisibleStatus == 6 && movedPiece.disguise && getChessName(movedPiece.disguise) == "Rook")) && moveCurGame.turn == 1 && movedYorig == -1 && movedX == 1 && beatenPiece.name != null) { // black pawn beat
+        } else if((mEVS < 1 || (mEVS == 6 && mDis && mDisChess == "Rook")) && !p1Turn && movedYorig == -1 && movedX == 1 && beaten) { // black pawn beat
             movedPiece.enemyVisibleStatus = 1;
             movedPiece.enemyVisible = "LikelyPawn";
         }
         // king condition
-        else if((movedPiece.enemyVisibleStatus < 2 || (movedPiece.enemyVisibleStatus == 6 && movedPiece.disguise && (getChessName(movedPiece.disguise) != "Rook" || getChessName(movedPiece.disguise) != "Queen" || getChessName(movedPiece.disguise) != "King"))) && movedY == 0 && movedX == 1) { // rook like move (left/right)
+        else if((mEVS < 2 || (mEVS == 6 && mDis && (mDisChess != "Rook" || mDisChess != "Queen" || mDisChess != "King"))) && movedY == 0 && movedX == 1) { // rook like move (left/right)
             movedPiece.enemyVisibleStatus = 2;
             movedPiece.enemyVisible = "LikelyKing";
-        } else if((movedPiece.enemyVisibleStatus < 2 || (movedPiece.enemyVisibleStatus == 6 && movedPiece.disguise && (getChessName(movedPiece.disguise) != "Rook" || getChessName(movedPiece.disguise) != "Queen" || getChessName(movedPiece.disguise) != "King"))) && ((moveCurGame.turn == 0 && movedYorig == -1) || (moveCurGame.turn == 1 && movedYorig == 1))  && (movedX == 0 || movedX == 1)) { // rook like move (down, side down)
+        } else if((mEVS < 2 || (mEVS == 6 && mDis && (mDisChess != "Rook" || mDisChess != "Queen" || mDisChess != "King"))) && ((p1Turn && movedYorig == -1) || (!p1Turn && movedYorig == 1))  && (movedX == 0 || movedX == 1)) { // rook like move (down, side down)
             movedPiece.enemyVisibleStatus = 2;
             movedPiece.enemyVisible = "LikelyKing";
-        } else if((movedPiece.enemyVisibleStatus < 2 || (movedPiece.enemyVisibleStatus == 6 && movedPiece.disguise && (getChessName(movedPiece.disguise) != "Rook" || getChessName(movedPiece.disguise) != "Queen" || getChessName(movedPiece.disguise) != "King"))) && ((moveCurGame.turn == 0 && movedYorig == 1) || (moveCurGame.turn == 1 && movedYorig == -1))  && movedX == 0 && beatenPiece.name != null) { // rook like move (up)
+        } else if((mEVS < 2 || (mEVS == 6 && mDis && (mDisChess != "Rook" || mDisChess != "Queen" || mDisChess != "King"))) && ((p1Turn && movedYorig == 1) || (!p1Turn && movedYorig == -1))  && movedX == 0 && beaten) { // rook like move (up)
             movedPiece.enemyVisibleStatus = 2;
             movedPiece.enemyVisible = "LikelyKing";
-        } else if((movedPiece.enemyVisibleStatus < 2 || (movedPiece.enemyVisibleStatus == 6 && movedPiece.disguise && (getChessName(movedPiece.disguise) != "Rook" || getChessName(movedPiece.disguise) != "Queen" || getChessName(movedPiece.disguise) != "King"))) && ((moveCurGame.turn == 0 && movedYorig == 1) || (moveCurGame.turn == 1 && movedYorig == -1))  && movedX == 1 && beatenPiece.name == null) { // rook like move (side up)
+        } else if((mEVS < 2 || (mEVS == 6 && mDis && (mDisChess != "Rook" || mDisChess != "Queen" || mDisChess != "King"))) && ((p1Turn && movedYorig == 1) || (!p1Turn && movedYorig == -1))  && movedX == 1 && beatenPiece.name == null) { // rook like move (side up)
             movedPiece.enemyVisibleStatus = 2;
             movedPiece.enemyVisible = "LikelyKing";
         }
         // rook condition
-        else if((movedPiece.enemyVisibleStatus < 3 || (movedPiece.enemyVisibleStatus == 6 && movedPiece.disguise && (getChessName(movedPiece.disguise) != "Rook" || getChessName(movedPiece.disguise) != "Queen"))) && ((movedY > 1 && movedX == 0) || (movedY == 0 && movedX > 1))) {
+        else if((mEVS < 3 || (mEVS == 6 && mDis && (mDisChess != "Rook" || mDisChess != "Queen"))) && ((movedY > 1 && movedX == 0) || (movedY == 0 && movedX > 1))) {
             movedPiece.enemyVisibleStatus = 3;
             movedPiece.enemyVisible = "LikelyRook";
         }
         // queen condition
-        else if((movedPiece.enemyVisibleStatus < 4 || (movedPiece.enemyVisibleStatus == 6 && movedPiece.disguise && getChessName(movedPiece.disguise) != "Queen")) && (movedY > 1 || movedX > 1) && movedY > 1 && movedX > 1) {
+        else if((mEVS < 4 || (mEVS == 6 && mDis && mDisChess != "Queen")) && (movedY > 1 || movedX > 1) && movedY > 1 && movedX > 1) {
             movedPiece.enemyVisibleStatus = 4;
             movedPiece.enemyVisible = "Queen";
         }
     }
     
-    // find position to go to if attack blocked
-    let defensiveX = moveTo.x;
-    let defensiveY = moveTo.y;
-    if(moveTo.x != moveFrom.x) defensiveX -= Math.sign(moveTo.x - moveFrom.x)
-    if(moveTo.y != moveFrom.y) defensiveY -= Math.sign(moveTo.y - moveFrom.y)
-    if((movedY == 1 && movedX == 2) || (movedY == 2 && movedX == 1)) { // knight has no intermediate steps and stays if blocked
-        defensiveX = moveFrom.x;
-        defensiveY = moveFrom.y;
-    }
     
     if(from == to) beatenPiece = getPiece(null); // promotion is not taking
     
+    let defensive;
     // death effects
-    switch(beatenPiece.name) {
-        case null:
-            if(from == to) { // pawn promotion
-                moveCurGame.lastMoves.push([moveCurGame.turn, movedPieceCopy.name, movedPiece.disguise, movedPiece.enemyVisibleStatus<4?"Pawn":movedPiece.enemyVisible, from, to, movedPiece.enemyVisibleStatus<4?4:movedPiece.enemyVisibleStatus, "⏫🟦🟦"]);
-            } else { 
-                moveCurGame.lastMoves.push([moveCurGame.turn, movedPiece.name, movedPiece.disguise, movedPiece.enemyVisible, from, to, movedPiece.enemyVisibleStatus]);
-            }
-        break;
-        default:
-            // store move
-            if(beatenPiece.protected) { // protected (Witch)
-                moveCurGame.lastMoves.push([moveCurGame.turn, movedPiece.name, movedPiece.disguise, movedPiece.enemyVisible, from, xyToName(defensiveX, defensiveY), movedPiece.enemyVisibleStatus]);
-                moveCurGame.lastMoves.push([(moveCurGame.turn+1)%2, beatenPiece.name, beatenPiece.disguise, beatenPiece.enemyVisible, to, to, beatenPiece.enemyVisibleStatus, "🛡️🟦🟦"]);
-                moveCurGame.state[defensiveY][defensiveX] = movedPiece;
-                moveCurGame.state[moveTo.y][moveTo.x] = beatenPiece;
-            } else { // piece taken
+    if(notAiTurn || moveCurGame.players[moveCurGame.turn] == null || beatenPiece.enemyVisibleStatus >= 6) { // only run in normal turns, ai's own turns or when effect is visible
+        if(!notAiTurn && moveCurGame.players[moveCurGame.turn] != null && beatenPiece.enemyVisibleStatus == 6 && beatenPiece.disguise) beatenPiece.name = beatenPiece.disguise; // see role with disguise if applicable
+        switch(beatenPiece.name) {
+            case null:
+                if(from == to) { // pawn promotion
+                    if(notAiTurn) moveCurGame.lastMoves.push([moveCurGame.turn, movedPieceCopy.name, movedPiece.disguise, movedPiece.enemyVisibleStatus<4?"Pawn":movedPiece.enemyVisible, from, to, movedPiece.enemyVisibleStatus<4?4:movedPiece.enemyVisibleStatus, "⏫🟦🟦"]);
+                } else { 
+                    moveCurGame.lastMoves.push([moveCurGame.turn, movedPiece.name, movedPiece.disguise, movedPiece.enemyVisible, from, to, movedPiece.enemyVisibleStatus]);
+                }
+            break;
+            default:
+                // store move
+                if(beatenPiece.protected) { // protected (Witch)
+                    defensive = getDefensivePosition(moveFrom, moveTo, movedX, movedY);
+                    if(notAiTurn) {
+                        moveCurGame.lastMoves.push([moveCurGame.turn, movedPiece.name, movedPiece.disguise, movedPiece.enemyVisible, from, xyToName(defensive.x, defensive.y), movedPiece.enemyVisibleStatus]);
+                        moveCurGame.lastMoves.push([(moveCurGame.turn+1)%2, beatenPiece.name, beatenPiece.disguise, beatenPiece.enemyVisible, to, to, beatenPiece.enemyVisibleStatus, "🛡️🟦🟦"]);
+                    }
+                    moveCurGame.state[defensive.y][defensive.x] = movedPiece;
+                    moveCurGame.state[moveTo.y][moveTo.x] = beatenPiece;
+                } else { // piece taken
+                    moveCurGame.lastMoves.push([moveCurGame.turn, movedPiece.name, movedPiece.disguise, movedPiece.enemyVisible, from, to, movedPiece.enemyVisibleStatus, "🇽​"]);
+                }
+            break; // Hooker defense
+            case "Hooker":
+                if(beatenPiece.hidden) {
+                    defensive = getDefensivePosition(moveFrom, moveTo, movedX, movedY);
+                    if(notAiTurn) {
+                        moveCurGame.lastMoves.push([moveCurGame.turn, movedPiece.name, movedPiece.disguise, movedPiece.enemyVisible, from, xyToName(defensive.x, defensive.y), movedPiece.enemyVisibleStatus]);
+                        moveCurGame.lastMoves.push([(moveCurGame.turn+1)%2, beatenPiece.name, false, "", to, to, 7, "🛡️🟦🟦"]);
+                    }
+                    moveCurGame.state[defensive.y][defensive.x] = movedPiece;
+                    moveCurGame.state[moveTo.y][moveTo.x] = beatenPiece;
+                    moveCurGame.state[moveTo.y][moveTo.x].enemyVisibleStatus = 7;
+                }
+            break;
+            case "Ranger":
+                movedPiece.enemyVisibleStatus = 7;
+                if(notAiTurn) {
+                    moveCurGame.lastMoves.push([moveCurGame.turn, movedPiece.name, movedPiece.disguise, movedPiece.enemyVisible, from, to, movedPiece.enemyVisibleStatus, "🇽​"]);
+                    moveCurGame.lastMoves.push([(moveCurGame.turn+1)%2, "Ranger", false, "", to, to, 7, "👁️" + findEmoji(movedPiece.name) + "🟦"]);
+                }
+            break;
+            case "Huntress":
                 moveCurGame.lastMoves.push([moveCurGame.turn, movedPiece.name, movedPiece.disguise, movedPiece.enemyVisible, from, to, movedPiece.enemyVisibleStatus, "🇽​"]);
-            }
-        break; // Hooker defense
-        case "Hooker":
-            if(beatenPiece.hidden) {
-                moveCurGame.lastMoves.push([moveCurGame.turn, movedPiece.name, movedPiece.disguise, movedPiece.enemyVisible, from, xyToName(defensiveX, defensiveY), movedPiece.enemyVisibleStatus]);
-                moveCurGame.lastMoves.push([(moveCurGame.turn+1)%2, beatenPiece.name, false, "", to, to, 7, "🛡️🟦🟦"]);
-                moveCurGame.state[defensiveY][defensiveX] = movedPiece;
-                moveCurGame.state[moveTo.y][moveTo.x] = beatenPiece;
-                moveCurGame.state[moveTo.y][moveTo.x].enemyVisibleStatus = 7;
-            }
-        break;
-        case "Ranger":
-            movedPiece.enemyVisibleStatus = 7;
-            moveCurGame.lastMoves.push([moveCurGame.turn, movedPiece.name, movedPiece.disguise, movedPiece.enemyVisible, from, to, movedPiece.enemyVisibleStatus, "🇽​"]);
-            moveCurGame.lastMoves.push([(moveCurGame.turn+1)%2, "Ranger", false, "", to, to, 7, "👁️" + findEmoji(movedPiece.name) + "🟦"]);
-        break;
-        case "Huntress":
-            moveCurGame.lastMoves.push([moveCurGame.turn, movedPiece.name, movedPiece.disguise, movedPiece.enemyVisible, from, to, movedPiece.enemyVisibleStatus, "🇽​"]);
-            moveCurGame.lastMoves.push([(moveCurGame.turn+1)%2, "Huntress", false, "", to, from, 7, "🇽"]);
-            moveCurGame.state[moveTo.y][moveTo.x] = getPiece(null);
-        break;
-        // Extra Move Pieces
-        case "Child":
-        case "Wolf Cub":
-            moveCurGame.lastMoves.push([moveCurGame.turn, movedPiece.name, movedPiece.disguise, movedPiece.enemyVisible, from, to, movedPiece.enemyVisibleStatus, "🇽​"]);
-            moveCurGame.lastMoves.push([(moveCurGame.turn+1)%2, beatenPiece.name, false, "", to, to, 7, "🟦" + "2️⃣" + "🇽"]);
-            if(moveCurGame.turn == 1) moveCurGame.doubleMove0 = true;
-            else if(moveCurGame.turn == 0) moveCurGame.doubleMove1 = true;
-        break;
-        // Fortune Apprentice
-        case "Fortune Teller":
-        case "Aura Teller":
-        case "Crowd Seeker":
-            moveCurGame.lastMoves.push([moveCurGame.turn, movedPiece.name, movedPiece.disguise, movedPiece.enemyVisible, from, to, movedPiece.enemyVisibleStatus, "🇽​"]);
-            for(let y = 0; y < 5; y++) {
-                for(let x = 0; x < 5; x++) {
-                    let xyPiece = moveCurGame.state[y][x];
-                    if(xyPiece.name == "Fortune Apprentice") {
-                        moveCurGame.state[y][x] = getPiece(beatenPiece.name);
+                moveCurGame.lastMoves.push([(moveCurGame.turn+1)%2, "Huntress", false, "", to, from, 7, "🇽"]);
+                moveCurGame.state[moveTo.y][moveTo.x] = getPiece(null);
+            break;
+            // Extra Move Pieces
+            case "Child":
+            case "Wolf Cub":
+                if(notAiTurn) {
+                    moveCurGame.lastMoves.push([moveCurGame.turn, movedPiece.name, movedPiece.disguise, movedPiece.enemyVisible, from, to, movedPiece.enemyVisibleStatus, "🇽​"]);
+                    moveCurGame.lastMoves.push([(moveCurGame.turn+1)%2, beatenPiece.name, false, "", to, to, 7, "🟦" + "2️⃣" + "🇽"]);
+                }
+                if(moveCurGame.turn == 1) moveCurGame.doubleMove0 = true;
+                else if(moveCurGame.turn == 0) moveCurGame.doubleMove1 = true;
+            break;
+            // Fortune Apprentice
+            case "Fortune Teller":
+            case "Aura Teller":
+            case "Crowd Seeker":
+                if(notAiTurn) moveCurGame.lastMoves.push([moveCurGame.turn, movedPiece.name, movedPiece.disguise, movedPiece.enemyVisible, from, to, movedPiece.enemyVisibleStatus, "🇽​"]);
+                for(let y = 0; y < 5; y++) {
+                    for(let x = 0; x < 5; x++) {
+                        let xyPiece = moveCurGame.state[y][x];
+                        if(xyPiece.name == "Fortune Apprentice") {
+                            moveCurGame.state[y][x] = getPiece(beatenPiece.name);
+                        }
                     }
                 }
-            }
-        break;
-        // Defensive Pieces, Single Defense
-        case "Runner":
-        case "Idiot":
-        case "Scared Wolf":
-            moveCurGame.lastMoves.push([moveCurGame.turn, movedPiece.name, movedPiece.disguise, movedPiece.enemyVisible, from, xyToName(defensiveX, defensiveY), movedPiece.enemyVisibleStatus]);
-            moveCurGame.lastMoves.push([(moveCurGame.turn+1)%2, beatenPiece.name, false, "", to, to, 7, "🛡️🟦🟦"]);
-            moveCurGame.state[defensiveY][defensiveX] = movedPiece;
-            moveCurGame.state[moveTo.y][moveTo.x] = getPiece("Attacked " + beatenPiece.name);
-            moveCurGame.state[moveTo.y][moveTo.x].enemyVisibleStatus = 7;
-        break;
-        case "Cursed Civilian":
-            moveCurGame.lastMoves.push([moveCurGame.turn, movedPiece.name, movedPiece.disguise, movedPiece.enemyVisible, from, xyToName(defensiveX, defensiveY), movedPiece.enemyVisibleStatus]);
-            moveCurGame.lastMoves.push([moveCurGame.turn, beatenPiece.name, false, "", to, to, 7, "🔀" + findEmoji("Wolf") + "🟦"]);
-            moveCurGame.state[defensiveY][defensiveX] = movedPiece;
-            moveCurGame.state[moveTo.y][moveTo.x] = getPiece("Wolf");
-            moveCurGame.state[moveTo.y][moveTo.x].enemyVisibleStatus = 7;
-        break;
-        case "Alcoholic":
-            let bartenderAlive = false;
-            for(let y = 0; y < 5; y++) {
-                for(let x = 0; x < 5; x++) {
-                    let xyPiece = moveCurGame.state[y][x];
-                    if(xyPiece.name == "Bartender") {
-                        bartenderAlive = true;
+            break;
+            // Defensive Pieces, Single Defense
+            case "Runner":
+            case "Idiot":
+            case "Scared Wolf":
+                defensive = getDefensivePosition(moveFrom, moveTo, movedX, movedY);
+                if(notAiTurn) {
+                    moveCurGame.lastMoves.push([moveCurGame.turn, movedPiece.name, movedPiece.disguise, movedPiece.enemyVisible, from, xyToName(defensive.x, defensive.y), movedPiece.enemyVisibleStatus]);
+                    moveCurGame.lastMoves.push([(moveCurGame.turn+1)%2, beatenPiece.name, false, "", to, to, 7, "🛡️🟦🟦"]);
+                }
+                moveCurGame.state[defensive.y][defensive.x] = movedPiece;
+                moveCurGame.state[moveTo.y][moveTo.x] = getPiece("Attacked " + beatenPiece.name);
+                moveCurGame.state[moveTo.y][moveTo.x].enemyVisibleStatus = 7;
+            break;
+            case "Cursed Civilian":
+                defensive = getDefensivePosition(moveFrom, moveTo, movedX, movedY);
+                if(notAiTurn) {
+                    moveCurGame.lastMoves.push([moveCurGame.turn, movedPiece.name, movedPiece.disguise, movedPiece.enemyVisible, from, xyToName(defensive.x, defensive.y), movedPiece.enemyVisibleStatus]);
+                    moveCurGame.lastMoves.push([moveCurGame.turn, beatenPiece.name, false, "", to, to, 7, "🔀" + findEmoji("Wolf") + "🟦"]);
+                }
+                moveCurGame.state[defensive.y][defensive.x] = movedPiece;
+                moveCurGame.state[moveTo.y][moveTo.x] = getPiece("Wolf");
+                moveCurGame.state[moveTo.y][moveTo.x].enemyVisibleStatus = 7;
+            break;
+            case "Alcoholic":
+                let bartenderAlive = false;
+                for(let y = 0; y < 5; y++) {
+                    for(let x = 0; x < 5; x++) {
+                        let xyPiece = moveCurGame.state[y][x];
+                        if(xyPiece.name == "Bartender") {
+                            bartenderAlive = true;
+                        }
                     }
                 }
-            }
-            if(bartenderAlive) {
-                moveCurGame.lastMoves.push([moveCurGame.turn, movedPiece.name, movedPiece.disguise, movedPiece.enemyVisible, from, xyToName(defensiveX, defensiveY), movedPiece.enemyVisibleStatus]);
-                moveCurGame.lastMoves.push([(moveCurGame.turn+1)%2, beatenPiece.name, false, "", to, to, 7, "🛡️🟦🟦"]);
-                moveCurGame.state[defensiveY][defensiveX] = movedPiece;
-                moveCurGame.state[moveTo.y][moveTo.x] = beatenPiece;
-                moveCurGame.state[moveTo.y][moveTo.x].enemyVisibleStatus = 7;
-            } else {
-                moveCurGame.lastMoves.push([moveCurGame.turn, movedPiece.name, movedPiece.disguise, movedPiece.enemyVisible, from, to, movedPiece.enemyVisibleStatus]);
-            }
-        break;
+                if(bartenderAlive) {
+                    defensive = getDefensivePosition(moveFrom, moveTo, movedX, movedY);
+                    if(notAiTurn) {
+                        moveCurGame.lastMoves.push([moveCurGame.turn, movedPiece.name, movedPiece.disguise, movedPiece.enemyVisible, from, xyToName(defensive.x, defensive.y), movedPiece.enemyVisibleStatus]);
+                        moveCurGame.lastMoves.push([(moveCurGame.turn+1)%2, beatenPiece.name, false, "", to, to, 7, "🛡️🟦🟦"]);
+                    }
+                    moveCurGame.state[defensive.y][defensive.x] = movedPiece;
+                    moveCurGame.state[moveTo.y][moveTo.x] = beatenPiece;
+                    moveCurGame.state[moveTo.y][moveTo.x].enemyVisibleStatus = 7;
+                } else {
+                    if(notAiTurn) moveCurGame.lastMoves.push([moveCurGame.turn, movedPiece.name, movedPiece.disguise, movedPiece.enemyVisible, from, to, movedPiece.enemyVisibleStatus]);
+                }
+            break;
+        }
     }
     
     // Hooker death check
-    if(inBounds(moveTo.y, moveTo.x-1) && moveCurGame.state[moveTo.y][moveTo.x-1].hidden == to) {
-        moveCurGame.state[moveTo.y][moveTo.x-1] = getPiece(null);
-        moveCurGame.lastMoves.push([moveCurGame.turn, movedPiece.name, movedPiece.disguise, movedPiece.enemyVisible, from, to, movedPiece.enemyVisibleStatus, "🇽" + findEmoji("Hooker") + "🟦"]);
-    }
-    if(inBounds(moveTo.y, moveTo.x+1) && moveCurGame.state[moveTo.y][moveTo.x+1].hidden == to) {
-        moveCurGame.state[moveTo.y][moveTo.x+1] = getPiece(null);
-        moveCurGame.lastMoves.push([moveCurGame.turn, movedPiece.name, movedPiece.disguise, movedPiece.enemyVisible, from, to, movedPiece.enemyVisibleStatus, "🇽" + findEmoji("Hooker") + "🟦"]);
-    }
-    if(inBounds(moveTo.y+1, moveTo.x-1) && moveCurGame.state[moveTo.y+1][moveTo.x-1].hidden == to) {
-        moveCurGame.state[moveTo.y+1][moveTo.x-1] = getPiece(null);
-        moveCurGame.lastMoves.push([moveCurGame.turn, movedPiece.name, movedPiece.disguise, movedPiece.enemyVisible, from, to, movedPiece.enemyVisibleStatus, "🇽" + findEmoji("Hooker") + "🟦"]);
-    }
-    if(inBounds(moveTo.y+1, moveTo.x) && moveCurGame.state[moveTo.y+1][moveTo.x].hidden == to) {
-        moveCurGame.state[moveTo.y+1][moveTo.x] = getPiece(null);
-        moveCurGame.lastMoves.push([moveCurGame.turn, movedPiece.name, movedPiece.disguise, movedPiece.enemyVisible, from, to, movedPiece.enemyVisibleStatus, "🇽" + findEmoji("Hooker") + "🟦"]);
-    }
-    if(inBounds(moveTo.y+1, moveTo.x+1) && moveCurGame.state[moveTo.y+1][moveTo.x+1].hidden == to) {
-        moveCurGame.state[moveTo.y+1][moveTo.x+1] = getPiece(null);
-        moveCurGame.lastMoves.push([moveCurGame.turn, movedPiece.name, movedPiece.disguise, movedPiece.enemyVisible, from, to, movedPiece.enemyVisibleStatus, "🇽" + findEmoji("Hooker") + "🟦"]);
-    }
-    if(inBounds(moveTo.y-1, moveTo.x-1) && moveCurGame.state[moveTo.y-1][moveTo.x-1].hidden == to) {
-        moveCurGame.state[moveTo.y-1][moveTo.x-1] = getPiece(null);
-        moveCurGame.lastMoves.push([moveCurGame.turn, movedPiece.name, movedPiece.disguise, movedPiece.enemyVisible, from, to, movedPiece.enemyVisibleStatus, "🇽" + findEmoji("Hooker") + "🟦"]);
-    }
-    if(inBounds(moveTo.y-1, moveTo.x) && moveCurGame.state[moveTo.y-1][moveTo.x].hidden == to) {
-        moveCurGame.state[moveTo.y-1][moveTo.x] = getPiece(null);
-        moveCurGame.lastMoves.push([moveCurGame.turn, movedPiece.name, movedPiece.disguise, movedPiece.enemyVisible, from, to, movedPiece.enemyVisibleStatus, "🇽" + findEmoji("Hooker") + "🟦"]);
-    }
-    if(inBounds(moveTo.y-1, moveTo.x+1) && moveCurGame.state[moveTo.y-1][moveTo.x+1].hidden == to) {
-        moveCurGame.state[moveTo.y-1][moveTo.x+1] = getPiece(null);
-        moveCurGame.lastMoves.push([moveCurGame.turn, movedPiece.name, movedPiece.disguise, movedPiece.enemyVisible, from, to, movedPiece.enemyVisibleStatus, "🇽" + findEmoji("Hooker") + "🟦"]);
+    if(notAiTurn || moveCurGame.players[moveCurGame.turn] == null || movedPiece.enemyVisibleStatus >= 6) { // only run in normal turns, ai's own turns or when effect is visible
+        if(inBounds(moveTo.y, moveTo.x-1) && moveCurGame.state[moveTo.y][moveTo.x-1].hidden == to) {
+            moveCurGame.state[moveTo.y][moveTo.x-1] = getPiece(null);
+            moveCurGame.lastMoves.push([moveCurGame.turn, movedPiece.name, movedPiece.disguise, movedPiece.enemyVisible, from, to, movedPiece.enemyVisibleStatus, "🇽" + findEmoji("Hooker") + "🟦"]);
+        }
+        if(inBounds(moveTo.y, moveTo.x+1) && moveCurGame.state[moveTo.y][moveTo.x+1].hidden == to) {
+            moveCurGame.state[moveTo.y][moveTo.x+1] = getPiece(null);
+            moveCurGame.lastMoves.push([moveCurGame.turn, movedPiece.name, movedPiece.disguise, movedPiece.enemyVisible, from, to, movedPiece.enemyVisibleStatus, "🇽" + findEmoji("Hooker") + "🟦"]);
+        }
+        if(inBounds(moveTo.y+1, moveTo.x-1) && moveCurGame.state[moveTo.y+1][moveTo.x-1].hidden == to) {
+            moveCurGame.state[moveTo.y+1][moveTo.x-1] = getPiece(null);
+            moveCurGame.lastMoves.push([moveCurGame.turn, movedPiece.name, movedPiece.disguise, movedPiece.enemyVisible, from, to, movedPiece.enemyVisibleStatus, "🇽" + findEmoji("Hooker") + "🟦"]);
+        }
+        if(inBounds(moveTo.y+1, moveTo.x) && moveCurGame.state[moveTo.y+1][moveTo.x].hidden == to) {
+            moveCurGame.state[moveTo.y+1][moveTo.x] = getPiece(null);
+            moveCurGame.lastMoves.push([moveCurGame.turn, movedPiece.name, movedPiece.disguise, movedPiece.enemyVisible, from, to, movedPiece.enemyVisibleStatus, "🇽" + findEmoji("Hooker") + "🟦"]);
+        }
+        if(inBounds(moveTo.y+1, moveTo.x+1) && moveCurGame.state[moveTo.y+1][moveTo.x+1].hidden == to) {
+            moveCurGame.state[moveTo.y+1][moveTo.x+1] = getPiece(null);
+            moveCurGame.lastMoves.push([moveCurGame.turn, movedPiece.name, movedPiece.disguise, movedPiece.enemyVisible, from, to, movedPiece.enemyVisibleStatus, "🇽" + findEmoji("Hooker") + "🟦"]);
+        }
+        if(inBounds(moveTo.y-1, moveTo.x-1) && moveCurGame.state[moveTo.y-1][moveTo.x-1].hidden == to) {
+            moveCurGame.state[moveTo.y-1][moveTo.x-1] = getPiece(null);
+            moveCurGame.lastMoves.push([moveCurGame.turn, movedPiece.name, movedPiece.disguise, movedPiece.enemyVisible, from, to, movedPiece.enemyVisibleStatus, "🇽" + findEmoji("Hooker") + "🟦"]);
+        }
+        if(inBounds(moveTo.y-1, moveTo.x) && moveCurGame.state[moveTo.y-1][moveTo.x].hidden == to) {
+            moveCurGame.state[moveTo.y-1][moveTo.x] = getPiece(null);
+            moveCurGame.lastMoves.push([moveCurGame.turn, movedPiece.name, movedPiece.disguise, movedPiece.enemyVisible, from, to, movedPiece.enemyVisibleStatus, "🇽" + findEmoji("Hooker") + "🟦"]);
+        }
+        if(inBounds(moveTo.y-1, moveTo.x+1) && moveCurGame.state[moveTo.y-1][moveTo.x+1].hidden == to) {
+            moveCurGame.state[moveTo.y-1][moveTo.x+1] = getPiece(null);
+            moveCurGame.lastMoves.push([moveCurGame.turn, movedPiece.name, movedPiece.disguise, movedPiece.enemyVisible, from, to, movedPiece.enemyVisibleStatus, "🇽" + findEmoji("Hooker") + "🟦"]);
+        }
     }
     
     // move effects
-    switch(movedPiece.name) {
-        case "Amnesiac": // Amnesiac -> Change role after onhe move
-	    if(from != to) { // dont convert on promotion
-           	 if(!moveCurGame.ai) console.log("AMNESIAC CHANGE", movedPiece.convertTo);
-           	 moveCurGame.state[moveTo.y][moveTo.x] = convertPiece(movedPiece, movedPiece.convertTo);
-	    }
-        break;
-    	case "Direwolf": // Direwolf -> Double move if last piece
-            let wolfCount = 0;
-            for(let y = 0; y < 5; y++) {
-                for(let x = 0; x < 5; x++) {
-                    let xyPiece = moveCurGame.state[y][x];
-                    if(xyPiece.team == 1) {
-                        wolfCount++;
+    if(notAiTurn || moveCurGame.players[moveCurGame.turn] == null || movedPiece.enemyVisibleStatus >= 6) { // only run in normal turns, ai's own turns or when effect is visible
+        if(!notAiTurn && moveCurGame.players[moveCurGame.turn] != null && movedPiece.enemyVisibleStatus == 6 && movedPiece.disguise) movedPiece.name = movedPiece.disguise; // see role with disguise if applicable
+        switch(movedPiece.name) {
+            case "Amnesiac": // Amnesiac -> Change role after onhe move
+            if(from != to) { // dont convert on promotion
+                 if(!moveCurGame.ai) console.log("AMNESIAC CHANGE", movedPiece.convertTo);
+                 moveCurGame.state[moveTo.y][moveTo.x] = convertPiece(movedPiece, movedPiece.convertTo);
+            }
+            break;
+            case "Direwolf": // Direwolf -> Double move if last piece
+                let wolfCount = 0;
+                for(let y = 0; y < 5; y++) {
+                    for(let x = 0; x < 5; x++) {
+                        let xyPiece = moveCurGame.state[y][x];
+                        if(xyPiece.team == 1) {
+                            wolfCount++;
+                        }
                     }
                 }
+                if(wolfCount == 1 && !moveCurGame.inDoubleMove) {
+                moveCurGame.doubleMove1 = true;
+                movedPiece.enemyVisibleStatus = 7;
             }
-            if(wolfCount == 1 && !moveCurGame.inDoubleMove) {
-		    moveCurGame.doubleMove1 = true;
-		    movedPiece.enemyVisibleStatus = 7;
-	    }
-    	break;
+            break;
+        }
+        moveCurGame.inDoubleMove = false;
     }
-    moveCurGame.inDoubleMove = false;
     
     
     // promote?
-    if(movedPiece.chess == "Pawn" && moveCurGame.turn == 0 && moveTo.y == 0) {
+    if(movedPiece.chess == "Pawn" && p1Turn && moveTo.y == 0) {
         if(interaction) {
             let kings = ["Hooker","Idiot","Crowd Seeker","Aura Teller"];
             let knights = ["Royal Knight","Amnesiac"];
@@ -586,9 +756,9 @@ function movePiece(interaction, id, from, to, repl = null) {
             interaction.editReply(displayBoard(moveCurGame, "Promote " + to, [{ type: 1, components: components }] ));
         } else {
             let randomOptions = ["Hooker","Royal Knight","Fortune Teller","Runner","Witch"];
-            movePiece(interaction, id, to, to, getPiece(randomOptions[Math.floor(Math.random() * randomOptions.length)]));
+            movePiece(interaction, moveCurGame, to, to, getPiece(randomOptions[Math.floor(Math.random() * randomOptions.length)]));
         }
-    } else if(movedPiece.chess == "Pawn" && moveCurGame.turn == 1 && moveTo.y == 4) {
+    } else if(movedPiece.chess == "Pawn" && !p1Turn && moveTo.y == 4) {
         if(interaction) {
             let kings = ["Alpha Wolf","Psychic Wolf","Sneaking Wolf"];
             let knights = ["Direwolf","Clairvoyant Fox","Fox"];
@@ -603,16 +773,28 @@ function movePiece(interaction, id, from, to, repl = null) {
             interaction.editReply(displayBoard(moveCurGame, "Promote " + to, [{ type: 1, components: components }] ));
         } else {
             let randomOptions = ["Alpha Wolf","Direwolf","Warlock","Scared Wolf","Saboteur Wolf"];
-            movePiece(interaction, id, to, to, getPiece(randomOptions[Math.floor(Math.random() * randomOptions.length)]));
+            movePiece(interaction, moveCurGame, to, to, getPiece(randomOptions[Math.floor(Math.random() * randomOptions.length)]));
         }
     } else {
         // turn complete
-        if(interaction) {
-            interaction.editReply(displayBoard(moveCurGame, "Waiting on Opponent"));
-            busyWaiting(interaction, id, moveCurGame.turn);
-        }
-        nextTurn(moveCurGame);
+        turnDone(interaction, moveCurGame, "Waiting on Opponent");
     }
+}
+
+async function turnDone(interaction, game, message) {
+    // turn complete
+    if(!game.ai) {
+        // update player message
+        if(interaction) {
+            await interaction.editReply(displayBoard(game, message));
+            busyWaiting(interaction, game.id, game.turn);
+        }
+        // update spectator message
+        let msgSpec = displayBoard(game, "SPECTATOR BOARD", [], game.players[1] == null ? 0 : -1);
+        msgSpec.ephemeral = false;
+        game.msg.edit(msgSpec);
+    }
+    nextTurn(game);
 }
 
 function displayBoard(game, message, comp = [], turnOverride = null) {
@@ -773,9 +955,9 @@ client.on('interactionCreate', async interaction => {
                 let currentGame = deepCopy(curGame);
                 
                 // generate list of possible moves
-                console.log("BOARD AT SELECT", currentGame.state.map(el => el.map(el2 => el2.name).join(",")).join("\n"));
+                //console.log("BOARD AT SELECT", currentGame.state.map(el => el.map(el2 => el2.name).join(",")).join("\n"));
                 let positions = generatePositions(currentGame.state, arg1);
-                console.log("POSSIBLE MOVES", positions);
+                console.log("AVAILABLE POSITIONS", positions.map(el => xyToName(el[0], el[1])).join(","));
                 let components = interactionsFromPositions(positions, arg1, "turnmove", "move");
                 //console.log(components);
                 
@@ -787,12 +969,12 @@ client.on('interactionCreate', async interaction => {
             // move a piece to another location; update board
             case "move":
                 await interaction.update(displayBoard(curGame, "Executing Move", []));
-                movePiece(interaction, gameID, arg1, arg2);
+                movePiece(interaction, games[gameID], arg1, arg2);
             break;
             // promote a piece; update board
             case "promote":
                 await interaction.update(displayBoard(curGame, "Executing Move", []));
-                movePiece(interaction, gameID, arg1, arg1, getPiece(arg2));
+                movePiece(interaction, games[gameID], arg1, arg1, getPiece(arg2));
             break;
             // back to turn start menu
             case "turnstart":
@@ -1320,12 +1502,12 @@ function loadDefaultSetup(board) {
 
 function loadPromoteTestSetup(board) {
     board[1][0] = getPiece("Citizen");
-    board[3][4] = getPiece("Wolf");
+    board[3][4] = getPiece("Alpha Wolf");
 }
 
 function loadTestingSetup(board) {
-    let testTown = "Cursed Civilian";
-    let testWolf = "White Werewolf";
+    let testTown = "Runner";
+    let testWolf = "Runner";
     board[4][0] = getPiece(testTown);
     board[4][1] = getPiece(testTown);
     board[4][2] = getPiece(testTown);
@@ -1338,29 +1520,51 @@ function loadTestingSetup(board) {
     board[0][4] = getPiece(testWolf);
 }
 
-function getWWRValue(piece) {
+function getWWRevalValue(piece) {
         switch(piece) {
-        case "Cursed Civilian":
-            return -3;
-        case "Citizen":
-        case "Wolf": case "Sneaking Wolf": case "Fox": case "White Werewolf":
-        case "Attacked Runner": case "Attacked Idiot":
-        case "Attacked Scared Wolf": 
-            return 0;
-        case "Ranger": case "Amnesiac":
-        case "Recluse":
-            return 1;
-        case "Child": case "Idiot": case "Crowd Seeker": case "Aura Teller": case "Royal Knight": case "Witch": case "Bartender":
-        case "Wolf Cub": case "Tanner": case "Archivist Fox": case "Dog": case "Psychic Wolf": case "Direwolf":
-            return 2;
-        case "Fortune Apprentice": case "Fortune Teller": case "Runner":
-        case "Alpha Wolf": case "Clairvoyant Fox": case "Scared Wolf": case "Saboteur Wolf": case "Warlock":
-            return 3;
-        case "Hooker": case "Alcoholic":
-            return 4;
-        case "Huntress":
-        case "Infecting Wolf":
-            return 5;
+            case "Citizen": case "Cursed Civilian": case "Ranger": case "Child": case "Huntress":
+            case "Wolf": case "Sneaking Wolf": case "Fox": case "White Werewolf": case "Recluse":
+            case "Attacked Runner": case "Attacked Idiot":
+            case "Attacked Scared Wolf": 
+                return 0;
+            case "Amnesiac": case "Idiot": 
+                return 1;
+            case "Crowd Seeker": case "Aura Teller": case "Royal Knight": case "Witch": 
+            case "Wolf Cub": case "Tanner": case "Archivist Fox": case "Dog": case "Psychic Wolf":
+                return 2;
+            case "Fortune Apprentice": case "Fortune Teller": case "Runner": case "Bartender":
+            case "Alpha Wolf": case "Clairvoyant Fox": case "Scared Wolf": case "Saboteur Wolf": case "Warlock":
+                return 3;
+            case "Hooker": case "Alcoholic":
+                return 4;
+            case "Infecting Wolf": case "Direwolf":
+                return 5;
+    }
+}
+
+function getWWRValue(piece) { // UNUSED
+        switch(piece) {
+            case "Cursed Civilian":
+                return -3;
+            case "Citizen":
+            case "Wolf": case "Sneaking Wolf": case "Fox": case "White Werewolf":
+            case "Attacked Runner": case "Attacked Idiot":
+            case "Attacked Scared Wolf": 
+                return 0;
+            case "Ranger": case "Amnesiac": case "Idiot": 
+            case "Recluse":
+                return 1;
+            case "Child": case "Crowd Seeker": case "Aura Teller": case "Royal Knight": case "Witch": case "Bartender":
+            case "Wolf Cub": case "Tanner": case "Archivist Fox": case "Dog": case "Psychic Wolf": case "Direwolf":
+                return 2;
+            case "Fortune Apprentice": case "Fortune Teller": case "Runner":
+            case "Alpha Wolf": case "Clairvoyant Fox": case "Scared Wolf": case "Saboteur Wolf": case "Warlock":
+                return 3;
+            case "Hooker": case "Alcoholic":
+                return 4;
+            case "Huntress":
+            case "Infecting Wolf":
+                return 5;
     }
 }
 
@@ -1376,7 +1580,7 @@ function generateRoleList(board) {
         ["Fortune Apprentice", 1, 3, [], ""], // double chance
         ["Child", 1, 2, [], ""],
         ["Hooker", 3, 4, [], ""],
-        ["Idiot", 3, 2, [], ""],
+        ["Idiot", 3, 1, [], ""],
         ["Crowd Seeker", 3, 2, ["Fortune Teller","Aura Teller"], ""],
         ["Aura Teller", 3, 2, ["Fortune Teller","Crowd Seeker"], ""],
         ["Royal Knight", 3, 2, [], ""],
@@ -1952,7 +2156,7 @@ function generateAbilities(board, team) {
 
 function renderBoard(game, message = "Turn", turnOverride = null) {
     let board = game.state;
-    let boardMsg = "**" + game.playerNames[0] + " vs. " + game.playerNames[1] +  "**\n" + "**" + message + "** " + evaluate(board) + "\n";
+    let boardMsg = "**" + game.playerNames[0] + " vs. " + game.playerNames[1] +  "**\n" + "**" + message + "**\n";
     let boardRows = ["🟦🇦​🇧​🇨​🇩​🇪"];
     let visiblePieces = [];
     const letterRanks = ["🇦","🇧","🇨","🇩","​🇪"];
@@ -2013,7 +2217,7 @@ function renderBoard(game, message = "Turn", turnOverride = null) {
     visiblePieces = [...new Set(visiblePieces)];
     visiblePieces.sort();
     for(let i = 0; i < visiblePieces.length; i++) {
-        boardRows.push(findEmoji((getTeam(visiblePieces[i])?"Black":"White") + getChessName(visiblePieces[i])) + " " + findEmoji(visiblePieces[i]) + " **" + visiblePieces[i] + " (" + getChessName(visiblePieces[i]) + "):** " + getAbilityText(visiblePieces[i]));
+        boardRows.push(findEmoji((getTeam(visiblePieces[i])?"Black":"White") + getChessName(visiblePieces[i])) + " " + findEmoji(visiblePieces[i]) + " **" + visiblePieces[i] + ":** " + getAbilityText(visiblePieces[i]));
     }
     return (boardMsg + boardRows.join("\n")).substr(0, 1950);
 }
