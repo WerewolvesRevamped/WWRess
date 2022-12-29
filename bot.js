@@ -234,7 +234,7 @@ function executeActiveAbility(game, abilityPiece, abilityPieceLocation, position
             } else {
                 if(log) {
                     let investTargetObject = game.state[investTarget.y][investTarget.x];
-                    game.lastMoves.push([game.turn, investTargetObject.name, investTargetObject.disguise, investTargetObject.enemyVisible, xyToName(investigatorC.x, investigatorC.y), xyToName(investigatorC.x, investigatorC.y), investTargetObject.enemyVisibleStatus, "👁️🟦🟦"]);
+                    game.lastMoves.push([game.turn, investTargetObject.name, investTargetObject.disguise, investTargetObject.enemyVisible, xyToName(investTarget.x, investTarget.y), xyToName(investTarget.x, investTarget.y), investTargetObject.enemyVisibleStatus, "👁️🟦🟦"]);
                 }
             }
             return false;
@@ -474,7 +474,7 @@ async function AImove(game) {
     let bestMove = minmax.move;
 	console.log("AI BEST MOVE DEBUG", bestMove);
     
-    if(bestMove[0] == null) {
+    if(bestMove[0] == null || bestMove[0][0] == null) {
         console.log("NO ABILITY");
     } else {
         console.log("AI ABILITY", bestMove[0] + "~" + (bestMove[1].length == 2 ? xyToName(bestMove[1][0], bestMove[1][1]) : bestMove[1]));
