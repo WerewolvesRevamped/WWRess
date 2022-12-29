@@ -324,9 +324,9 @@ function getChildren(game, depth = 0) {
             // all ally
             case "Tanner":
                 abilityPositions = pieces.map(el => {
-					let tanXY = nameToXY(el);
-					return [el.x, el.y];
-				});
+                    let tanXY = nameToXY(el);
+                    return [tanXY.x, tanXY.y];
+                });
             break;
             // dog
             case "Dog":
