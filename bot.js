@@ -311,7 +311,7 @@ function getChildren(game, depth = 0) {
                     let selectedMove = positions[j];
                     // simulate move
                     movePiece(null, gameInnerCopy, selectedPiece, xyToName(selectedMove[0], selectedMove[1]));
-                    if(depth==4) console.log(abilityPiece, "~", abilityPosition, "|", selectedPiece, ">", selectedMove);
+                    //if(depth==4) console.log(abilityPiece, "~", abilityPosition, "|", selectedPiece, ">", selectedMove);
                     children.push([abilityPiece, abilityPosition, selectedPiece, selectedMove, gameInnerCopy]);
                 }
             }
