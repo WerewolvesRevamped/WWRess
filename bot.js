@@ -2156,7 +2156,7 @@ function generateAbilities(board, team) {
 
 function renderBoard(game, message = "Turn", turnOverride = null) {
     let board = game.state;
-    let boardMsg = "**" + game.playerNames[0] + " vs. " + game.playerNames[1] +  "**\n" + "**" + message + "**\n";
+    let boardMsg = "**" + game.playerNames[0] + " vs. " + game.playerNames[1] +  "**\n" + "**" + message + "** " + evaluate(board) + "\n";
     let boardRows = ["🟦🇦​🇧​🇨​🇩​🇪"];
     let visiblePieces = [];
     const letterRanks = ["🇦","🇧","🇨","🇩","​🇪"];
