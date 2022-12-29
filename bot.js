@@ -228,7 +228,7 @@ function getChildren(game, depth = 0) {
         let abilityPositions = [];
         switch(abilityPiece[0]) {
             case null: default:
-                abilityPositions = [null];
+                abilityPositions = [[null]];
             break;
             // targetable enemy
             case "Fortune Teller": case "Warlock": case "Infecting Wolf": case "Saboteur Wolf":
