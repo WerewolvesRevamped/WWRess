@@ -20,6 +20,7 @@ const RookValue = 7.0;
 const QueenValue = 13.0;
 const NoneValue = 0.25;
 
+const UnknownValue = 5.0;
 const LikelyPawnValue = 3.0;
 const LikelyKingValue = 5.0;
 const LikelyKnightValue = 4.5;
@@ -73,6 +74,14 @@ const NoneTable = [
     [0.5, 1.0, 1.5, 1.0, 0.5]
 ];
 
+const SoloTable = [
+    [-1.0, -0.75, -0.25, -0.75, -1.0],
+    [-0.5, 0.5, 1.0, 0.5, -0.5],
+    [0.0, 1.0, 2.0, 1.0, 0.0],
+    [-0.5, 0.5, 1.0, 0.5, -0.5],
+    [-1.0, -0.75, -0.25, -0.75, -1.0]
+];
+
 function getEvaluationData(piece) {
     switch(piece) {
         case "Pawn": case "ActivePawn":
@@ -97,21 +106,24 @@ function getEvaluationData(piece) {
             return { value: LikelyRookValue, table: RookTable };    
         default:
             return { value: PawnValue, table: PawnTable };
+        case "Unknown":
+            return { value: UnknownValue, table: KingTable };
+        break;
     }
 }
 
-function evaluate(board, hiddenPieces = null) {
+function evaluate(AI, board, solo = null, visiblePieces = null) {
     // determine material + position
-    let whiteValue = 0, blackValue = 0;
-    let whiteReveal = 0, blackReveal = 0;
+    let whiteValue = 0, blackValue = 0, goldValue = 0;
+    let whiteReveal = 0, blackReveal = 0, goldReveal = 0;
     for(let y = 0; y < boardSize; y++) {
         for(let x = 0; x < boardSize; x++) {
             let piece = board[y][x];
             // get piece value
             if(piece.team === 0) { // team white
-                if(hiddenPieces == 0 && (piece.enemyVisibleStatus < 6 || (piece.enemyVisibleStatus == 6 && piece.disguise))) { // hidden piece
+                if(visiblePieces != 0 && (piece.enemyVisibleStatus < 6 || (piece.enemyVisibleStatus == 6 && piece.disguise))) { // hidden piece
                     if(piece.enemyVisibleStatus < 6) {
-                        let evData = getEvaluationData(piece.enemyVisibleStatus);
+                        let evData = getEvaluationData(piece.enemyVisible);
                         whiteValue += evData.value + evData.table[4 - y][x] + 4;
                     } else if(piece.enemyVisibleStatus == 6) {
                         let evData = getEvaluationData(getChessName(piece.disguise));
@@ -123,9 +135,9 @@ function evaluate(board, hiddenPieces = null) {
                 }
                 whiteReveal += piece.enemyVisibleStatus / 7;
             } else if(piece.team === 1) { // team black
-                if(hiddenPieces == 1 && (piece.enemyVisibleStatus < 6 || (piece.enemyVisibleStatus == 6 && piece.disguise))) { // hidden piece
+                if(visiblePieces != 1 && (piece.enemyVisibleStatus < 6 || (piece.enemyVisibleStatus == 6 && piece.disguise))) { // hidden piece
                     if(piece.enemyVisibleStatus < 6) {
-                        let evData = getEvaluationData(piece.enemyVisibleStatus);
+                        let evData = getEvaluationData(piece.enemyVisible);
                         blackValue += evData.value + evData.table[y][x] + 4;
                     } else if(piece.enemyVisibleStatus == 6) {
                         let evData = getEvaluationData(getChessName(piece.disguise));
@@ -136,10 +148,58 @@ function evaluate(board, hiddenPieces = null) {
                     blackValue += evData.value + evData.table[y][x] + getWWRevalValue(piece.name);  
                 }
                 blackReveal += piece.enemyVisibleStatus / 7;
+            } else if(piece.team === 2) { // team gold
+                if(visiblePieces != 2 && (piece.enemyVisibleStatus < 6 || (piece.enemyVisibleStatus == 6 && piece.disguise))) { // hidden piece
+                    if(piece.enemyVisibleStatus < 6) {
+                        let evData = getEvaluationData(piece.enemyVisible);
+                        goldValue += evData.value + SoloTable[y][x] + 4;
+                    } else if(piece.enemyVisibleStatus == 6) {
+                        let evData = getEvaluationData(getChessName(piece.disguise));
+                        goldValue += evData.value + SoloTable[y][x] + getWWRevalValue(piece.disguise);
+                    }
+                } else { // revealed piece
+                    let evData = getEvaluationData(piece.chess);
+                    goldValue += evData.value + SoloTable[y][x] + getWWRevalValue(piece.name);  
+                }
+                goldReveal += piece.enemyVisibleStatus / 7;
             }
+            
+            // solo extra evaluation
+            if(AI == 2) {
+                switch(solo) {
+                    case "Flute":
+                        if(piece.enchanted) {
+                            goldValue += 10;
+                        }
+                    break;
+                }
+            }
+            // solo extra eval end
         }
     }
-    return (blackValue + whiteReveal) - (whiteValue + blackReveal);
+    // calculate value
+    switch(AI) {
+        case 0: // white ai
+            return (whiteValue + blackReveal + goldReveal) - (blackValue + goldValue + whiteReveal);
+        case 1: // black ai
+            return (blackValue + whiteReveal + goldReveal) - (whiteValue + goldValue + blackReveal);
+        case 2: // gold ai
+            return (goldValue + whiteReveal + blackReveal) - (whiteValue + blackValue + goldReveal);
+    }
+}
+
+// serializes the board
+function serialize(board) {
+    let serialized = "";
+    for(let y = 0; y < boardSize; y++) {
+        for(let x = 0; x < boardSize; x++) {
+            let piece = board[y][x];
+            if(piece.team >= 0) serialized += piece.chess.substr(0, 2) + piece.team + piece.name.substr(0, 2) + piece.enemyVisibleStatus;
+            else serialized += "-";
+        }
+    }
+    console.log(serialized);
+    return serialized;
 }
 
 // takes a game, a piece name, an argument for the ability + log value
@@ -208,6 +268,16 @@ function executeActiveAbility(game, abilityPiece, abilityPieceLocation, position
             game.state[protectTarget.y][protectTarget.x].protected = true;
             return false;
         break;
+        case "Enchant":
+        case "Flute Player":
+            let enchantTarget = { x: position[0], y: position[1] };
+            let enchantSource = { x: abilityPieceLocation[0], y: abilityPieceLocation[1] };
+            let enchantSourceObject = game.state[enchantSource.y][enchantSource.x];
+            game.state[enchantTarget.y][enchantTarget.x].enchanted = true;
+            game.state[abilityPieceLocation[1]][abilityPieceLocation[0]].stay = true;
+            if(log) game.lastMoves.push([game.turn, enchantSourceObject.name, enchantSourceObject.disguise, enchantSourceObject.enemyVisible, xyToName(enchantSource.x, enchantSource.y), xyToName(enchantTarget.x, enchantTarget.y), enchantSourceObject.enemyVisibleStatus, "🎶"]);
+            return false;
+        break;
         case "Infect":
         case "Infecting Wolf":
             let iwSource = { x: abilityPieceLocation[0], y: abilityPieceLocation[1] };
@@ -237,35 +307,39 @@ function executeActiveAbility(game, abilityPiece, abilityPieceLocation, position
             let investigatorC = { x: abilityPieceLocation[0], y: abilityPieceLocation[1] };
             let investigator = game.state[investigatorC.y][investigatorC.x];
             let investTarget = { x: position[0], y: position[1] };
+            let investTargetObject = game.state[investTarget.y][investTarget.x];
             switch(investigator.name) {
                 // reveal role
                 case "Fortune Teller":
                 case "Warlock":
                 case "Clairvoyant Fox":
-                    game.state[investTarget.y][investTarget.x].enemyVisibleStatus = 6;
+                    if(investTargetObject.disguise) investTargetObject.enemyVisibleStatus = 6;
+                    else investTargetObject.enemyVisibleStatus = 7;
                 break;
                 // reveal movement type
                 case "Crowd Seeker":
                 case "Psychic Wolf":
                 case "Archivist Fox":
-                    game.state[investTarget.y][investTarget.x].enemyVisibleStatus = 4;
-                    game.state[investTarget.y][investTarget.x].enemyVisible = game.state[investTarget.y][investTarget.x].chess;
+                    investTargetObject.enemyVisibleStatus = 4;
+                    if(investTargetObject.disguise) investTargetObject.enemyVisible = getChessName(investTargetObject.disguise);
+                    else investTargetObject.enemyVisible = investTargetObject.chess;
                 break;
                 // reveal movement type if active
                 case "Aura Teller":
-                    if(game.state[investTarget.y][investTarget.x].active) {
-                        game.state[investTarget.y][investTarget.x].enemyVisibleStatus = 5;
-                        game.state[investTarget.y][investTarget.x].enemyVisible = "Active" + game.state[investTarget.y][investTarget.x].chess;
+                    if(investTargetObject.active) {
+                        investTargetObject.enemyVisibleStatus = 5;
+                        investTargetObject.atChecked = 5;
+                        if(investTargetObject.disguise) investTargetObject.enemyVisible = "Active" + getChessName(investTargetObject.chess);
+                        else investTargetObject.enemyVisible = "Active" + investTargetObject.chess;
                     }
                 break;
             }
-            if(game.state[investTarget.y][investTarget.x].name == "Recluse") { // recluse reveal
+            if(investTargetObject.name == "Recluse") { // recluse reveal
                 if(log) game.lastMoves.push([game.turn, investigator.name, false, "", xyToName(investigatorC.x, investigatorC.y), xyToName(investTarget.x, investTarget.y), 7, "👁️"]);
-                game.state[investigatorC.y][investigatorC.x].enemyVisibleStatus = 7;
-                game.state[investTarget.y][investTarget.x].enemyVisibleStatus = 7;
+                investigator.enemyVisibleStatus = 7;
+                investTargetObject.enemyVisibleStatus = 7;
             } else {
                 if(log) {
-                    let investTargetObject = game.state[investTarget.y][investTarget.x];
                     game.lastMoves.push([game.turn, investTargetObject.name, investTargetObject.disguise, investTargetObject.enemyVisible, xyToName(investTarget.x, investTarget.y), xyToName(investTarget.x, investTarget.y), investTargetObject.enemyVisibleStatus, "👁️🟦🟦"]);
                 }
             }
@@ -282,6 +356,15 @@ function getChildren(game, depth = 0, maximizingPlayer = true) {
     let abilityPieces = [];
     let enemyPieces = [];
     let skipPointless = false; // some abilities are unlimited, so always better than nothing
+    // some roles have abilities that arent position based, so if they exist twice its just the same thing twice
+    let csFound = false;
+    let afFound = false;
+    let pwFound = false;
+    let atFound = false;
+    let tFound = false;
+    let cfFound = false;
+    let awFound = false;
+    // iterate through pieces, to find ability pieces
     for(let y = 0; y < boardSize; y++) {
         for(let x = 0; x < boardSize; x++) {
             if(board[y][x].team == game.turn) {
@@ -291,17 +374,58 @@ function getChildren(game, depth = 0, maximizingPlayer = true) {
                     // active ability priorities
                     switch(abilityPieceName) {
                         // done by self this turn
-                        case "Crowd Seeker": case "Archivist Fox": case "Psychic Wolf": case "Aura Teller": case "Tanner":
-                            if(depth >= 4) {
+                        case "Crowd Seeker":
+                            if(depth >= 4 && !csFound) {
                                 abilityPieces.push([board[y][x].name, x, y]);
                                 skipPointless = true;
                             }
+                            csFound = true;
                         break;
-                        case "Fortune Teller": case "Warlock": case "Clairvoyant Fox": 
+                        case "Archivist Fox":
+                            if(depth >= 4 && !afFound) {
+                                abilityPieces.push([board[y][x].name, x, y]);
+                                skipPointless = true;
+                            }
+                            afFound = true;
+                        break;
+                        case "Psychic Wolf":
+                            if(depth >= 4 && !pwFound) {
+                                abilityPieces.push([board[y][x].name, x, y]);
+                                skipPointless = true;
+                            }
+                            pwFound = true;
+                        break;
+                        case "Aura Teller":
+                            if(depth >= 4 && !atFound) {
+                                abilityPieces.push([board[y][x].name, x, y]);
+                                skipPointless = true;
+                            }
+                            atFound = true;
+                        break;
+                        case "Tanner":
+                            if(depth >= 4 && !tFound) {
+                                abilityPieces.push([board[y][x].name, x, y]);
+                                skipPointless = true;
+                            }
+                            tFound = true;
+                        break;
+                        case "Fortune Teller": case "Warlock":
                             if(depth >= 4) {
                                 abilityPieces.push([board[y][x].name, x, y]);
                                 if(abilityPieces.length > 0) skipPointless = true;
                             }
+                        break;
+                        case "Flute Player":
+                            if(depth >= 4) {
+                                abilityPieces.push([board[y][x].name, x, y]);
+                            }
+                        break;
+                        case "Clairvoyant Fox": 
+                            if(depth >= 4 && !cfFound) {
+                                abilityPieces.push([board[y][x].name, x, y]);
+                                if(abilityPieces.length > 0) skipPointless = true;
+                            }
+                            cfFound = true;
                         break;
                         // done by enemy next turn 
                         case "Hooker":
@@ -312,8 +436,15 @@ function getChildren(game, depth = 0, maximizingPlayer = true) {
                             if(depth >= 2) abilityPieces.push([board[y][x].name, x, y]);
                         break;
                         // whenever
-                        case "Infecting Wolf": case "Dog": case "Alpha Wolf":
+                        case "Infecting Wolf": case "Dog":
                             abilityPieces.push([board[y][x].name, x, y]);
+                        break;
+                        // whenever
+                        case "Alpha Wolf":
+                            if(!awFound) {
+                                abilityPieces.push([board[y][x].name, x, y]);
+                            }
+                            awFound = true;
                         break;
                     }
                     // end priorities
@@ -353,6 +484,10 @@ function getChildren(game, depth = 0, maximizingPlayer = true) {
                 if(abilityPositions.length > 1) { 
                     abilityPositions = abilityPositions.slice(0, 1);
                 }
+            break;
+            // all enemy pieces
+            case "Flute Player":
+                abilityPositions = enemyPieces.filter(el => !game.state[el[1]][el[0]].enchanted).map(el => [el[0], el[1]]);
             break;
             // all ally
             case "Tanner":
@@ -470,13 +605,13 @@ function getChildren(game, depth = 0, maximizingPlayer = true) {
 }
 
 // on the first iteration save and return the move
-function minimaxStart(game, depth, alpha = -Infinity, beta = Infinity) {
+function minimaxStart(AI, game, depth, alpha = -Infinity, beta = Infinity) {
     let board = game.state;
-    if (!canMove(board, 0)) {
-        return { value: Infinity, move: null };
+    if ((game.players.length == 2 && !canMove(board, (AI+1)%2)) || (game.players.length == 3 && !canMove(board, (AI+1)%3)&& !canMove(board, (AI+2)%3))) {
+        return { value: 1000, move: null }; // game winning move
     }
-    if (!canMove(board, 1)) {
-        return { value: -Infinity, move: null };
+    if (!canMove(board, AI)) {
+        return { value: -1000, move: null }; // game losing move
     }
     
     // maximizing player (minimizing does not exist)
@@ -485,7 +620,7 @@ function minimaxStart(game, depth, alpha = -Infinity, beta = Infinity) {
     let children = getChildren(game, depth, true);
     console.log("POSSIBLE MOVES", children.length/**, children.map(el => (el[0]==null?"":(el[0] + "~" + (el[1].length==2?xyToName(el[1][0], el[1][1]):el[1]) + " & "))  + el[2] + ">" + xyToName(el[3][0], el[3][1]))**/);
     for (const child of children) {
-        const result = minimax(child[4], depth - 1, alpha, beta, false);
+        const result = minimax(AI, child[4], depth - 1, alpha, beta, false);
         if (result > value) {
             value = result;
             bestMove = child.slice(0, 4);
@@ -498,25 +633,24 @@ function minimaxStart(game, depth, alpha = -Infinity, beta = Infinity) {
     return { value, move: bestMove };
 }
 
-function minimax(game, depth, alpha = -Infinity, beta = Infinity, maximizingPlayer = true) {
+function minimax(AI, game, depth, alpha = -Infinity, beta = Infinity, maximizingPlayer = true) {
     let board = game.state;
     // Base case: if we have reached the maximum search depth or the game is over, return the heuristic value of the state
     if (depth === 0) {
-        // this is positive for the maximizing player -> so rn Player#2 is hardcoded as that
-        return evaluate(board, !maximizingPlayer ? game.turn : null);
+        return evaluate(AI, board, game.soloTeam, AI);
     }
-    if (!canMove(board, 0)) {
-        return Infinity;
+    if ((game.players.length == 2 && !canMove(board, (AI+1)%2)) || (game.players.length == 3 && !canMove(board, (AI+1)%3)&& !canMove(board, (AI+2)%3))) {
+        return 1000 + evaluate(AI, board, game.soloTeam, AI); // game winning move
     }
-    if (!canMove(board, 1)) {
-        return -Infinity;
+    if (!canMove(board, AI)) {
+        return -1000 + evaluate(AI, board, game.soloTeam, AI); // game losing move
     }
    
     if (maximizingPlayer) {
         let value = -Infinity;
         let children = getChildren(game, depth, true);
         for (const child of children) {
-            value = Math.max(value, minimax(child[4], depth - 1, alpha, beta, false));
+            value = Math.max(value, minimax(AI, child[4], depth - 1, alpha, beta, false));
             alpha = Math.max(alpha, value);
             if (beta <= alpha) {
                 break;  // Beta cut-off
@@ -527,7 +661,7 @@ function minimax(game, depth, alpha = -Infinity, beta = Infinity, maximizingPlay
         let value = Infinity;
         let children = getChildren(game, depth, false);
         for (const child of children) {
-            value = Math.min(value, minimax(child[4], depth - 1, alpha, beta, true));
+            value = Math.min(value, minimax(AI, child[4], depth - 1, alpha, beta, true));
             beta = Math.min(beta, value);
             if (beta <= alpha) {
                 break;  // Alpha cut-off
@@ -538,15 +672,29 @@ function minimax(game, depth, alpha = -Infinity, beta = Infinity, maximizingPlay
 }
 
 
-async function AImove(game) {
+async function AImove(AI, game) {
+    removeEffects(game, game.turn); // remove effects
     let gameCopy = deepCopy(game); // create a copy of the game to simulate the move on
     gameCopy.ai = true; // mark as AI game
     gameCopy.id = null;
-    removeEffects(gameCopy, gameCopy.turn); // remove effects
-    let minmax = minimaxStart(gameCopy, 4);
+    
+    // count pieces
+    let pieceCount = 0;
+    for(let y = 0; y < 5; y++) {
+        for(let x = 0; x < 5; x++) {
+            if(game.state[y][x].team >= 0) pieceCount++;
+        }
+    }
+    
+    // start minimax to find the best move
+    let minmax;
+    if(pieceCount >= 5) minmax = minimaxStart(AI, gameCopy, 4);
+    else if(pieceCount >= 3) minmax = minimaxStart(AI, gameCopy, 5);
+    else if(pieceCount == 2) minmax = minimaxStart(AI, gameCopy, 6);
+    else minmax = minimaxStart(AI, gameCopy, 7);
     if(minmax.move == null) minmax = { value: null, move: getChildren(game, 0, true)[0].slice(0, 4) };
     let bestMove = minmax.move;
-	console.log("AI BEST MOVE DEBUG", bestMove);
+	//console.log("AI BEST MOVE DEBUG", bestMove);
     
     if(bestMove[0] == null || bestMove[0][0] == null) {
         console.log("NO ABILITY");
@@ -579,6 +727,7 @@ function log(txt1, txt2 = "", txt3 = "", txt4 = "", txt5 = "") {
 
 /** GLOBAL VARIABLES **/
 var games = [];
+var gamesHistory = [];
 var players = [];
 var outstandingChallenge = [];
 
@@ -610,9 +759,15 @@ function turnStart(interaction, gameid, turn, mode = "editreply") {
     else response(interaction, availableAbilities, mode); // yes
 }
 
+function turnStartNot(interaction, gameid, turn, mode = "editreply") {
+    let board = renderBoard(games[gameid], "Waiting on Opponent");
+    let noButtons = { content: board, ephemeral: true, fetchReply: true, components: [{ type: 1, components: [{ type: 2, label: "Start Game", style: 4, custom_id: "start" }] }] };
+    response(interaction, noButtons, mode); // show Start Game Button
+}
+
 function turnMove(interaction, gameid, turn, mode = "editreply") {
     // update spec board
-    let msgSpec = displayBoard(games[gameid], "SPECTATOR BOARD", [], games[gameid].players[1] == null ? 0 : -1);
+    let msgSpec = displayBoard(games[gameid], "SPECTATOR BOARD", [], -1);
     msgSpec.ephemeral = false;
     games[gameid].msg.edit(msgSpec);
     // show movable pieces
@@ -652,6 +807,8 @@ function getDefensivePosition(moveFrom, moveTo, movedX, movedY) {
 
 // moves a piece from one place to another (and/or replaces the piece with another piece)
 function movePiece(interaction, moveCurGame, from, to, repl = null) {
+    // a move has been done
+    moveCurGame.firstMove = true;
     // is ai fake turn
     const notAiTurn = !moveCurGame.ai;
     // get coords
@@ -695,7 +852,11 @@ function movePiece(interaction, moveCurGame, from, to, repl = null) {
                 movedPiece.enemyVisibleStatus = 4;
                 movedPiece.enemyVisible = "Knight";
             }
+        } else if((mEVS == 4 || mEVS == 5) && ((movedY == 1 && movedX == 2) || (movedY == 2 && movedX == 1))) { // turned into knight
+            movedPiece.enemyVisibleStatus = 4;
+            movedPiece.enemyVisible = "Knight";
         }
+        
         if(mEVS == 6 && ((movedY == 1 && movedX == 2) || (movedY == 2 && movedX == 1)) && mDis && mDisChess != "Knight") { // was disguised
             movedPiece.enemyVisibleStatus = 4;
             movedPiece.enemyVisible = "Knight";
@@ -743,7 +904,7 @@ function movePiece(interaction, moveCurGame, from, to, repl = null) {
     
     if(from == to) beatenPiece = getPiece(null); // promotion is not taking
     
-    let defensive;
+    let defensive = moveTo;
     // death effects
     if(notAiTurn || moveCurGame.players[moveCurGame.turn] == null || beatenPiece.enemyVisibleStatus >= 6) { // only run in normal turns, ai's own turns or when effect is visible
         if(!notAiTurn && moveCurGame.players[moveCurGame.turn] != null && beatenPiece.enemyVisibleStatus == 6 && beatenPiece.disguise) beatenPiece.name = beatenPiece.disguise; // see role with disguise if applicable
@@ -765,7 +926,7 @@ function movePiece(interaction, moveCurGame, from, to, repl = null) {
             break;
             case null:
                 if(from == to) { // pawn promotion
-                    if(notAiTurn) moveCurGame.lastMoves.push([moveCurGame.turn, movedPieceCopy.name, movedPiece.disguise, movedPiece.enemyVisibleStatus<4?"Pawn":movedPiece.enemyVisible, from, to, movedPiece.enemyVisibleStatus<4?4:movedPiece.enemyVisibleStatus, "⏫🟦🟦"]);
+                    if(notAiTurn && movedPiece.team != 2) moveCurGame.lastMoves.push([moveCurGame.turn, movedPieceCopy.name, movedPiece.disguise, movedPiece.enemyVisibleStatus<4?"Pawn":movedPiece.enemyVisible, from, to, movedPiece.enemyVisibleStatus<4?4:movedPiece.enemyVisibleStatus, "⏫🟦🟦"]);
                 } else { 
                     moveCurGame.lastMoves.push([moveCurGame.turn, movedPiece.name, movedPiece.disguise, movedPiece.enemyVisible, from, to, movedPiece.enemyVisibleStatus]);
                 }
@@ -914,7 +1075,7 @@ function movePiece(interaction, moveCurGame, from, to, repl = null) {
             case "Amnesiac": // Amnesiac -> Change role after onhe move
             if(from != to) { // dont convert on promotion
                  if(!moveCurGame.ai) console.log("AMNESIAC CHANGE", movedPiece.convertTo);
-                 moveCurGame.state[moveTo.y][moveTo.x] = convertPiece(movedPiece, movedPiece.convertTo);
+                 moveCurGame.state[defensive.y][defensive.x] = convertPiece(movedPiece, movedPiece.convertTo);
             }
             break;
             case "Direwolf": // Direwolf -> Double move if last piece
@@ -938,7 +1099,7 @@ function movePiece(interaction, moveCurGame, from, to, repl = null) {
     
     
     // promote?
-    if(movedPiece.chess == "Pawn" && p1Turn && moveTo.y == 0) {
+    if(movedPiece.chess == "Pawn" && p1Turn && (defensive&&defensive.y?defensive.y==0:moveTo.y == 0)) {
         if(interaction) {
             let kings = ["Hooker","Idiot","Crowd Seeker","Aura Teller"];
             let knights = ["Royal Knight","Amnesiac"];
@@ -955,7 +1116,7 @@ function movePiece(interaction, moveCurGame, from, to, repl = null) {
             let randomOptions = ["Hooker","Royal Knight","Fortune Teller","Runner","Witch"];
             movePiece(interaction, moveCurGame, to, to, getPiece(randomOptions[Math.floor(Math.random() * randomOptions.length)]));
         }
-    } else if(movedPiece.chess == "Pawn" && !p1Turn && moveTo.y == 4) {
+    } else if(movedPiece.chess == "Pawn" && !p1Turn && (defensive&&defensive.y?defensive.y==4:moveTo.y == 4)) {
         if(interaction) {
             let kings = ["Alpha Wolf","Psychic Wolf","Sneaking Wolf"];
             let knights = ["Direwolf","Clairvoyant Fox","Fox"];
@@ -978,18 +1139,47 @@ function movePiece(interaction, moveCurGame, from, to, repl = null) {
     }
 }
 
+const turnMinDuration = 5000;
 async function turnDone(interaction, game, message) {
     // turn complete
     if(!game.ai) {
+        // buffer if move too fast
+        let thisMove = Date.now();
+        let moveDiff = thisMove - game.lastMove;
+        game.lastMove = thisMove;
+        if(moveDiff < turnMinDuration) {
+            await sleep(turnMinDuration - moveDiff);
+        }
+        // update spectator message
+        let msgSpec = displayBoard(game, "SPECTATOR BOARD", [], -1);
+        msgSpec.ephemeral = false;
+        game.msg.edit(msgSpec);
+        // update prev player board
+        if(game.solo && game.lastInteraction && !game.blackEliminated && !game.whiteEliminated && !game.goldEliminated) {
+            await game.lastInteraction.editReply(displayBoard(game, "Waiting on Opponent"));
+        }
         // update player message
         if(interaction) {
             await interaction.editReply(displayBoard(game, message));
             busyWaiting(interaction, game.id, game.turn);
         }
-        // update spectator message
-        let msgSpec = displayBoard(game, "SPECTATOR BOARD", [], game.players[1] == null ? 0 : -1);
-        msgSpec.ephemeral = false;
-        game.msg.edit(msgSpec);
+        
+        // serialize and store state
+        gamesHistory[game.id].push(serialize(game.state));
+        // check for stalemate
+        let findDuplicates = arr => arr.filter((item, index) => arr.indexOf(item) != index)
+        let triplicates = findDuplicates(findDuplicates(gamesHistory[game.id]));
+        if(triplicates.length > 0) {
+            let guild = client.guilds.cache.get(game.guild);
+            let channel = guild.channels.cache.get(game.channel);
+            channel.send("**Triplicated Position:** The game ends in a draw!");
+            // destroy game
+            concludeGame(game.id);
+            delayedDestroy(game.id);
+            console.log("DRAW");
+            return;
+        }
+        
     }
     nextTurn(game);
 }
@@ -1017,6 +1207,10 @@ async function busyWaiting(interaction, gameid, player) {
         // attempt turn
         if(games[gameid].turn == player) {
             await sleep(100);
+            if(games[gameid].players[player] == null) {
+                console.log("INCORRECT BUSY WAITING");
+                return;
+            }
             // if edit fails retry;
             try {
                 if(interaction && interaction.replied) {
@@ -1053,50 +1247,175 @@ function enemyTeam(turn, pieceTeam) {
     return pieceTeam != -1 && turn != pieceTeam;
 }
 
-function nextTurn(game) {
+function findWWW(game) {
+    // look for www
+    let wwwAlive = false;
+    let wolfCount = 0;
+    for(let y = 0; y < 5; y++) {
+        for(let x = 0; x < 5; x++) {
+            let xyPiece = game.state[y][x];
+            if(xyPiece.name == "White Werewolf") {
+                wwwAlive = true;
+            }
+            if(xyPiece.team == 1) {
+                wolfCount++;
+            }
+        }
+    }
+    return wwwAlive && wolfCount > 1;
+}
+
+function nextTurn(game, forceTurn = null) {
+    if(game.concluded) return; // dont do a turn on a concluded game
     // increment turn
-    if(!game.ai) console.log("NEXT TURN");
     let oldTurn = game.turn;
-    game.turn = (game.turn + 1) % 2;
+    // determine next turn
+    if(!game.firstMove) { // when here before the first move, force a P1 turn (this happens via "Start Game" buton)
+        game.turn = 0;
+        game.normalTurn = 0;
+    } else if(!game.solo) { // normal game, switch between P1 & P2
+        game.turn = (game.turn + 1) % 2;
+    } else { // solo game, do P1 then P3, then P2, then P3 again
+        // determine next turn
+        if(game.turn != 2) {
+            game.turn = 2;
+        } else {
+            if(game.normalTurn == 0) {
+                game.turn = 1;
+                game.normalTurn = 1;
+            } else {
+                game.turn = 0;
+                game.normalTurn = 0;
+            }
+        }
+        
+        let guild = client.guilds.cache.get(game.guild);
+        let channel = guild.channels.cache.get(game.channel);
+        
+        // eliminated players if applicable
+        switch(game.turn) {
+            case 0:
+                if(!canMove(game.state, 0) && !game.whiteEliminated) {
+                    if(!game.ai) {
+                        if(game.players[0]) channel.send("<@" + game.players[0] + "> was eliminated!");
+                        else channel.send(game.playerNames[0] + " was eliminated!");
+                    }
+                    game.whiteEliminated = true;
+                }
+            break;
+            case 1:
+                if(!canMove(game.state, 1) && !game.blackEliminated) {
+                    if(!game.ai) {
+                        if(game.players[1]) channel.send("<@" + game.players[1] + "> was eliminated!");
+                        else channel.send(game.playerNames[1] + " was eliminated!");
+                    }
+                    game.blackEliminated = true;
+                }
+            break;
+            case 2:
+                if(!canMove(game.state, 2) && !game.goldEliminated) {
+                    if(!game.ai) {
+                        if(game.players[2]) channel.send("<@" + game.players[2] + "> was eliminated!");
+                        else channel.send(game.playerNames[2] + " was eliminated!");
+                    }
+                    game.goldEliminated = true;
+                }
+            break;
+        }
+        
+         // if new turn player eliminated, skip turn
+        if(game.turn == 0 && game.whiteEliminated && !game.blackEliminated && !game.goldEliminated) {
+            nextTurn(game, 1);
+            return;
+        } else if(game.turn == 1 && game.blackEliminated && !game.whiteEliminated && !game.goldEliminated) {
+            nextTurn(game, 0);
+            return;
+        } else if(game.turn == 2 && game.goldEliminated && !game.whiteEliminated && !game.blackEliminated) {
+            if(game.normalTurn == 0) {
+                nextTurn(game, 1);
+            } else {
+                nextTurn(game, 0);
+            }
+            return;
+        }
+        
+        // check if at least two players cant move
+        if(!game.ai && (game.whiteEliminated ? (game.blackEliminated || game.goldEliminated) : (game.blackEliminated && game.goldEliminated))) { // game over
+            // get channel
+            // determine winner
+            if(!game.whiteEliminated || (!game.blackEliminated && oldTurn == 0 && findWWW(game))) { // P1 wins
+                if(game.whiteEliminated) channel.send("White Werewolf causes a loss!");
+                let enemies = "";
+                if(game.players[1]) enemies += "<@" + game.players[1] + ">";
+                else enemies += game.playerNames[1];
+                enemies += " & ";
+                if(game.players[2]) enemies += "<@" + game.players[2] + ">";
+                else enemies += game.playerNames[2];
+                if(game.players[0]) channel.send("<@" + game.players[0] + "> has won against " + enemies + "!");
+                else channel.send(game.playerNames[0] + " has won against " + enemies + "!");
+            } else if(!game.goldEliminated || (!game.blackEliminated && oldTurn == 2 && findWWW(game))) { // P3 wins
+                if(game.goldEliminated) channel.send("White Werewolf causes a loss!");
+                let enemies = "";
+                if(game.players[0]) enemies += "<@" + game.players[0] + ">";
+                else enemies += game.playerNames[1];
+                enemies += " & ";
+                if(game.players[1]) enemies += "<@" + game.players[1] + ">";
+                else enemies += game.playerNames[2];
+                if(game.players[2]) channel.send("<@" + game.players[2] + "> has won against " + enemies + "!");
+                else channel.send(game.playerNames[2] + " has won against " + enemies + "!");
+            } else if(!game.blackEliminated) { // P2 wins
+                let enemies = "";
+                if(game.players[0]) enemies += "<@" + game.players[0] + ">";
+                else enemies += game.playerNames[1];
+                enemies += " & ";
+                if(game.players[2]) enemies += "<@" + game.players[2] + ">";
+                else enemies += game.playerNames[2];
+                if(game.players[1]) channel.send("<@" + game.players[1] + "> has won against " + enemies + "!");
+                else channel.send(game.playerNames[1] + " has won against " + enemies + "!");
+            } else {
+                channel.send("The game ends in a stalemate!");
+            }
+            
+            // destroy game
+            concludeGame(game.id);
+            delayedDestroy(game.id);
+            console.log("WIN");
+            return;
+        }
+        
+       
+    }
+    if(forceTurn != null) game.turn = forceTurn; // force turn
+    if(!game.ai) console.log("-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-\nNEXT TURN", game.turn);
     
     if(!game.ai) {
         // find a valid move
         let board = game.state;
       
         // Update Spectator Board
-        let msgSpec = displayBoard(game, "SPECTATOR BOARD", [], game.players[1] == null ? 0 : -1);
+        let msgSpec = displayBoard(game, "SPECTATOR BOARD", [], -1);
         msgSpec.ephemeral = false;
         game.msg.edit(msgSpec);
 
         // WIN Message
-        if(!canMove(board, game.turn)) {
+        if(!game.solo && !canMove(board, game.turn)) {
             let guild = client.guilds.cache.get(game.guild);
             let channel = guild.channels.cache.get(game.channel);
 
-            // look for www
-            let wwwAlive = false;
-            let wolfCount = 0;
-            for(let y = 0; y < 5; y++) {
-                for(let x = 0; x < 5; x++) {
-                    let xyPiece = game.state[y][x];
-                    if(xyPiece.name == "White Werewolf") {
-                        wwwAlive = true;
-                    }
-                    if(xyPiece.team == 1) {
-                        wolfCount++;
-                    }
-                }
-            }
             // www lose
-            if(wwwAlive && wolfCount > 1 && oldTurn == 1) {
+            if(findWWW(game) && oldTurn == 1) {
                 oldTurn = 0;
                 game.turn = 1;
                 channel.send("White Werewolf causes a loss!");
             }
-
-            if(game.players[1]) channel.send("<@" + game.players[oldTurn] + "> has won against <@" + game.players[game.turn] + ">!");
-            else if(oldTurn == 0 && !game.players[1]) channel.send("<@" + game.players[oldTurn] + "> has won against **AI**!");
-            else if(oldTurn == 1 && !game.players[1]) channel.send("**AI** has won against <@" + game.players[game.turn] + ">!");
+            
+            if(game.players[0] && game.players[1]) channel.send("<@" + game.players[oldTurn] + "> has won against <@" + game.players[game.turn] + ">!"); // no AI
+            else if(oldTurn == 0 && !game.players[0] && game.players[1]) channel.send(game.playerNames[0] + " has won against <@" + game.players[1] + ">!"); // town AI
+            else if(oldTurn == 1 && !game.players[0] && game.players[1]) channel.send("<@" + game.players[1] + "> has won against " + game.playerNames[0] + "!"); // town AI
+            else if(oldTurn == 0 && !game.players[1] && game.players[0]) channel.send("<@" + game.players[0] + "> has won against " + game.playerNames[1] + "!"); // wolf AI
+            else if(oldTurn == 1 && !game.players[1] && game.players[0]) channel.send(game.playerNames[1] + " has won against <@" + game.players[0] + ">!"); // wolf AI
+            else if(oldTurn == 0 && !game.players[1] && !game.players[0]) channel.send(game.playerNames[0] + " has won against " + game.playerNames[1] + "!"); // both AI
+            else if(oldTurn == 1 && !game.players[1] && !game.players[0]) channel.send(game.playerNames[1] + " has won against " + game.playerNames[0] + "!"); // both AI
             concludeGame(game.id);
             delayedDestroy(game.id);
             console.log("WIN");
@@ -1108,18 +1427,22 @@ function nextTurn(game) {
     if(game.turn == 1 && game.doubleMove0 == true) { // double move town (Child)
         game.doubleMove0 = false;
     	game.inDoubleMove = true;
-        nextTurn(game);
+        nextTurn(game, 0);
         return;
     } else if(game.turn == 0 && game.doubleMove1 == true) { // double move wolf (Cub)
         game.doubleMove1 = false;
     	game.inDoubleMove = true;
-        nextTurn(game);
+        nextTurn(game, 1);
         return;
     }
     
     // Do AI Turn if AI in play
     if(!game.ai && game.turn == 1 && game.players[1] == null) {
-        AImove(game)
+        AImove(1, game)
+    } else if(!game.ai && game.turn == 0 && game.players[0] == null) {
+        AImove(0, game)
+    } else if(!game.ai && game.turn == 2 && game.players[2] == null) {
+        AImove(2, game)
     }
 }
 
@@ -1135,9 +1458,149 @@ function removeEffects(curGame, team) {
                 if(curGame.state[y][x].name == "Sneaking Wolf") curGame.state[y][x].disguise = "Wolf"; // keep SnW disguise
             } else if(xyPiece.name != null && xyPiece.team != team) {
                 curGame.state[y][x].sabotaged = false;
+                curGame.state[y][x].stay = false;
             }
         }
     }
+}
+
+// returns all possible ability targets as interactions
+function getAbilityTargets(curGame, abilityPiece, arg1) {
+    let aPositions, aInteractions, aComponents = [];
+    let abilitySelection = nameToXY(arg1);
+    // provide options
+    switch(abilityPiece.name) {
+        default: case null:
+            aComponents = interactionsFromPositions([], arg1, "turnstart", 3);
+        break;
+        // Target targetable enemy
+        case "Fortune Teller":
+        case "Warlock":
+            aPositions = generatePositions(curGame.state, arg1);
+            aPositions = aPositions.filter(el => el[2]).map(el => [el[0], el[1]]).filter(el => curGame.state[el[1]][el[0]].enemyVisibleStatus < 7); // only select moves with targets
+            aComponents = interactionsFromPositions(aPositions, arg1, "turnstart", "investigate", 3);
+        break;
+        case "Infecting Wolf":
+        case "Saboteur Wolf":
+            aPositions = generatePositions(curGame.state, arg1);
+            aPositions = aPositions.filter(el => el[2]).map(el => [el[0], el[1]]); // only select moves with targets
+            aComponents = interactionsFromPositions(aPositions, arg1, "turnstart", abilityPiece.name == "Infecting Wolf" ? "infect" : "sabotage", 3);
+        break;
+        // Target targetable ally
+        case "Witch":
+        case "Royal Knight":
+            let modGame = deepCopy(curGame.state);
+            modGame[abilitySelection.y][abilitySelection.x].team = (modGame[abilitySelection.y][abilitySelection.x].team + 1) % 2;
+            aPositions = generatePositions(modGame, arg1);
+            aPositions = aPositions.filter(el => el[2]).map(el => [el[0], el[1]]); // only select moves with targets
+            aComponents = interactionsFromPositions(aPositions, arg1, "turnstart", "protect", 3);
+        break;
+        // Target all enemy
+        case "Clairvoyant Fox":
+            aPositions = [];
+            for(let y = 0; y < 5; y++) {
+                for(let x = 0; x < 5; x++) {
+                    let xyPiece = curGame.state[y][x];
+                    if(xyPiece.name != null && xyPiece.team != abilityPiece.team && xyPiece.enemyVisibleStatus < 7) {
+                        aPositions.push([x, y]);
+                    }
+                }
+            }
+            aComponents = interactionsFromPositions(aPositions, arg1, "turnstart", "investigate", 3);
+        break;
+        case "Crowd Seeker":
+        case "Archivist Fox":
+        case "Psychic Wolf":
+            aPositions = [];
+            for(let y = 0; y < 5; y++) {
+                for(let x = 0; x < 5; x++) {
+                    let xyPiece = curGame.state[y][x];
+                    if(xyPiece.name != null && xyPiece.team != abilityPiece.team && xyPiece.enemyVisibleStatus < 4) {
+                        aPositions.push([x, y]);
+                    }
+                }
+            }
+            aComponents = interactionsFromPositions(aPositions, arg1, "turnstart", "investigate", 3);
+        break;
+        case "Aura Teller":
+            aPositions = [];
+            for(let y = 0; y < 5; y++) {
+                for(let x = 0; x < 5; x++) {
+                    let xyPiece = curGame.state[y][x];
+                    if(xyPiece.name != null && xyPiece.team != abilityPiece.team && xyPiece.enemyVisibleStatus < 5 && !xyPiece.atChecked) {
+                        aPositions.push([x, y]);
+                    }
+                }
+            }
+            aComponents = interactionsFromPositions(aPositions, arg1, "turnstart", "investigate", 3);
+        break;
+        // unenchanted enemy
+        case "Flute Player":
+            aPositions = [];
+            for(let y = 0; y < 5; y++) {
+                for(let x = 0; x < 5; x++) {
+                    let xyPiece = curGame.state[y][x];
+                    if(xyPiece.name != null && xyPiece.team != abilityPiece.team && !xyPiece.enchanted) {
+                        aPositions.push([x, y]);
+                    }
+                }
+            }
+            aComponents = interactionsFromPositions(aPositions, arg1, "turnstart", "enchant", 3);
+        break;
+        // Target all ally
+        case "Tanner":
+            aPositions = [];
+            for(let y = 0; y < 5; y++) {
+                for(let x = 0; x < 5; x++) {
+                    let xyPiece = curGame.state[y][x];
+                    if(xyPiece.name != null && xyPiece.team == abilityPiece.team) {
+                        aPositions.push([x, y]);
+                    }
+                }
+            }
+            aComponents = interactionsFromPositions(aPositions, arg1, "turnstart", "disguise", 3);
+        break;
+        // Dog
+        case "Dog":
+            aInteractions = [{ type: 2, label: "Back", style: 4, custom_id: "turnstart" }];
+            aInteractions.push({ type: 2, label: "Wolf Cub " + getUnicode("Pawn", 1), style: 3, custom_id: "transform-" + arg1 + "-Wolf Cub" });
+            aInteractions.push({ type: 2, label: "Fox " + getUnicode("Knight", 1), style: 3, custom_id: "transform-" + arg1 + "-Fox" });
+            aComponents = [{ type: 1, components: aInteractions }];
+        break;
+        // Hooker - Surrounding fields
+        case "Hooker":
+            aInteractions = [];
+            if(inBounds(abilitySelection.x, abilitySelection.y-1) && curGame.state[abilitySelection.y-1][abilitySelection.x].team == 0) aInteractions.push([abilitySelection.x, abilitySelection.y-1]);
+            if(inBounds(abilitySelection.x, abilitySelection.y+1) && curGame.state[abilitySelection.y+1][abilitySelection.x].team == 0) aInteractions.push([abilitySelection.x, abilitySelection.y+1]);
+            if(inBounds(abilitySelection.x-1, abilitySelection.y-1) && curGame.state[abilitySelection.y-1][abilitySelection.x-1].team == 0) aInteractions.push([abilitySelection.x-1, abilitySelection.y-1]);
+            if(inBounds(abilitySelection.x-1, abilitySelection.y) && curGame.state[abilitySelection.y][abilitySelection.x-1].team == 0) aInteractions.push([abilitySelection.x-1, abilitySelection.y]);
+            if(inBounds(abilitySelection.x-1, abilitySelection.y+1) && curGame.state[abilitySelection.y+1][abilitySelection.x-1].team == 0) aInteractions.push([abilitySelection.x-1, abilitySelection.y+1]);
+            if(inBounds(abilitySelection.x+1, abilitySelection.y-1) && curGame.state[abilitySelection.y-1][abilitySelection.x+1].team == 0) aInteractions.push([abilitySelection.x+1, abilitySelection.y-1]);
+            if(inBounds(abilitySelection.x+1, abilitySelection.y) && curGame.state[abilitySelection.y][abilitySelection.x+1].team == 0) aInteractions.push([abilitySelection.x+1, abilitySelection.y]);
+            if(inBounds(abilitySelection.x+1, abilitySelection.y+1) && curGame.state[abilitySelection.y+1][abilitySelection.x+1].team == 0) aInteractions.push([abilitySelection.x+1, abilitySelection.y+1]);
+            aInteractions = aInteractions.map(el => {
+                return new Object({ type: 2, label: xyToName(el[0], el[1]), style: 3, custom_id: "hide-" + arg1 + "-" + xyToName(el[0], el[1]) });
+            });
+            aInteractions.unshift({ type: 2, label: "Back", style: 4, custom_id: "turnstart" });
+            aComponents = [{ type: 1, components: aInteractions.slice(0, 5) }];
+            if(aInteractions.length > 5) aComponents.push({ type: 1, components: aInteractions.slice(5, 10) });
+        break;
+        // Alpha Wolf - All allies with available slot
+        case "Alpha Wolf":
+            aPositions = [];
+            for(let y = 1; y < 5; y++) {
+                for(let x = 0; x < 5; x++) {
+                    let xyPiece = curGame.state[y][x];
+                    let x0Piece = curGame.state[0][x];
+                    if(xyPiece.name != null && xyPiece.team == abilityPiece.team && x0Piece.name == null) {
+                        aPositions.push([x, y]);
+                    }
+                }
+            }
+            aComponents = interactionsFromPositions(aPositions, arg1, "turnstart", "recall", 3);
+        break;
+    }
+    return aComponents;
 }
 
 /* New Slash Command */
@@ -1149,7 +1612,12 @@ client.on('interactionCreate', async interaction => {
         let arg2 = interaction.customId.split("-")[2];
         let gameID = getPlayerGameId(interaction.member.id);
         let curGame = games[gameID];
+        curGame.lastInteraction = interaction;
         switch(type) {
+            case "start":
+                await interaction.update(displayBoard(curGame, "Starting Game", []));
+                turnDone(interaction, curGame, "Waiting on Opponent");
+            break;
             // select a piece; show available moves
             case "select":    
                 let selection = nameToXY(arg1);
@@ -1196,101 +1664,9 @@ client.on('interactionCreate', async interaction => {
                 // unprotect, unhide, undisguise, unsabotage
                 removeEffects(curGame, abilityPiece.team);
                 
-                let aPositions, aInteractions, aComponents = [];
-                // provide options
-                switch(abilityPiece.name) {
-                    default: case null:
-                        aComponents = interactionsFromPositions([], arg1, "turnstart", 3);
-                    break;
-                    // Target targetable enemy
-                    case "Fortune Teller":
-                    case "Warlock":
-                    case "Infecting Wolf":
-                    case "Saboteur Wolf":
-                        aPositions = generatePositions(curGame.state, arg1);
-                        aPositions = aPositions.filter(el => el[2]).map(el => [el[0], el[1]]); // only select moves with targets
-                        aComponents = interactionsFromPositions(aPositions, arg1, "turnstart", abilityPiece.name == "Infecting Wolf" ? "infect" : (abilityPiece.name == "Saboteur Wolf" ? "sabotage" : "investigate"), 3);
-                    break;
-                    // Target targetable ally
-                    case "Witch":
-                    case "Royal Knight":
-                        let modGame = deepCopy(curGame.state);
-                        modGame[abilitySelection.y][abilitySelection.x].team = (modGame[abilitySelection.y][abilitySelection.x].team + 1) % 2;
-                        aPositions = generatePositions(modGame, arg1);
-                        aPositions = aPositions.filter(el => el[2]).map(el => [el[0], el[1]]); // only select moves with targets
-                        aComponents = interactionsFromPositions(aPositions, arg1, "turnstart", "protect", 3);
-                    break;
-                    // Target all enemy
-                    case "Clairvoyant Fox":
-                    case "Crowd Seeker":
-                    case "Archivist Fox":
-                    case "Psychic Wolf":
-                    case "Aura Teller":
-                        aPositions = [];
-                        for(let y = 0; y < 5; y++) {
-                            for(let x = 0; x < 5; x++) {
-                                let xyPiece = curGame.state[y][x];
-                                if(xyPiece.name != null && xyPiece.team != abilityPiece.team && xyPiece.enemyVisibleStatus != 7) {
-                                    aPositions.push([x, y]);
-                                }
-                            }
-                        }
-                        aComponents = interactionsFromPositions(aPositions, arg1, "turnstart", "investigate", 3);
-                    break;
-                    // Target all ally
-                    case "Tanner":
-                        aPositions = [];
-                        for(let y = 0; y < 5; y++) {
-                            for(let x = 0; x < 5; x++) {
-                                let xyPiece = curGame.state[y][x];
-                                if(xyPiece.name != null && xyPiece.team == abilityPiece.team) {
-                                    aPositions.push([x, y]);
-                                }
-                            }
-                        }
-                        aComponents = interactionsFromPositions(aPositions, arg1, "turnstart", "disguise", 3);
-                    break;
-                    // Dog
-                    case "Dog":
-                        aInteractions = [{ type: 2, label: "Back", style: 4, custom_id: "turnstart" }];
-                        aInteractions.push({ type: 2, label: "Wolf Cub " + getUnicode("Pawn", 1), style: 3, custom_id: "transform-" + arg1 + "-Wolf Cub" });
-                        aInteractions.push({ type: 2, label: "Fox " + getUnicode("Knight", 1), style: 3, custom_id: "transform-" + arg1 + "-Fox" });
-                        aComponents = [{ type: 1, components: aInteractions }];
-                    break;
-                    // Hooker - Surrounding fields
-                    case "Hooker":
-                        aInteractions = [];
-                        if(inBounds(abilitySelection.x, abilitySelection.y-1) && curGame.state[abilitySelection.y-1][abilitySelection.x].team == 0) aInteractions.push([abilitySelection.x, abilitySelection.y-1]);
-                        if(inBounds(abilitySelection.x, abilitySelection.y+1) && curGame.state[abilitySelection.y+1][abilitySelection.x].team == 0) aInteractions.push([abilitySelection.x, abilitySelection.y+1]);
-                        if(inBounds(abilitySelection.x-1, abilitySelection.y-1) && curGame.state[abilitySelection.y-1][abilitySelection.x-1].team == 0) aInteractions.push([abilitySelection.x-1, abilitySelection.y-1]);
-                        if(inBounds(abilitySelection.x-1, abilitySelection.y) && curGame.state[abilitySelection.y][abilitySelection.x-1].team == 0) aInteractions.push([abilitySelection.x-1, abilitySelection.y]);
-                        if(inBounds(abilitySelection.x-1, abilitySelection.y+1) && curGame.state[abilitySelection.y+1][abilitySelection.x-1].team == 0) aInteractions.push([abilitySelection.x-1, abilitySelection.y+1]);
-                        if(inBounds(abilitySelection.x+1, abilitySelection.y-1) && curGame.state[abilitySelection.y-1][abilitySelection.x+1].team == 0) aInteractions.push([abilitySelection.x+1, abilitySelection.y-1]);
-                        if(inBounds(abilitySelection.x+1, abilitySelection.y) && curGame.state[abilitySelection.y][abilitySelection.x+1].team == 0) aInteractions.push([abilitySelection.x+1, abilitySelection.y]);
-                        if(inBounds(abilitySelection.x+1, abilitySelection.y+1) && curGame.state[abilitySelection.y+1][abilitySelection.x+1].team == 0) aInteractions.push([abilitySelection.x+1, abilitySelection.y+1]);
-                        aInteractions = aInteractions.map(el => {
-                            return new Object({ type: 2, label: xyToName(el[0], el[1]), style: 3, custom_id: "hide-" + arg1 + "-" + xyToName(el[0], el[1]) });
-                        });
-                        aInteractions.unshift({ type: 2, label: "Back", style: 4, custom_id: "turnstart" });
-                        aComponents = [{ type: 1, components: aInteractions.slice(0, 5) }];
-                        if(aInteractions.length > 5) aComponents.push({ type: 1, components: aInteractions.slice(5, 10) });
-                    break;
-                    // Alpha Wolf - All allies with available slot
-                    case "Alpha Wolf":
-                        aPositions = [];
-                        for(let y = 1; y < 5; y++) {
-                            for(let x = 0; x < 5; x++) {
-                                let xyPiece = curGame.state[y][x];
-                                let x0Piece = curGame.state[0][x];
-                                if(xyPiece.name != null && xyPiece.team == abilityPiece.team && x0Piece.name == null) {
-                                    aPositions.push([x, y]);
-                                }
-                            }
-                        }
-                        aComponents = interactionsFromPositions(aPositions, arg1, "turnstart", "recall", 3);
-                    break;
-                }
-                
+                // get ability interactions
+                let aComponents = getAbilityTargets(curGame, abilityPiece, arg1);
+                                
                 // update message
                 interaction.update(displayBoard(curGame, "Pick a Target", aComponents));
             break;
@@ -1326,6 +1702,12 @@ client.on('interactionCreate', async interaction => {
             case "sabotage":
                 let sabotageTarget = nameToXY(arg2);
 			    executeActiveAbility(curGame, "Sabotage", null, [sabotageTarget.x, sabotageTarget.y]);
+                turnMove(interaction, gameID, curGame.turn, "update");
+            break;
+            // enchant
+            case "enchant":
+                let enchantTarget = nameToXY(arg2);
+			    executeActiveAbility(curGame, "Enchant", null, [enchantTarget.x, enchantTarget.y]);
                 turnMove(interaction, gameID, curGame.turn, "update");
             break;
             // hooker hide
@@ -1376,26 +1758,92 @@ client.on('interactionCreate', async interaction => {
         break;
         case "help":
             // Send pinging message
-            interaction.reply({ content: "**WWRess**\nWWRess is a variant of chess, played on a 5x5 grid. In each game, each of the two sides (white/town & black/wolves) gets 5 pieces. Each piece comes with a movement type (Pawn, King, Knight, Rook or Queen) and an ability. Each team has 17 unique pieces (6 pawns, 4 kings, 3 knights, 3 rooks, 1 queen). The pieces of the teams differ, so the two sides usually have completely different abilities.\n\nEach turn consists of two actions: first, using an active ability (if a piece with an active ability is available) and second, moving a piece. The game is won if the enemy cannot make a move (Kings are not part of the win condition in any way).\n\nThe only available special move is Pawn Promotion.\n\nInitially, all enemy pieces are hidden. The movement type of enemy pieces will automatically be marked where possible (only a knight can jump so that move makes the piece clearly identifiable as a knight (though not which knight), moving a single step forward does not) and additionally investigative pieces may be used to reveal them. Sometimes this is not fully accurate, as some pieces can change role (e.g. Dog) and some can be disguised (e.g. Sneaking Wolf).\n\nStart a game against the AI with `/play`, challenge another player with `/challenge <name>`. Accept or deny a challenge with `/accept` and `/deny`. Use `/resign` to give up." });
+            interaction.reply({ content: findEmoji("WWRess") + " **WWRess** " + findEmoji("WWRess") + "\nWWRess is a variant of chess, played on a 5x5 grid. In each game, each of the two sides (white/town & black/wolves) gets 5 pieces. Each piece comes with a movement type (Pawn, King, Knight, Rook or Queen) and an ability. Each team has 17 unique pieces (6 pawns, 4 kings, 3 knights, 3 rooks, 1 queen). The pieces of the teams differ, so the two sides usually have completely different abilities. Look up what pieces there are using `/pieces <team name>`.\n\nEach turn consists of two actions: first, using an active ability (if a piece with an active ability is available) and second, moving a piece. The game is won if the enemy cannot make a move (Kings are not part of the win condition in any way).\n\nThe only available special move is Pawn Promotion.\n\nInitially, all enemy pieces are hidden. The movement type of enemy pieces will automatically be marked where possible (only a knight can jump so that move makes the piece clearly identifiable as a knight (though not which knight), moving a single step forward does not) and additionally investigative pieces may be used to reveal them. Sometimes this is not fully accurate, as some pieces can change role (e.g. Dog) and some can be disguised (e.g. Sneaking Wolf).\n\nStart a game against the AI with `/play`, challenge another player with `/challenge <name>`. Accept or deny a challenge with `/accept` and `/deny`. Use `/resign` to give up." });
+        break;
+        case "pieces":
+            let team = interaction.options.get('team').value;
+            let pieces = [];
+            let teamColor = "White";
+            let teamName = "";
+            switch(team) {
+                case "townsfolk":
+                    pieces = ["Citizen","Ranger","Huntress","Bartender","Fortune Apprentice","Child","Hooker","Idiot","Crowd Seeker","Aura Teller","Royal Knight","Alcoholic","Amnesiac","Fortune Teller","Runner","Witch","Cursed Civilian"];
+                    teamColor = "White";
+                    teamName = "Townsfolk (White)";
+                break;
+                case "werewolf":
+                    pieces = ["Wolf","Wolf Cub","Tanner","Archivist Fox","Recluse","Dog","Infecting Wolf","Alpha Wolf","Psychic Wolf","Sneaking Wolf","Direwolf","Clairvoyant Fox","Fox","Warlock","Scared Wolf","Saboteur Wolf","White Werewolf"];
+                    teamColor = "Black";
+                    teamName = "Werewolves (Black)";
+                break;
+                case "solo":
+                    pieces = ["Flute Player","Devil","Zombie","Angel"];
+                    teamColor = "Gold";
+                    teamName = "Solo (Gold)";
+                break;
+            }
+            let pieceMsg = findEmoji("WWRess") + " **" + teamName + " Piece List:** " + findEmoji("WWRess") + "\n";
+            
+            for(let i = 0; i < pieces.length; i++) {
+                pieceMsg += findEmoji(teamColor + getChessName(pieces[i])) + " " + findEmoji(pieces[i]) + " **" + pieces[i] + ":** " + getAbilityText(pieces[i]) + "\n";
+            }
+            // Send pinging message
+            interaction.reply({ content: pieceMsg });
         break;
         case "play":
             if(isPlaying(interaction.member.id)) {
                 interaction.reply({ content: "❎ You're already in a game!", ephemeral: true });
             } else {
-                createGame(interaction.member.id, null, games.length, interaction.member.user.username, "*AI*", interaction.channel.id, interaction.guild.id);
+                let players = [[interaction.member.id, interaction.member.user.username], [null, "*AI*"], [null, "*AI #2*"]];
+                createGame(players[0][0], players[1][0], players[2][0], games.length, players[0][1], players[1][1], players[2][1], interaction.channel.id, interaction.guild.id);
+                //let players = [[interaction.member.id, interaction.member.user.username], [null, "*AI*"]];
+                //players = players.sort((a, b) => 0.5 - Math.random());
+                createGame(players[0][0], players[1][0], null, games.length, players[0][1], players[1][1], null, interaction.channel.id, interaction.guild.id);
                 
                 // display board
                 let id = getPlayerGameId(interaction.member.id);
                 
                 // spectator board
-                let msgSpec = displayBoard(games[id], "SPECTATOR BOARD", [], 0);
+                let msgSpec = displayBoard(games[id], "SPECTATOR BOARD", [], -1);
                 msgSpec.ephemeral = false;
-                interaction.reply(msgSpec).then(m => {
-                    games[id].msg = m;
-                    // player board
-                    turnStart(interaction, id, 0, "followup"); 
-                });
+                
+                if(games[id].players[0]) { // player is P1
+                    interaction.reply(msgSpec).then(m => {
+                        games[id].msg = m;
+                        // player board
+                        turnStart(interaction, id, 0, "followup"); 
+                    });
+                } else if(games[id].players[1]) { // player is P2
+                    interaction.reply(msgSpec).then(m => {
+                        games[id].msg = m;
+                        games[id].turn = 1;
+                        // player board
+                        turnStartNot(interaction, id, 1, "followup"); 
+                    });
+                } else if(games[id].players[2]) { // player is P3
+                    interaction.reply(msgSpec).then(m => {
+                        games[id].msg = m;
+                        games[id].turn = 2;
+                        games[id].normalTurn = 1;
+                        // player board
+                        turnStartNot(interaction, id, 2, "followup"); 
+                    });
+                }
             }
+        break;
+        case "aigame":
+            let players = [[null, "*AI #1*"], [null, "*AI #2*"], [null, "*AI #3*"]];
+            createGame(players[0][0], players[1][0], players[2][0], games.length, players[0][1], players[1][1], players[2][1], interaction.channel.id, interaction.guild.id);
+            let id = games.length - 1;
+                
+            // spectator board
+            let msgSpec = displayBoard(games[id], "SPECTATOR BOARD", [], -1);
+            msgSpec.ephemeral = false;
+            interaction.reply(msgSpec).then(m => {
+                games[id].msg = m;
+                games[id].aiOnly = true;
+                AImove(0, games[id]);
+            });
         break;
         case "resign":
             if(!isPlaying(interaction.member.id)) {
@@ -1435,7 +1883,7 @@ client.on('interactionCreate', async interaction => {
                 }
                 
                 let gameID = games.length;
-                createGame(interaction.member.id, opponent.id, gameID, interaction.member.user.username, opponent.user.username, interaction.channel.id, interaction.guild.id);
+                createGame(interaction.member.id, opponent.id, null, gameID, interaction.member.user.username, opponent.user.username, "*AI*", interaction.channel.id, interaction.guild.id);
                 
                 interaction.channel.send("<@" + opponent.id + "> You have been challenged by <@" + interaction.member.id + ">! Run `/accept` to accept the challenge.");
                 
@@ -1491,6 +1939,8 @@ function getTeam(piece) {
         case "Selected":
         case null:
             return -1;
+        case "Flute Player": case "Devil": case "Zombie": case "Angel":
+            return 2;
     }
 }
 
@@ -1500,6 +1950,7 @@ function isActive(piece) {
             return false;
         case "Hooker": case "Crowd Seeker": case "Aura Teller": case "Royal Knight": case "Fortune Teller": case "Witch":
         case "Tanner": case "Archivist Fox": case "Dog": case "Infecting Wolf": case "Alpha Wolf": case "Psychic Wolf": case "Clairvoyant Fox": case "Warlock": case "Saboteur Wolf":
+        case "Flute Player": case "Devil": case "Zombie":
             return true;
     }
 }
@@ -1544,6 +1995,7 @@ function getAbilityText(piece) {
             return "Protects a reachable piece.";
         case "Cursed Civilian":
             return "Becomes a Wolf, when taken.";
+            
         case "Wolf":
             return "No ability.";
         case "Wolf Cub":
@@ -1580,6 +2032,15 @@ function getAbilityText(piece) {
             return "Block a piece's movement/active ability.";
          case "White Werewolf":
             return "Must either be dead or the only remaining piece. Loses the game otherwise.";
+            
+        case "Flute Player":
+            return "Enchants pieces, wins when everyone is enchanted.";
+        case "Devil":
+            return "DEVIL";
+        case "Angel":
+            return "ANGEL";
+        case "Zombie":
+            return "ZOMBIE";
     }
 }
 
@@ -1595,6 +2056,7 @@ function getChessName(piece) {
             return "King";
          case "Royal Knight": case "Alcoholic": case "Amnesiac":
          case "Direwolf": case "Clairvoyant Fox": case "Fox":
+         case "Flute Player": 
             return "Knight";
         case "Runner": case "Fortune Teller": case "Witch":
         case "Warlock": case "Scared Wolf": case "Saboteur Wolf":
@@ -1602,6 +2064,7 @@ function getChessName(piece) {
             return "Rook";
          case "Cursed Civilian":
          case "White Werewolf":
+         case "Devil": case "Angel": case "Zombie":
             return "Queen";
         case "Attacked Idiot":
         case "Selected":
@@ -1617,6 +2080,8 @@ function getChessValue(name) {
         case "Knight":
             return 3;
         case "King":
+            return 3;
+        case "Bishop":
             return 3;
         case "Rook":
             return 5;
@@ -1638,7 +2103,7 @@ function convertPiece(oldPiece, newName) {
 
 // creates a piece object
 function getPiece(name, metadata = {}) {
-    var piece = { name: name, team: getTeam(name), chess: getChessName(name), enemyVisible: "Unknown", enemyVisibleStatus: 0, active: isActive(name), disguise: false, protected: false, hasMoved: false, hidden: false, sabotaged: false };
+    var piece = { name: name, team: getTeam(name), chess: getChessName(name), enemyVisible: "Unknown", enemyVisibleStatus: 0, active: isActive(name), disguise: false, protected: false, hasMoved: false, hidden: false, sabotaged: false, atChecked: false, enchanted: false };
     switch(name) {
         case "Amnesiac":
             piece.convertTo = metadata.amnesiac;
@@ -1651,21 +2116,8 @@ function getPiece(name, metadata = {}) {
     return piece;
 }
 
-function loadDefaultSetup(board) {
-    board[4][0] = getPiece("Hooker");
-    board[4][1] = getPiece("Citizen");
-    board[4][2] = getPiece("Citizen");
-    board[4][3] = getPiece("Runner");
-    board[4][4] = getPiece("Citizen");
-    board[0][0] = getPiece("Wolf");
-    board[0][1] = getPiece("Warlock");
-    board[0][2] = getPiece("Wolf");
-    board[0][3] = getPiece("Wolf");
-    board[0][4] = getPiece("Alpha Wolf");
-}
-
 function loadPromoteTestSetup(board) {
-    board[1][0] = getPiece("Citizen");
+    board[1][0] = getPiece("Aura Teller");
     board[3][4] = getPiece("Alpha Wolf");
 }
 
@@ -1703,6 +2155,9 @@ function getWWRevalValue(piece) {
                 return 4;
             case "Infecting Wolf": case "Direwolf": case "Bartender":
                 return 5;
+                
+            case "Flute Player": case "Devil": case "Angel": case "Zombie":
+                return 0;
     }
 }
 
@@ -1716,10 +2171,10 @@ function getWWRValue(piece) { // UNUSED
             case "Attacked Scared Wolf": 
                 return 0;
             case "Ranger": case "Amnesiac": case "Idiot": 
-            case "Recluse":
+            case "Recluse": case "Tanner": 
                 return 1;
             case "Child": case "Crowd Seeker": case "Aura Teller": case "Royal Knight": case "Witch": case "Bartender":
-            case "Wolf Cub": case "Tanner": case "Archivist Fox": case "Dog": case "Psychic Wolf": case "Direwolf":
+            case "Wolf Cub": case "Archivist Fox": case "Dog": case "Psychic Wolf": case "Direwolf":
                 return 2;
             case "Fortune Apprentice": case "Fortune Teller": case "Runner":
             case "Alpha Wolf": case "Clairvoyant Fox": case "Scared Wolf": case "Saboteur Wolf": case "Warlock":
@@ -1728,6 +2183,9 @@ function getWWRValue(piece) { // UNUSED
                 return 4;
             case "Huntress":
             case "Infecting Wolf":
+                return 5;
+                
+            case "Flute Player": case "Devil": case "Angel": case "Zombie":
                 return 5;
     }
 }
@@ -1761,7 +2219,7 @@ function generateRoleList(board) {
     let wolf = [
         ["Wolf", 1, 0, [], ""],
         ["Wolf Cub", 1, 2, [], ""],
-        ["Tanner", 1, 2, ["Sneaking Wolf"], ""],
+        ["Tanner", 1, 1, ["Sneaking Wolf"], ""],
         ["Archivist Fox", 1, 2, [], ""],
         ["Recluse", 1, 1, [], ""],
         ["Dog", 1, 2, ["Fox"], ""],
@@ -1886,22 +2344,34 @@ function randomize(arr) {
 
 // setups a new game
 const emptyBoard = [[getPiece(null), getPiece(null), getPiece(null), getPiece(null), getPiece(null)], [getPiece(null), getPiece(null), getPiece(null), getPiece(null), getPiece(null)], [getPiece(null), getPiece(null), getPiece(null), getPiece(null), getPiece(null)], [getPiece(null), getPiece(null), getPiece(null), getPiece(null), getPiece(null)], [getPiece(null), getPiece(null), getPiece(null), getPiece(null), getPiece(null)]];
-function createGame(playerID, playerID2, gameID, name1, name2, channel, guild) {
+function createGame(playerID, playerID2, playerID3, gameID, name1, name2, name3, channel, guild) {
     // store players as playing players
-    players.push([playerID, gameID]);
+    if(playerID) players.push([playerID, gameID]);
     if(playerID2) players.push([playerID2, gameID]);
+    if(playerID3) players.push([playerID3, gameID]);
     // create a blank new board
     let newBoard = deepCopy(emptyBoard);
     // put pieces on board
     
-    //loadDefaultSetup(newBoard);
     generateRoleList(newBoard);
     
     //loadPromoteTestSetup(newBoard);
     //loadTestingSetup(newBoard);
     
     // push game to list of games
-    games.push({id: gameID, players: [ playerID, playerID2 ], playerNames: [ name1, name2 ], state: newBoard, turn: 0, channel: channel, guild: guild, lastMoves: [], concluded: false, selectedPiece: null, doubleMove0: false, doubleMove1: false, inDoubleMove: false, msg: null, ai: false });
+    let newGame = {id: gameID, players: [ playerID, playerID2 ], playerNames: [ name1, name2 ], state: newBoard, turn: 0, normalTurn: 0, channel: channel, guild: guild, lastMoves: [], concluded: false, selectedPiece: null, doubleMove0: false, doubleMove1: false, inDoubleMove: false, msg: null, ai: false, firstMove: false, aiOnly: false, whiteEliminated: false, blackEliminated: false, goldEliminated: false, lastInteraction: null, lastMove: Date.now() };
+    
+    // add a solo
+    if(false) {
+        newBoard[2][2] = getPiece("Flute Player");
+        newGame.solo = true;
+        newGame.players.push(playerID3);
+        newGame.playerNames.push(name3);
+        newGame.soloTeam = "Flute";
+    }
+    
+    games.push(newGame);
+    gamesHistory.push([]);
 }
 
 // destroys a game
@@ -1915,7 +2385,7 @@ function destroyGame(id) {
 function concludeGame(id) {
     console.log("CONCLUDE", id);
     let concludedGame = games[id];
-    if(!concludedGame.state) return;
+    if(!concludedGame || !concludedGame.state) return;
     for(let y = 0; y < 5; y++) {
         for(let x = 0; x < 5; x++) {
             concludedGame.state[y][x].enemyVisibleStatus = 7;
@@ -1925,7 +2395,7 @@ function concludeGame(id) {
     
     console.log("CONCLUDE UPDATE", id);
     // Update Spectator Board
-    let msgSpec = displayBoard(games[id], "SPECTATOR BOARD", [], games[id].players[1] == null ? 0 : -1);
+    let msgSpec = displayBoard(games[id], "SPECTATOR BOARD", [], -1);
     msgSpec.ephemeral = false;
     games[id].msg.edit(msgSpec);
 }
@@ -1940,7 +2410,7 @@ function showMoves(gameID, turn, abilities = false, message = "") {
         interactions.sort((a,b) => (a.label > b.label) ? 1 : ((b.label > a.label) ? -1 : 0));
     } else {
         interactions = [{ type: 2, label: "Skip", style: 4, custom_id: "turnmove" }];
-        let abilities = generateAbilities(currentGame.state, turn);
+        let abilities = generateAbilities(currentGame, turn);
         abilities.sort((a,b) => (a.label > b.label) ? 1 : ((b.label > a.label) ? -1 : 0));
         interactions.push(...abilities);
     }
@@ -1956,17 +2426,19 @@ function isPawn(name) {
 function getUnicode(chessName, team) {
     switch(chessName) {
         case "Pawn":
-            return team?"♙":"♟︎";
+            return team==1?"♙":(team==0?"♟︎":"♙");
         case "King":
-            return team?"♔":"♚";
+            return team==1?"♔":(team==0?"♚":"♔");
         case "Knight":
-            return team?"♘":"♞";
+            return team==1?"♘":(team==0?"♞":"♘");
+        case "Bishop":
+            return team==1?"♗":(team==0?"♝":"♗");
         case "Rook":
-            return team?"♖":"♜";
+            return team==1?"♖":(team==0?"♜":"♖");
         case "Queen":
-            return team?"♕":"♛";
+            return team==1?"♕":(team==0?"♛":"♕");
         case "None":
-            return team?"◼️":"◻️";
+            return team==1?"◼️":(team==0?"◻️":"◼️");
     }
 }
 
@@ -2003,8 +2475,14 @@ function generatePositions(board, position, hideLog = false, pieceTypeOverride =
     const pieceTeam = piece.team;
     const pieceType = pieceTypeOverride ? pieceTypeOverride : piece.chess;
     // Movement Logic
+    // cannot move
+    if(piece.sabotaged) {
+        positions = [];
+    } else if(piece.stay) {
+        positions = [[x, y]];
+    }
     /* PAWN */
-    if(pieceType == "Pawn" && pieceTeam == 0) {
+    else if(pieceType == "Pawn" && pieceTeam == 0) {
         if(y>0) {
             if(board[y-1][x].name == null) positions.push([x, y-1]);
             if(x>0 && board[y-1][x-1].name != null && enemyTeam(pieceTeam, board[y-1][x-1].team)) positions.push([x-1, y-1, true]);
@@ -2304,21 +2782,29 @@ function generateInteractions(board, team) {
     return interactions;
 }
 
-function generateAbilities(board, team) {
+function generateAbilities(game, team) {
     let interactions = [];
+    let board = game.state;
     for(let y = 0; y < board.length; y++) {
         for(let x = 0; x < board[0].length; x++) {
             if(board[y][x].team == team && board[y][x].active && !board[y][x].sabotaged) {
-                interactions.push({ type: 2, label: xyToName(x, y) + " " + board[y][x].name + " " + getUnicode(board[y][x].chess, team), style: 3, custom_id: "ability-" + xyToName(x, y) });
+                let possibleAbilityUsages = getAbilityTargets(game, board[y][x], xyToName(x, y));
+                if(possibleAbilityUsages[0].components.length > 1) { // possible action (back is always available)
+                    interactions.push({ type: 2, label: xyToName(x, y) + " " + board[y][x].name + " " + getUnicode(board[y][x].chess, team), style: 3, custom_id: "ability-" + xyToName(x, y) });
+                }
             }
         }
     }
     return interactions;
 }
 
+function round2dec(num) {
+    return Math.round((num + Number.EPSILON) * 100) / 100;
+}
+
 function renderBoard(game, message = "Turn", turnOverride = null) {
     let board = game.state;
-    let boardMsg = "**" + game.playerNames[0] + " vs. " + game.playerNames[1] +  "**\n" + "**" + message + "** " + evaluate(board) + "\n";
+    let boardMsg = "**⬜ " + game.playerNames[0] + " vs. ⬛ " + game.playerNames[1] + (game.playerNames.length == 3 ? " vs. 🟧 " + game.playerNames[2] : "")  + "**\n" + "**" + message + "** ⬜" + round2dec(evaluate(0, board, game.soloTeam)) + " ⬛" + round2dec(evaluate(1, board, game.soloTeam)) + " 🟧" + round2dec(evaluate(2, board, game.soloTeam)) + "\n";
     let boardRows = ["🟦🇦​🇧​🇨​🇩​🇪"];
     let visiblePieces = [];
     const letterRanks = ["🇦","🇧","🇨","🇩","​🇪"];
@@ -2348,10 +2834,11 @@ function renderBoard(game, message = "Turn", turnOverride = null) {
                 let moveFrom = nameToXY(lm[4]);
                 let moveTo = nameToXY(lm[5]);
                 if(lm[0] == 0) lmMsg += "⬜"; 
-                else lmMsg += "⬛";
+                else if(lm[0] == 1) lmMsg += "⬛";
+                else if(lm[0] == 2) lmMsg += "🟧";
                 if(lm[6] == 6 && lm[2]) lmMsg += findEmoji(lm[2]);
                 else if((lm[0] == curTurn && getTeam(lm[1]) == curTurn) || lm[6] >= 6) lmMsg += findEmoji(lm[1]);
-                else lmMsg += findEmoji((getTeam(lm[1]) == 0?"white":"black") + lm[3]);
+                else lmMsg += findEmoji((getTeam(lm[1]) == 0?"white":(getTeam(lm[1])==1?"black":"gold")) + lm[3]);
                 lmMsg += letterRanks[moveFrom.x];
                 lmMsg += numberRow[moveFrom.y];
                 if(lm.length == 7) {
@@ -2379,7 +2866,7 @@ function renderBoard(game, message = "Turn", turnOverride = null) {
     visiblePieces = [...new Set(visiblePieces)];
     visiblePieces.sort();
     for(let i = 0; i < visiblePieces.length; i++) {
-        boardRows.push(findEmoji((getTeam(visiblePieces[i])?"Black":"White") + getChessName(visiblePieces[i])) + " " + findEmoji(visiblePieces[i]) + " **" + visiblePieces[i] + ":** " + getAbilityText(visiblePieces[i]));
+        boardRows.push(findEmoji((getTeam(visiblePieces[i])==1?"Black":(getTeam(visiblePieces[i])==0?"White":"Gold")) + getChessName(visiblePieces[i])) + " " + findEmoji(visiblePieces[i]) + " **" + visiblePieces[i] + ":** " + getAbilityText(visiblePieces[i]));
     }
     return (boardMsg + boardRows.join("\n")).substr(0, 1950);
 }
@@ -2405,7 +2892,7 @@ function renderField(field, x, y, turn) {
             if(field.team == turn || field.enemyVisibleStatus == 7) fieldName = field.name;
             else if(field.enemyVisibleStatus == 6 && !field.disguise) fieldName = field.name;
             else if(field.enemyVisibleStatus == 6 && field.disguise) fieldName = field.disguise;
-            else fieldName = (field.team?"black":"white") + field.enemyVisible;
+            else fieldName = (field.team==1?"black":(field.team==0?"white":"gold")) + field.enemyVisible;
             // get emoji
             return findEmoji(fieldName);
         case null:
@@ -2422,6 +2909,10 @@ function registerCommands() {
         description: 'Starts a game.'
     });
     client.application?.commands.create({
+        name: 'aigame',
+        description: 'Starts a game with just AIs.'
+    });
+    client.application?.commands.create({
         name: 'challenge',
         description: 'Starts a game with another player.',
         options: [
@@ -2430,6 +2921,19 @@ function registerCommands() {
                 name: "opponent",
                 description: "The name of the person you'd like to challenge.",
                 required: true
+            }
+        ]
+    });
+    client.application?.commands.create({
+        name: 'pieces',
+        description: 'Lists the pieces of a team.',
+        options: [
+            {
+                type: "STRING",
+                name: "team",
+                description: "The name of the team.",
+                required: true,
+                choices: [{"name": "Townsfolk (White)","value": "townsfolk"},{"name": "Werewolves (Black)","value": "werewolf"},{"name": "Solo (Gold)","value": "solo"}]
             }
         ]
     });
