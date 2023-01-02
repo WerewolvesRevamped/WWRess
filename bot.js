@@ -655,10 +655,10 @@ function getChildren(game, maxDepth = 0, depth = 0, maximizingPlayer = true) {
 function minimaxStart(AI, game, maxDepth, depth, alpha = -Infinity, beta = Infinity) {
     let board = game.state;
     if ((game.players.length == 2 && !canMove(board, (AI+1)%2)) || (game.players.length == 3 && !canMove(board, (AI+1)%3) && !canMove(board, (AI+2)%3)) || (AI == 2 && soloWin(board, game.soloTeam)) || (AI == 2 && uaWin(board, game.soloTeam))) {
-        return { value: 1000, move: null }; // game winning move
+        return { value: 1000 - (maxDepth - depth), move: null }; // game winning move
     }
     if (!canMove(board, AI) || (AI != 2 && game.solo && game.soloRevealed && soloWin(board, game.soloTeam))) {
-        return { value: -1000, move: null }; // game losing move
+        return { value: -1000 + (maxDepth - depth), move: null }; // game losing move
     }
     
     // maximizing player (minimizing does not exist)
@@ -710,10 +710,10 @@ function minimax(AI, game, maxDepth, depth, alpha = -Infinity, beta = Infinity) 
         return evaluate(AI, game, AI);
     }
     if ((game.players.length == 2 && !canMove(board, (AI+1)%2)) || (game.players.length == 3 && !canMove(board, (AI+1)%3)&& !canMove(board, (AI+2)%3)) || (AI == 2 && soloWin(board, game.soloTeam)) || (AI == 2 && uaWin(board, game.soloTeam))) {
-        return 1000 + evaluate(AI, game, AI); // game winning move
+        return 1000 - (maxDepth - depth) + evaluate(AI, game, AI); // game winning move
     }
     if (!canMove(board, AI) || (AI != 2 && game.solo && game.soloRevealed && soloWin(board, game.soloTeam))) {
-        return -1000 + evaluate(AI, game, AI); // game losing move
+        return -1000 + (maxDepth - depth) + evaluate(AI, game, AI); // game losing move
     }
    
     if (AI == game.turn) {
@@ -1032,17 +1032,27 @@ function movePiece(interaction, moveCurGame, from, to, repl = null) {
     if(from == to) beatenPiece = getPiece(null); // promotion is not taking
     
     let defensive = moveTo;
-    if(movedPiece.name == "Zombie" && beaten) { // zombie overwrites death effects
+    if(beaten && (movedPiece.name == "Zombie" || movedPiece.name == "Zombie2" || movedPiece.name == "Zombie3" || movedPiece.name == "Zombie4" || movedPiece.name == "Zombie5")) { // zombie overwrites death effects
     	defensive = getDefensivePosition(moveFrom, moveTo, movedX, movedY);
         moveCurGame.state[defensive.y][defensive.x] = movedPiece;
         movedPiece.zombieChildCount++;
         // turn piece
-        moveCurGame.state[moveTo.y][moveTo.x] = getPiece("Zombie");
+        let nextZombie = "Zombie";
+        switch(movedPiece.name) {
+            case "Zombie": nextZombie = "Zombie2"; break;
+            case "Zombie2": nextZombie = "Zombie3"; break;
+            case "Zombie3": nextZombie = "Zombie4"; break;
+            default: case "Zombie4": nextZombie = "Zombie5"; break;
+        }
+        
+        moveCurGame.state[moveTo.y][moveTo.x] = getPiece(nextZombie);
         moveCurGame.state[moveTo.y][moveTo.x].zombieID = movedPiece.zombieID + "" + movedPiece.zombieChildCount;
         moveCurGame.state[moveTo.y][moveTo.x].zombieParent = movedPiece.zombieID;
-        if(notAiTurn) moveCurGameHistory.lastMoves.push([moveCurGame.turn, movedPiece.name, false, "", to, to, 7, "🔀" + findEmoji("Zombie") + "🟦"]);
+        moveCurGame.state[moveTo.y][moveTo.x].protected = false;
+        if(notAiTurn) moveCurGameHistory.lastMoves.push([moveCurGame.turn, movedPiece.name, false, "", to, to, 7, "🔀" + findEmoji(nextZombie) + "🟦"]);
         // reveal zombie
         movedPiece.enemyVisibleStatus = 7;
+        moveCurGame.state[moveTo.y][moveTo.x].enemyVisibleStatus = 7;
     }
     // death effects
     else if(notAiTurn || moveCurGame.players[moveCurGame.turn] == null || beatenPiece.enemyVisibleStatus >= 6) { // only run in normal turns, ai's own turns or when effect is visible
@@ -1117,15 +1127,27 @@ function movePiece(interaction, moveCurGame, from, to, repl = null) {
                 moveCurGame.state[moveTo.y][moveTo.x] = getPiece(null);
             break;
             case "Zombie":
+            case "Zombie2":
+            case "Zombie3":
+            case "Zombie4":
+            case "Zombie5":
                 // if a zombie dies, so do its children
-                for(let y = 0; y < moveCurGame.height; y++) {
-                    for(let x = 0; x < moveCurGame.width; x++) {
-                        let xyPiece = moveCurGame.state[y][x];
-                        if(xyPiece.name == "Zombie" && xyPiece.zombieParent == movedPiece.zombieID) {
-                            moveCurGame.state[y][x] = getPiece(null);
-                            if(notAiTurn) moveCurGameHistory.lastMoves.push([2, "Zombie", false, "", to, xyToName(x, y), 7, "🇽"]);
+                let zombieParents = [beatenPiece.zombieID];
+                let zCount = 0;
+                while(zCount < zombieParents.length) {
+                    if(notAiTurn) moveCurGameHistory.lastMoves.push([moveCurGame.turn, movedPiece.name, movedPiece.disguise, movedPiece.enemyVisible, from, to, movedPiece.enemyVisibleStatus]);
+                    for(let y = 0; y < moveCurGame.height; y++) {
+                        for(let x = 0; x < moveCurGame.width; x++) {
+                            let xyPiece = moveCurGame.state[y][x];
+                            //console.log("ZOMBIE DEATH", notAiTurn, xyPiece.name, xyPiece.zombieParent, beatenPiece.zombieID);
+                            if((xyPiece.name == "Zombie" || xyPiece.name == "Zombie2" || xyPiece.name == "Zombie3" || xyPiece.name == "Zombie4" || xyPiece.name == "Zombie5") && xyPiece.zombieParent == zombieParents[zCount]) {
+                                zombieParents.push(xyPiece.zombieID);
+                                moveCurGame.state[y][x] = getPiece(null);
+                                if(notAiTurn) moveCurGameHistory.lastMoves.push([moveCurGame.turn, beatenPiece.name, false, "", to, xyToName(x, y), 7, "🇽​"]);
+                            }
                         }
                     }
+                    zCount++;
                 }
             break;
             case "Huntress":
@@ -2266,7 +2288,10 @@ function getTeam(piece) {
         case "Selected":
         case null:
             return -1;
-        case "Flute Player": case "Devil": case "Zombie": case "Angel":
+        case "Flute Player":
+        case "Devil":
+        case "Zombie": case "Zombie2": case "Zombie3": case "Zombie4": case "Zombie5": 
+        case "Angel":
             return 2;
     }
 }
@@ -2277,7 +2302,7 @@ function isActive(piece) {
             return false;
         case "Hooker": case "Crowd Seeker": case "Aura Teller": case "Royal Knight": case "Fortune Teller": case "Witch":
         case "Tanner": case "Archivist Fox": case "Dog": case "Infecting Wolf": case "Alpha Wolf": case "Psychic Wolf": case "Clairvoyant Fox": case "Warlock": case "Saboteur Wolf":
-        case "Flute Player": case "Devil": case "Zombie":
+        case "Flute Player": case "Devil": case "Zombie": case "Zombie2": case "Zombie3": case "Zombie4": case "Zombie5": 
             return true;
     }
 }
@@ -2381,7 +2406,7 @@ function getChessName(piece) {
             return null;
         case "Citizen": case "Ranger": case "Huntress": case "Bartender": case "Fortune Apprentice": case "Child":
         case "Wolf": case "Wolf Cub": case "Tanner": case "Archivist Fox": case "Recluse": case "Dog":
-        case "Angel": case "Zombie":
+        case "Angel": case "Zombie": case "Zombie2": case "Zombie3": case "Zombie4": case "Zombie5": 
         case "White Pawn": case "Black Pawn": 
             return "Pawn";
          case "Hooker": case "Idiot": case "Crowd Seeker": case "Aura Teller":
@@ -2463,6 +2488,10 @@ function getPiece(name, metadata = {}) {
             piece.enemyVisibleStatus = 7;
         break;
         case "Zombie":
+        case "Zombie2":
+        case "Zombie3":
+        case "Zombie4":
+        case "Zombie5":
             piece.zombieID = 1;
             piece.zombieParent = 1;
             piece.zombieChildCount = 0;
@@ -2514,7 +2543,7 @@ function getWWRevalValue(piece) {
             case "Infecting Wolf": case "Direwolf": case "Bartender":
                 return 5;
                 
-            case "Flute Player": case "Devil": case "Zombie": case "Angel":
+            case "Flute Player": case "Devil": case "Zombie": case "Zombie2": case "Zombie3": case "Zombie4": case "Zombie5": case "Angel":
                 return 0;
             
             default:
@@ -2546,7 +2575,7 @@ function getWWRValue(piece) { // UNUSED
             case "Infecting Wolf":
                 return 5;
                 
-            case "Flute Player": case "Devil": case "Angel": case "Zombie":
+            case "Flute Player": case "Devil": case "Angel": case "Zombie": case "Zombie2": case "Zombie3": case "Zombie4": case "Zombie5":
                 return 5;
                 
             default:
@@ -2747,8 +2776,8 @@ function createGame(playerID, playerID2, playerID3, gameID, name1, name2, name3,
             // add a solo
             if(name3 != null && height%2 == 1 && height >= 3) { // seo: debug solo
                 let solos = [["Angel","Angel", false],["Flute Player","Flute", true],["Zombie","Graveyard", true]];
-                let selectedSolo = solos[Math.floor(Math.random() * solos.length)];
-                //let selectedSolo = solos[2];
+                //let selectedSolo = solos[Math.floor(Math.random() * solos.length)];
+                let selectedSolo = solos[2];
                 newBoard[Math.floor(height/2)][Math.floor(width/2)] = getPiece(selectedSolo[0]);
                 newGame.soloTeam = selectedSolo[1];
                 newGame.soloDoubleTurns = selectedSolo[2];
@@ -3353,6 +3382,7 @@ function renderBoard(game, message = "Turn", turnOverride = null) {
     visiblePieces = [...new Set(visiblePieces)];
     visiblePieces.sort();
     for(let i = 0; i < visiblePieces.length; i++) {
+        if(visiblePieces[i] == "Zombie2" || visiblePieces[i] == "Zombie3" || visiblePieces[i] == "Zombie4" || visiblePieces[i] == "Zombie5") continue; // unlisted roles
         boardRows.push(findEmoji((getTeam(visiblePieces[i])==1?"Black":(getTeam(visiblePieces[i])==0?"White":"Gold")) + getChessName(visiblePieces[i])) + " " + findEmoji(visiblePieces[i]) + " **" + visiblePieces[i] + ":** " + getAbilityText(visiblePieces[i]));
     }
     if(invulSolo) boardRows.push(findEmoji("GoldUnknown") + " " + " **Solo/Unaligned:** This piece cannot be taken until its first move.");
@@ -3361,7 +3391,7 @@ function renderBoard(game, message = "Turn", turnOverride = null) {
 
 // find an emoji by name
 function findEmoji(name) {
-    name = name.toLowerCase().replace(/[^a-z]/g,"");
+    name = name.toLowerCase().replace(/[^a-z0-9]/g,"");
     let emoji = client.emojis.cache.find(el => el.name.toLowerCase() === name);
     if(emoji) emoji = `<:${emoji.name}:${emoji.id}>`;
     else {
