@@ -1033,6 +1033,7 @@ function movePiece(interaction, moveCurGame, from, to, repl = null) {
     
     let defensive = moveTo;
     if(movedPiece.name == "Zombie" && beaten) { // zombie overwrites death effects
+    	defensive = getDefensivePosition(moveFrom, moveTo, movedX, movedY);
         moveCurGame.state[defensive.y][defensive.x] = movedPiece;
         movedPiece.zombieChildCount++;
         // turn piece
