@@ -115,7 +115,8 @@ function table(defTable, tbl, x, y, boardWidthFactor, boardHeightFactor) {
     else return tbl[Math.floor(y * boardHeightFactor)][Math.floor(x * boardWidthFactor)];
 }
 
-function evaluate(AI, board, solo = null, visiblePieces = null) {
+function evaluate(AI, game, visiblePieces = null) {
+    let board = game.state;
     // determine material + position
     let whiteValue = 0, blackValue = 0, goldValue = 0;
     let whiteReveal = 0, blackReveal = 0, goldReveal = 0;
@@ -169,12 +170,12 @@ function evaluate(AI, board, solo = null, visiblePieces = null) {
                     let evData = getEvaluationData(piece.chess);
                     goldValue += evData.value + table(defTable, SoloTable, x, y, boardWidthFactor, boardHeightFactor) + getWWRevalValue(piece.name);  
                 }
-                goldReveal += piece.enemyVisibleStatus / 7;
+                goldReveal += (piece.enemyVisibleStatus / 7) * 10;
             }
             
             // solo extra evaluation
-            if(AI == 2) {
-                switch(solo) {
+            if(game.solo && (AI == 2 || (AI != 2 && game.soloRevealed)) && !game.goldEliminated) {
+                switch(game.soloTeam) {
                     case "Flute":
                         if(piece.enchanted) {
                             goldValue += 5;
@@ -199,7 +200,7 @@ function evaluate(AI, board, solo = null, visiblePieces = null) {
 }
 
 // serializes the board
-function serialize(board) {
+function serialize(turn, board) {
     let serialized = "";
     for(let y = 0; y < board.length; y++) {
         for(let x = 0; x < board[0].length; x++) {
@@ -208,7 +209,7 @@ function serialize(board) {
             else serialized += "-";
         }
     }
-    return serialized;
+    return turn + "." + serialized;
 }
 
 // takes a game, a piece name, an argument for the ability + log value
@@ -285,6 +286,7 @@ function executeActiveAbility(game, abilityPiece, abilityPieceLocation, position
             let enchantSource = { x: abilityPieceLocation[0], y: abilityPieceLocation[1] };
             let enchantSourceObject = game.state[enchantSource.y][enchantSource.x];
             game.state[enchantTarget.y][enchantTarget.x].enchanted = true;
+            game.state[enchantTarget.y][enchantTarget.x].soloEffect = true;
             game.state[abilityPieceLocation[1]][abilityPieceLocation[0]].stay = true;
             game.state[abilityPieceLocation[1]][abilityPieceLocation[0]].enemyVisibleStatus = 7;
             if(log) gameHistory.lastMoves.push([game.turn, enchantSourceObject.name, enchantSourceObject.disguise, enchantSourceObject.enemyVisible, xyToName(enchantSource.x, enchantSource.y), xyToName(enchantTarget.x, enchantTarget.y), enchantSourceObject.enemyVisibleStatus, "🎶"]);
@@ -402,7 +404,7 @@ function getChildren(game, maxDepth = 0, depth = 0, maximizingPlayer = true) {
         for(let x = 0; x < game.width; x++) {
             if(board[y][x].team == game.turn) {
                 pieces.push(xyToName(x, y));
-                if(board[y][x].active && !board[y][x].sabotaged && (maximizingPlayer || board[y][x].enemyVisibleStatus >= 6)) {
+                if(board[y][x].active && !board[y][x].sabotaged && !board[y][x].enchanted && (maximizingPlayer || board[y][x].enemyVisibleStatus >= 6)) {
 			        let abilityPieceName = (!maximizingPlayer && board[y][x].disguise && board[y][x].enemyVisibleStatus == 6) ? board[y][x].disguise : board[y][x].name;
                     // active ability priorities
                     switch(abilityPieceName) {
@@ -460,12 +462,11 @@ function getChildren(game, maxDepth = 0, depth = 0, maximizingPlayer = true) {
                             if(depth >= (maxDepth-1)) abilityPieces.push([board[y][x].name, x, y]);
                         break;
                         // done by self in next turn
-                        case "Flute Player":
                         case "Saboteur Wolf": 
                             if(depth >= (maxDepth-2)) abilityPieces.push([board[y][x].name, x, y]);
                         break;
                         // whenever
-                        case "Infecting Wolf": case "Dog":
+                        case "Infecting Wolf": case "Dog": case "Flute Player":
                             abilityPieces.push([board[y][x].name, x, y]);
                         break;
                         // whenever
@@ -489,7 +490,7 @@ function getChildren(game, maxDepth = 0, depth = 0, maximizingPlayer = true) {
     // option to not use an ability
     if(!skipPointless) abilityPieces.unshift([null,0,0]);
     // iterate ability pieces
-    for(const abilityPiece of abilityPieces) {
+    for(let abilityPiece of abilityPieces) {
         // find valid options for ability
         let abilityPositions = [];
         switch(abilityPiece[0]) {
@@ -512,6 +513,11 @@ function getChildren(game, maxDepth = 0, depth = 0, maximizingPlayer = true) {
                 // there is no real priority otherwise
                 if(abilityPositions.length > 1) { 
                     abilityPositions = abilityPositions.slice(0, 1);
+                }
+                // if no target could be found, provide no ability as an option instead
+                if(abilityPositions.length == 0) { 
+                    abilityPiece = [null, 0, 0];
+                    abilityPositions = [[null]]; 
                 }
             break;
             // all enemy pieces
@@ -648,10 +654,10 @@ function getChildren(game, maxDepth = 0, depth = 0, maximizingPlayer = true) {
 // on the first iteration save and return the move
 function minimaxStart(AI, game, maxDepth, depth, alpha = -Infinity, beta = Infinity) {
     let board = game.state;
-    if ((game.players.length == 2 && !canMove(board, (AI+1)%2)) || (game.players.length == 3 && !canMove(board, (AI+1)%3)&& !canMove(board, (AI+2)%3)) || (AI == 2 && soloWin(board, game.soloTeam)) || (AI == 2 && uaWin(board, game.soloTeam))) {
+    if ((game.players.length == 2 && !canMove(board, (AI+1)%2)) || (game.players.length == 3 && !canMove(board, (AI+1)%3) && !canMove(board, (AI+2)%3)) || (AI == 2 && soloWin(board, game.soloTeam)) || (AI == 2 && uaWin(board, game.soloTeam))) {
         return { value: 1000, move: null }; // game winning move
     }
-    if (!canMove(board, AI) || (game.solo && game.soloRevealed && soloWin(board, game.soloTeam))) {
+    if (!canMove(board, AI) || (AI != 2 && game.solo && game.soloRevealed && soloWin(board, game.soloTeam))) {
         return { value: -1000, move: null }; // game losing move
     }
     
@@ -662,7 +668,29 @@ function minimaxStart(AI, game, maxDepth, depth, alpha = -Infinity, beta = Infin
     console.log("POSSIBLE MOVES", children.length, "RUNNING " + depth + " ITERATIONS"/**, children.map(el => (el[0]==null?"":(el[0] + "~" + (el[1].length==2?xyToName(el[1][0], el[1][1]):el[1]) + " & "))  + el[2] + ">" + xyToName(el[3][0], el[3][1]))**/);
     for (const child of children) {
         debugIterationCounter++;
-        const result = minimax(AI, child[4], maxDepth, depth - 1, alpha, beta);
+        var result = minimax(AI, child[4], maxDepth, depth - 1, alpha, beta);
+        
+        //if(AI == 2) console.log("MOVE", result, (child[0]==null?"":(child[0] + "~" + (child[1].length==2?xyToName(child[1][0], child[1][1]):child[1]) + " & "))  + child[2] + ">" + xyToName(child[3][0], child[3][1]));
+        
+        // check for triplicate
+        let gameHistoryCopy = deepCopy(gamesHistory[game.parentId].history);
+        // check if the move ends up as a triplicate
+        if(!child[4].doNotSerialize) {
+            gameHistoryCopy.push(serialize(game.turn, child[4].state));
+        }
+        
+        // check for draw by triplicate/30move
+        let findDuplicates = arr => arr.filter((item, index) => arr.indexOf(item) != index)
+        let triplicates = findDuplicates(findDuplicates(gameHistoryCopy));
+        if(triplicates.length > 0) {
+            console.log("POSSIBLE TRIPLICATE MOVE");
+            result = -7; // a draw is better than any guaranteed losing position, but worse than positions with a decent chance of winning
+        } else if(child[4].sinceCapture >= 30) {
+            console.log("POSSIBLE 30MOVE MOVE");
+            result = -7; // a draw is better than any guaranteed losing position, but worse than positions with a decent chance of winning
+        }
+        
+        // continue with minimax
         if (result > value) {
             value = result;
             bestMove = child.slice(0, 4);
@@ -679,13 +707,13 @@ function minimax(AI, game, maxDepth, depth, alpha = -Infinity, beta = Infinity) 
     let board = game.state;
     // Base case: if we have reached the maximum search depth or the game is over, return the heuristic value of the state
     if (depth === 0) {
-        return evaluate(AI, board, game.soloTeam, AI);
+        return evaluate(AI, game, AI);
     }
     if ((game.players.length == 2 && !canMove(board, (AI+1)%2)) || (game.players.length == 3 && !canMove(board, (AI+1)%3)&& !canMove(board, (AI+2)%3)) || (AI == 2 && soloWin(board, game.soloTeam)) || (AI == 2 && uaWin(board, game.soloTeam))) {
-        return 1000 + evaluate(AI, board, game.soloTeam, AI); // game winning move
+        return 1000 + evaluate(AI, game, AI); // game winning move
     }
-    if (!canMove(board, AI) || (game.solo && game.soloRevealed && soloWin(board, game.soloTeam))) {
-        return -1000 + evaluate(AI, board, game.soloTeam, AI); // game losing move
+    if (!canMove(board, AI) || (AI != 2 && game.solo && game.soloRevealed && soloWin(board, game.soloTeam))) {
+        return -1000 + evaluate(AI, game, AI); // game losing move
     }
    
     if (AI == game.turn) {
@@ -721,6 +749,7 @@ async function AImove(AI, game) {
     let gameCopy = deepCopy(game); // create a copy of the game to simulate the move on
     gameCopy.ai = true; // mark as AI game
     gameCopy.id = null;
+    gameCopy.parentId = game.id;
     
     // count pieces
     let pieceCount = 0;
@@ -871,12 +900,13 @@ function getDefensivePosition(moveFrom, moveTo, movedX, movedY) {
 
 // moves a piece from one place to another (and/or replaces the piece with another piece)
 function movePiece(interaction, moveCurGame, from, to, repl = null) {
-    // get history
-    let moveCurGameHistory = gamesHistory[moveCurGame.id];
     // a move has been done
     moveCurGame.firstMove = true;
     // is ai fake turn
     const notAiTurn = !moveCurGame.ai;
+    // get history
+    let moveCurGameHistory = null;
+    if(notAiTurn) moveCurGameHistory = gamesHistory[moveCurGame.id];
     // get coords
     let moveFrom = nameToXY(from);
     let moveTo = nameToXY(to);
@@ -903,7 +933,7 @@ function movePiece(interaction, moveCurGame, from, to, repl = null) {
     let movedYorig = moveFrom.y - moveTo.y;
     let movedX = Math.abs(movedXorig);
     let movedY = Math.abs(movedYorig);
-    if(notAiTurn) console.log("MOVED", movedPiece.name, movedXorig, movedYorig, beatenPiece.name?beatenPiece.name:"");
+    //if(notAiTurn) console.log("MOVED", movedPiece.name, movedXorig, movedYorig, beatenPiece.name?beatenPiece.name:"");
     //console.log("status", movedPiece.enemyVisibleStatus);
     const mEVS = movedPiece.enemyVisibleStatus;
     const mDis = movedPiece.disguise;
@@ -912,7 +942,22 @@ function movePiece(interaction, moveCurGame, from, to, repl = null) {
     const p2Turn = moveCurGame.turn === 1;
     const p3Turn = moveCurGame.turn === 2;
     const beaten = beatenPiece.name != null;
+    
+    if(notAiTurn) {
+        if(beaten) moveCurGameHistory.sinceCapture = 0;
+        else moveCurGameHistory.sinceCapture++;
+    }
+    
     if(mEVS < 7) { 
+        // an impossible move was done
+        if(mEVS <= 5 && (movedPiece.enemyVisible == "Knight" || movedPiece.enemyVisible == "ActiveKnight") && ((movedY != 1 && movedX != 2) && (movedY != 2 && movedX != 1))) { // was disguised
+            movedPiece.enemyVisibleStatus = 0;
+            movedPiece.enemyVisible = "Unknown";
+        } else if(mEVS <= 5 && (movedPiece.enemyVisible == "Rook" || movedPiece.enemyVisible == "ActiveRook") && movedY >= 1 && movedX >= 1) { // was disguised
+            movedPiece.enemyVisibleStatus = 4;
+            movedPiece.enemyVisible = "Queen";
+        }
+    
         // definitely a knight
         if(mEVS < 3 && ((movedY == 1 && movedX == 2) || (movedY == 2 && movedX == 1))) {
             if(movedPiece.team == 0 && !movedPiece.hasMoved) { // white knights may be amnesiacs
@@ -1046,7 +1091,7 @@ function movePiece(interaction, moveCurGame, from, to, repl = null) {
                 }
             break;
             case "Angel":
-                if(notAiTurn) {
+                if(notAiTurn && !moveCurGame.goldEliminated) {
                     let angelGuild = client.guilds.cache.get(gamesDiscord[moveCurGame.id].guild);
                     let angelChannel = angelGuild.channels.cache.get(gamesDiscord[moveCurGame.id].channel);
                     if(moveCurGame.players[2]) angelChannel.send("<@" + moveCurGame.players[2] + "> ascends and wins!");
@@ -1056,7 +1101,7 @@ function movePiece(interaction, moveCurGame, from, to, repl = null) {
                     moveCurGameHistory.lastMoves.push([2, "Angel", false, "", to, from, 7, "⬆️🏅🟦"]);
                 }
                 moveCurGame.goldEliminated = true;
-                moveCurGame.goldAscended = true;
+                if(!moveCurGame.goldEliminated) moveCurGame.goldAscended = true; //cannot win while eliminated
                 moveCurGame.state[moveTo.y][moveTo.x] = getPiece(null);
             break;
             case "Huntress":
@@ -1068,8 +1113,15 @@ function movePiece(interaction, moveCurGame, from, to, repl = null) {
             break;
             // Extra Move Pieces
             case "Child":
+                if(notAiTurn && !moveCurGame.whiteEliminated) {
+                    moveCurGameHistory.lastMoves.push([moveCurGame.turn, movedPiece.name, movedPiece.disguise, movedPiece.enemyVisible, from, to, movedPiece.enemyVisibleStatus, "🇽​"]);
+                    moveCurGameHistory.lastMoves.push([beatenPiece.team, beatenPiece.name, false, "", to, to, 7, "🟦" + "2️⃣" + "🇽"]);
+                }
+                if(moveCurGame.turn == 1) moveCurGame.doubleMove0 = true;
+                else if(moveCurGame.turn == 0) moveCurGame.doubleMove1 = true;
+            break;
             case "Wolf Cub":
-                if(notAiTurn) {
+                if(notAiTurn && !moveCurGame.blackEliminated) {
                     moveCurGameHistory.lastMoves.push([moveCurGame.turn, movedPiece.name, movedPiece.disguise, movedPiece.enemyVisible, from, to, movedPiece.enemyVisibleStatus, "🇽​"]);
                     moveCurGameHistory.lastMoves.push([beatenPiece.team, beatenPiece.name, false, "", to, to, 7, "🟦" + "2️⃣" + "🇽"]);
                 }
@@ -1205,7 +1257,7 @@ function movePiece(interaction, moveCurGame, from, to, repl = null) {
     }
     
     // mark solo as revealed if applicable
-    if(moveCurGame.ai && p3Turn && movedPiece.enemyVisibleStatus >= 6) {
+    if(p3Turn && movedPiece.enemyVisibleStatus >= 6) {
         moveCurGame.soloRevealed = true;
     }
     
@@ -1254,6 +1306,10 @@ function movePiece(interaction, moveCurGame, from, to, repl = null) {
     }
 }
 
+function isTriplicate(id) {
+    
+}
+
 const turnMinDuration = 5000;
 async function turnDone(interaction, game, message) {
     // turn complete
@@ -1281,14 +1337,19 @@ async function turnDone(interaction, game, message) {
         
         // serialize and store state
         if(!game.doNotSerialize) {
-            gamesHistory[game.id].history.push(serialize(game.state));
+            gamesHistory[game.id].history.push(serialize(game.turn, game.state));
         } else {
             game.doNotSerialize = false;
         }
-        // check for draw by triplicate
+        // check for draw by triplicate (threefold repetition)
         let findDuplicates = arr => arr.filter((item, index) => arr.indexOf(item) != index)
         let triplicates = findDuplicates(findDuplicates(gamesHistory[game.id].history));
-        if(triplicates.length > 0) {
+        let triplicateDraw = triplicates.length > 0;
+        
+        // check for draw by no captures x30 (50 move rule)
+        let captureDraw = gamesHistory[game.id].sinceCapture >= 30;
+        
+        if(triplicateDraw || captureDraw) {
             let guild = client.guilds.cache.get(gamesDiscord[game.id].guild);
             let channel = guild.channels.cache.get(gamesDiscord[game.id].channel);
             
@@ -1308,8 +1369,11 @@ async function turnDone(interaction, game, message) {
             }
             
             // message
-            if(drawPlayers.length == 2) channel.send("**Triplicated Position:** The game ends in a draw between " + drawPlayers[0] + " and " + drawPlayers[1] + "!");
-            else channel.send("**Triplicated Position:** The game ends in a draw between " + drawPlayers[0] + ", " + drawPlayers[1] + " and " + drawPlayers[2] + "!");
+            let drawMessage = [];
+            if(triplicateDraw) drawMessage.push("Triplicated Position");
+            if(captureDraw) drawMessage.push("30-Moves & No Captures");
+            if(drawPlayers.length == 2) channel.send("**" + drawMessage.join(", ") + ":** The game ends in a draw between " + drawPlayers[0] + " and " + drawPlayers[1] + "!");
+            else channel.send("**" + drawMessage.join(", ") + ":** The game ends in a draw between " + drawPlayers[0] + ", " + drawPlayers[1] + " and " + drawPlayers[2] + "!");
             
             // destroy game
             concludeGame(game.id);
@@ -1430,6 +1494,14 @@ function findWWW(game) {
     return wwwAlive && wolfCount > 1;
 }
 
+function removeSoloEffect(game) {
+    for(let y = 0; y < game.height; y++) {
+        for(let x = 0; x < game.width; x++) {
+            game.state[y][x].enchanted = false;
+        }
+    }
+}
+
 function nextTurn(game, forceTurn = null) {
     if(game.concluded) return; // dont do a turn on a concluded game
     // increment turn
@@ -1443,17 +1515,22 @@ function nextTurn(game, forceTurn = null) {
         if(forceTurn != null) game.turn = forceTurn; // force turn
     } else { // solo game, do P1 then P3, then P2, then P3 again
         // determine next turn
-        if(game.turn != 2) {
-            game.turn = 2;
-        } else {
-            if(game.normalTurn == 0) {
-                game.turn = 1;
-                game.normalTurn = 1;
+        if(game.soloDoubleTurns) { // solo double turns
+            if(game.turn != 2) {
+                game.turn = 2;
             } else {
-                game.turn = 0;
-                game.normalTurn = 0;
+                if(game.normalTurn == 0) {
+                    game.turn = 1;
+                    game.normalTurn = 1;
+                } else {
+                    game.turn = 0;
+                    game.normalTurn = 0;
+                }
             }
+        } else { // solo normal turns
+            game.turn = (game.turn + 1) % 3;
         }
+        
         if(forceTurn != null) { // force turn
             game.turn = forceTurn;
             if(forceTurn < 2) game.normalTurn = forceTurn;
@@ -1486,6 +1563,7 @@ function nextTurn(game, forceTurn = null) {
             break;
             case 2:
                 if(!canMove(game.state, 2) && !game.goldEliminated) {
+                    removeSoloEffect(game);
                     if(!game.ai) {
                         if(game.players[2]) channel.send("**Elimination:** <@" + game.players[2] + "> was eliminated!");
                         else channel.send("**Elimination:** " + game.playerNames[2] + " was eliminated!");
@@ -1501,11 +1579,19 @@ function nextTurn(game, forceTurn = null) {
             nextTurn(game, 1);
             return;
         } else if(game.turn == 1 && game.blackEliminated && !game.whiteEliminated && !game.goldEliminated) {
-            nextTurn(game, 0);
+            if(game.soloDoubleTurns) {
+                nextTurn(game, 0);
+            } else {
+                nextTurn(game, 2);
+            }            
             return;
         } else if(game.turn == 2 && game.goldEliminated && !game.whiteEliminated && !game.blackEliminated) {
-            if(game.normalTurn == 0) {
-                nextTurn(game, 1);
+            if(game.soloDoubleTurns) {
+                if(game.normalTurn == 0) {
+                    nextTurn(game, 1);
+                } else {
+                    nextTurn(game, 0);
+                }
             } else {
                 nextTurn(game, 0);
             }
@@ -1995,7 +2081,7 @@ client.on('interactionCreate', async interaction => {
             } else {
                 let players;
                 let rand = Math.floor(Math.random() * 100);
-                //rand = 0; // seo: debug solo
+                rand = 0; // seo: debug solo
                 // determine teams
                 if(rand < 4) { // player town + solo
                     players = [[interaction.member.id, interaction.member.user.username], [null, "*AI*"], [null, "*AI #2*"]];
@@ -2254,7 +2340,7 @@ function getAbilityText(piece) {
             return "Must either be dead or the only remaining piece. Loses the game otherwise.";
             
         case "Flute Player":
-            return "WIP!! Solo | Enchants pieces, wins when everyone is enchanted.";
+            return "Solo | Cannot take pieces. Gets two turns per round. May move or enchant pieces, making them unable to use an ability. Wins when everyone is enchanted.";
         case "Devil":
             return "WIP!! DEVIL";
         case "Zombie":
@@ -2285,11 +2371,12 @@ function getChessName(piece) {
         case "Runner": case "Fortune Teller": case "Witch":
         case "Warlock": case "Scared Wolf": case "Saboteur Wolf":
         case "Attacked Runner": case "Attacked Scared Wolf":
+         case "Flute Player": 
         case "White Rook": case "Black Rook": 
             return "Rook";
          case "Cursed Civilian":
          case "White Werewolf":
-         case "Devil": case "Zombie": case "Flute Player": 
+         case "Devil": case "Zombie":
          case "White Queen": case "Black Queen":
             return "Queen";
         case "Attacked Idiot":
@@ -2329,7 +2416,16 @@ function convertPiece(oldPiece, newName) {
 
 // creates a piece object
 function getPiece(name, metadata = {}) {
-    var piece = { name: name, team: getTeam(name), chess: getChessName(name), enemyVisible: "Unknown", enemyVisibleStatus: 0, active: isActive(name), disguise: false, protected: false, protectedBy: null, hasMoved: false, hidden: false, sabotaged: false, atChecked: false, enchanted: false };
+    // default piece
+    var piece = { name: name, team: getTeam(name), chess: getChessName(name), enemyVisible: "Unknown", enemyVisibleStatus: 0, active: isActive(name), disguise: false, protected: false, protectedBy: null, hasMoved: false, hidden: false, sabotaged: false, atChecked: false, soloEffect: false };
+    
+    // solos cant be taken until their first turn
+    if(piece.team == 2) {
+        piece.protected = true;
+        piece.protectedBy = 2;
+    }
+    
+    // special data
     switch(name) {
         case "Amnesiac":
             piece.convertTo = metadata.amnesiac;
@@ -2343,9 +2439,12 @@ function getPiece(name, metadata = {}) {
             piece.enemyVisibleStatus = 7;
         break;
     }
+    
+    // return piece
     return piece;
 }
 
+// a testing setup where two pieces are one rank away from promoting
 function loadPromoteTestSetup(board) {
     board[1][0] = getPiece("Aura Teller");
     board[board.length-2][4] = getPiece("Alpha Wolf");
@@ -2618,11 +2717,13 @@ function createGame(playerID, playerID2, playerID3, gameID, name1, name2, name3,
             
             // add a solo
             if(name3 != null && height%2 == 1 && height >= 3) { // seo: debug solo
-                let solos = [["Angel","Angel"],["Flute Player","Flute"]];
+                let solos = [["Angel","Angel", false],["Flute Player","Flute", true]];
                 //let selectedSolo = solos[Math.floor(Math.random() * solos.length)];
                 let selectedSolo = solos[1];
                 newBoard[Math.floor(height/2)][Math.floor(width/2)] = getPiece(selectedSolo[0]);
                 newGame.soloTeam = selectedSolo[1];
+                newGame.soloDoubleTurns = selectedSolo[2];
+                
                 newGame.solo = true;
                 newGame.soloRevealed = false;
                 newGame.goldAscended = false;
@@ -2645,7 +2746,7 @@ function createGame(playerID, playerID2, playerID3, gameID, name1, name2, name3,
     
     games.push(newGame);
     // store some data separately because we dont need to always deep copy it
-    gamesHistory.push({ id: gameID, history: [], lastMoves: [] }); // history data
+    gamesHistory.push({ id: gameID, history: [], lastMoves: [], sinceCapture: 0 }); // history data
     gamesDiscord.push({ id: gameID, channel: channel, guild: guild, msg: null, lastInteraction: null, lastInteractionTurn: null, lastMove: Date.now() }); // discord related data
 }
 
@@ -2962,7 +3063,7 @@ function hasAvailableMove(board, position) {
     // Movement Logic
     if(!canTake) {
         let positions = generatePositions(board, xyToName(x, y), true);
-        if(positions.length > 1) return true;
+        if(positions.length >= 1) return true;
         else return false;
     } else if(piece.sabotaged) {
         return false;
@@ -3114,7 +3215,7 @@ function generateAbilities(game, team) {
     let board = game.state;
     for(let y = 0; y < game.height; y++) {
         for(let x = 0; x < game.width; x++) {
-            if(board[y][x].team == team && board[y][x].active && !board[y][x].sabotaged) {
+            if(board[y][x].team == team && board[y][x].active && !board[y][x].sabotaged && !board[y][x].enchanted) {
                 let possibleAbilityUsages = getAbilityTargets(game, board[y][x], xyToName(x, y));
                 if(possibleAbilityUsages[0].components.length > 1) { // possible action (back is always available)
                     interactions.push({ type: 2, label: xyToName(x, y) + " " + board[y][x].name + " " + getUnicode(board[y][x].chess, team), style: 3, custom_id: "ability-" + xyToName(x, y) });
@@ -3133,7 +3234,7 @@ function renderBoard(game, message = "Turn", turnOverride = null) {
     let board = game.state;
     let gameHistory = gamesHistory[game.id];
     let debugValues = "";
-    //debugValues = " ⬜" + round2dec(evaluate(0, board, game.soloTeam)) + " ⬛" + round2dec(evaluate(1, board, game.soloTeam)) + (game.solo ? " 🟧" + round2dec(evaluate(2, board, game.soloTeam)) : "");
+    //debugValues = " ⬜" + round2dec(evaluate(0, game)) + " ⬛" + round2dec(evaluate(1, game)) + (game.solo ? " 🟧" + round2dec(evaluate(2, game)) : "");
     let boardMsg = "**⬜ " + game.playerNames[0] + " vs. ⬛ " + game.playerNames[1] + (game.playerNames.length == 3 ? " vs. 🟧 " + game.playerNames[2] : "")  + "**\n" + "**" + message + "**" + debugValues + "\n";
     let boardRows = ["🟦"];
     let visiblePieces = [];
@@ -3145,10 +3246,14 @@ function renderBoard(game, message = "Turn", turnOverride = null) {
         boardRows[0] += letterRanks[i] + "​"; // seperate with zero width space
     }
     // iterate through board
+    let invulSolo = false;
+    let soloAffectedRoles = [];
     for(let y = 0; y < game.height; y++) {
         let row = numberRow[y];
         for(let x = 0; x < game.width; x++) {
                 row += renderField(board[y][x], x, y, curTurn);
+                if(board[y][x].name != null && board[y][x].soloEffect == true) soloAffectedRoles.push(xyToName(x, y));
+                if(board[y][x].team == 2 && board[y][x].enemyVisibleStatus == 0 && board[y][x].protected == true) invulSolo = true; // look for solos on turn 1
                 if(board[y][x].name != null && board[y][x].team == curTurn) visiblePieces.push(board[y][x].name);
                 else if(board[y][x].name != null && board[y][x].team != curTurn && board[y][x].enemyVisibleStatus == 6) visiblePieces.push(board[y][x].disguise?board[y][x].disguise:board[y][x].name);
                 else if(board[y][x].name != null && board[y][x].team != curTurn && board[y][x].enemyVisibleStatus == 7) visiblePieces.push(board[y][x].name);
@@ -3204,6 +3309,16 @@ function renderBoard(game, message = "Turn", turnOverride = null) {
         }
         boardRows.push("🟦".repeat(game.width) + "🟦🟦");
     }
+    if(game.solo && !game.goldEliminated) {
+        switch(game.soloTeam) {
+            case "Flute":
+                if(game.soloRevealed) boardRows.push("🎶​ **Enchanted:** " + (soloAffectedRoles.length>0?soloAffectedRoles.join(", "):"*None*"));
+            break;
+            default:
+            break;
+        }
+    }
+    
     // add explanations for visible pieces
     if(game.selectedPiece) visiblePieces.push(game.selectedPiece.name);
     visiblePieces = [...new Set(visiblePieces)];
@@ -3211,6 +3326,7 @@ function renderBoard(game, message = "Turn", turnOverride = null) {
     for(let i = 0; i < visiblePieces.length; i++) {
         boardRows.push(findEmoji((getTeam(visiblePieces[i])==1?"Black":(getTeam(visiblePieces[i])==0?"White":"Gold")) + getChessName(visiblePieces[i])) + " " + findEmoji(visiblePieces[i]) + " **" + visiblePieces[i] + ":** " + getAbilityText(visiblePieces[i]));
     }
+    if(invulSolo) boardRows.push(findEmoji("GoldUnknown") + " " + " **Solo/Unaligned:** This piece cannot be taken until its first move.");
     return (boardMsg + boardRows.join("\n")).substr(0, 1950);
 }
 
