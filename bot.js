@@ -1032,7 +1032,7 @@ function movePiece(interaction, moveCurGame, from, to, repl = null) {
     if(from == to) beatenPiece = getPiece(null); // promotion is not taking
     
     let defensive = moveTo;
-    if(movedPiece.name == "Zombie") { // zombie overwrites death effects
+    if(movedPiece.name == "Zombie" && beaten) { // zombie overwrites death effects
         moveCurGame.state[defensive.y][defensive.x] = movedPiece;
         movedPiece.zombieChildCount++;
         // turn piece
