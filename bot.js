@@ -1039,10 +1039,7 @@ function movePiece(interaction, moveCurGame, from, to, repl = null) {
         moveCurGame.state[moveTo.y][moveTo.x] = getPiece("Zombie");
         moveCurGame.state[moveTo.y][moveTo.x].zombieID = movedPiece.zombieID + "" + movedPiece.zombieChildCount;
         moveCurGame.state[moveTo.y][moveTo.x].zombieParent = movedPiece.zombieID;
-        if(notAiTurn) {
-            let zombieTargetName = moveCurGame.state[moveTo.y][moveTo.x];
-            moveCurGameHistory.lastMoves.push([moveCurGame.turn, movedPiece.name, false, "", zombieTargetName, zombieTargetName, 7, "🔀" + findEmoji("Zombie") + "🟦"]);
-        }
+        if(notAiTurn) moveCurGameHistory.lastMoves.push([moveCurGame.turn, movedPiece.name, false, "", to, to, 7, "🔀" + findEmoji("Zombie") + "🟦"]);
         // reveal zombie
         movedPiece.enemyVisibleStatus = 7;
     }
