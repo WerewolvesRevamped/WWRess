@@ -1032,8 +1032,22 @@ function movePiece(interaction, moveCurGame, from, to, repl = null) {
     if(from == to) beatenPiece = getPiece(null); // promotion is not taking
     
     let defensive = moveTo;
+    if(movedPiece.name == "Zombie") { // zombie overwrites death effects
+        moveCurGame.state[defensive.y][defensive.x] = movedPiece;
+        movedPiece.zombieChildCount++;
+        // turn piece
+        moveCurGame.state[moveTo.y][moveTo.x] = getPiece("Zombie");
+        moveCurGame.state[moveTo.y][moveTo.x].zombieID = movedPiece.zombieID + "" + movedPiece.zombieChildCount;
+        moveCurGame.state[moveTo.y][moveTo.x].zombieParent = movedPiece.zombieID;
+        if(notAiTurn) {
+            let zombieTargetName = moveCurGame.state[moveTo.y][moveTo.x];
+            moveCurGameHistory.lastMoves.push([moveCurGame.turn, movedPiece.name, false, "", zombieTargetName, zombieTargetName, 7, "🔀" + findEmoji("Zombie") + "🟦"]);
+        }
+        // reveal zombie
+        movedPiece.enemyVisibleStatus = 7;
+    }
     // death effects
-    if(notAiTurn || moveCurGame.players[moveCurGame.turn] == null || beatenPiece.enemyVisibleStatus >= 6) { // only run in normal turns, ai's own turns or when effect is visible
+    else if(notAiTurn || moveCurGame.players[moveCurGame.turn] == null || beatenPiece.enemyVisibleStatus >= 6) { // only run in normal turns, ai's own turns or when effect is visible
         if(!notAiTurn && moveCurGame.players[moveCurGame.turn] != null && beatenPiece.enemyVisibleStatus == 6 && beatenPiece.disguise) beatenPiece.name = beatenPiece.disguise; // see role with disguise if applicable
         
         if(beatenPiece.protected) { // protected (Witch)
@@ -1103,6 +1117,18 @@ function movePiece(interaction, moveCurGame, from, to, repl = null) {
                 moveCurGame.goldEliminated = true;
                 if(!moveCurGame.goldEliminated) moveCurGame.goldAscended = true; //cannot win while eliminated
                 moveCurGame.state[moveTo.y][moveTo.x] = getPiece(null);
+            break;
+            case "Zombie":
+                // if a zombie dies, so do its children
+                for(let y = 0; y < moveCurGame.height; y++) {
+                    for(let x = 0; x < moveCurGame.width; x++) {
+                        let xyPiece = moveCurGame.state[y][x];
+                        if(xyPiece.name == "Zombie" && xyPiece.zombieParent == movedPiece.zombieID) {
+                            moveCurGame.state[y][x] = getPiece(null);
+                            if(notAiTurn) moveCurGameHistory.lastMoves.push([2, "Zombie", false, "", to, xyToName(x, y), 7, "🇽"]);
+                        }
+                    }
+                }
             break;
             case "Huntress":
                 if(notAiTurn) {
@@ -2344,7 +2370,7 @@ function getAbilityText(piece) {
         case "Devil":
             return "WIP!! DEVIL";
         case "Zombie":
-            return "WIP!! ZOMBIE";
+            return "Solo | Cannot take pieces, instead turns them into Zombies. When a Zombie is taken, all Zombies it created disappear.";
             
         case "Angel":
             return "UA | Takes killer, when taken.";
@@ -2357,7 +2383,7 @@ function getChessName(piece) {
             return null;
         case "Citizen": case "Ranger": case "Huntress": case "Bartender": case "Fortune Apprentice": case "Child":
         case "Wolf": case "Wolf Cub": case "Tanner": case "Archivist Fox": case "Recluse": case "Dog":
-        case "Angel": 
+        case "Angel": case "Zombie":
         case "White Pawn": case "Black Pawn": 
             return "Pawn";
          case "Hooker": case "Idiot": case "Crowd Seeker": case "Aura Teller":
@@ -2376,7 +2402,7 @@ function getChessName(piece) {
             return "Rook";
          case "Cursed Civilian":
          case "White Werewolf":
-         case "Devil": case "Zombie":
+         case "Devil":
          case "White Queen": case "Black Queen":
             return "Queen";
         case "Attacked Idiot":
@@ -2437,6 +2463,11 @@ function getPiece(name, metadata = {}) {
         case "White Pawn": case "White King": case "White Knight": case "White Rook": case "White Queen":
         case "Black Pawn": case "Black King": case "Black Knight": case "Black Rook": case "Black Queen":
             piece.enemyVisibleStatus = 7;
+        break;
+        case "Zombie":
+            piece.zombieID = 1;
+            piece.zombieParent = 1;
+            piece.zombieChildCount = 0;
         break;
     }
     
@@ -2717,9 +2748,9 @@ function createGame(playerID, playerID2, playerID3, gameID, name1, name2, name3,
             
             // add a solo
             if(name3 != null && height%2 == 1 && height >= 3) { // seo: debug solo
-                let solos = [["Angel","Angel", false],["Flute Player","Flute", true]];
+                let solos = [["Angel","Angel", false],["Flute Player","Flute", true],["Zombie","Graveyard", false]];
                 //let selectedSolo = solos[Math.floor(Math.random() * solos.length)];
-                let selectedSolo = solos[1];
+                let selectedSolo = solos[2];
                 newBoard[Math.floor(height/2)][Math.floor(width/2)] = getPiece(selectedSolo[0]);
                 newGame.soloTeam = selectedSolo[1];
                 newGame.soloDoubleTurns = selectedSolo[2];
