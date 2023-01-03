@@ -2435,9 +2435,9 @@ function getAbilityText(piece) {
             return "Must either be dead or the only remaining piece. Loses the game otherwise.";
             
         case "Flute Player":
-            return "Solo | Cannot take pieces. Gets two turns per round. May move or enchant pieces, making them unable to use an ability. Wins when everyone is enchanted.";
+            return "Solo | Cannot take pieces. Gets two turns per round. May move or enchant a piece, making them unable to use an ability. Wins when everyone is enchanted.";
         case "Vampire":
-            return "Solo | May demonize pieces. When a demonized piece is taken, they instead become an Undead.";
+            return "Solo | May move or demonize a piece. When a demonized piece is taken, they instead become an Undead.";
         case "Undead":
             return "Solo | No ability.";
         case "Devil":
