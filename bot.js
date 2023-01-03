@@ -2826,7 +2826,7 @@ function createGame(playerID, playerID2, playerID3, gameID, name1, name2, name3,
             if(name3 != null && height%2 == 1 && height >= 3) { // seo: debug solo
                 let solos = [["Angel","Angel", false],["Flute Player","Flute", true],["Zombie","Graveyard", true],["Vampire","Underworld", false]];
                 //let selectedSolo = solos[Math.floor(Math.random() * solos.length)];
-                let selectedSolo = solos[2];
+                let selectedSolo = solos[3];
                 newBoard[Math.floor(height/2)][Math.floor(width/2)] = getPiece(selectedSolo[0]);
                 newGame.soloTeam = selectedSolo[1];
                 newGame.soloDoubleTurns = selectedSolo[2];
