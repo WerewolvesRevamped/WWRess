@@ -183,7 +183,7 @@ function evaluate(AI, game, visiblePieces = null) {
                     break;
                     case "Underworld":
                         if(piece.demonized) {
-                            if(visiblePieces == 2) goldValue += 7;
+                            if(visiblePieces == 2) goldValue += 3;
                             else goldValue += 1;
                         }
                     break;
