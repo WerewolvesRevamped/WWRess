@@ -1132,10 +1132,10 @@ function movePiece(interaction, moveCurGame, from, to, repl = null) {
             case "Zombie4":
             case "Zombie5":
                 // if a zombie dies, so do its children
+                if(notAiTurn) moveCurGameHistory.lastMoves.push([moveCurGame.turn, movedPiece.name, movedPiece.disguise, movedPiece.enemyVisible, from, to, movedPiece.enemyVisibleStatus, "🇽​"]);
                 let zombieParents = [beatenPiece.zombieID];
                 let zCount = 0;
                 while(zCount < zombieParents.length) {
-                    if(notAiTurn) moveCurGameHistory.lastMoves.push([moveCurGame.turn, movedPiece.name, movedPiece.disguise, movedPiece.enemyVisible, from, to, movedPiece.enemyVisibleStatus]);
                     for(let y = 0; y < moveCurGame.height; y++) {
                         for(let x = 0; x < moveCurGame.width; x++) {
                             let xyPiece = moveCurGame.state[y][x];
