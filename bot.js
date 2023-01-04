@@ -3439,7 +3439,20 @@ function renderBoard(game, message = "Turn", turnOverride = null) {
         boardRows.push(findEmoji((getTeam(visiblePieces[i])==1?"Black":(getTeam(visiblePieces[i])==0?"White":"Gold")) + getChessName(visiblePieces[i])) + " " + findEmoji(visiblePieces[i]) + " **" + visiblePieces[i] + ":** " + getAbilityText(visiblePieces[i]));
     }
     if(invulSolo) boardRows.push(findEmoji("GoldUnknown") + " " + " **Solo/Unaligned:** This piece cannot be taken until its first move.");
-    return (boardMsg + boardRows.join("\n")).substr(0, 1950);
+    return boardMsg + applyDiscordCharLimit(boardRows, "\n", 1950 - boardMsg.length);
+}
+
+// cutoff a message if more doesnt fit
+function applyDiscordCharLimit(marr, delimiter, length) {
+    let output = "";
+    for(let i = 0; i < marr.length; i++) {
+        if(output.length + marr[i].length < length) {
+            output += marr[i] + delimiter;
+        } else {
+            break;
+        }
+    }
+    return output;
 }
 
 // find an emoji by name
