@@ -170,7 +170,7 @@ function evaluate(AI, game, visiblePieces = null) {
                     let evData = getEvaluationData(piece.chess);
                     goldValue += evData.value + table(defTable, SoloTable, x, y, boardWidthFactor, boardHeightFactor) + getWWRevalValue(piece.name);  
                 }
-                goldReveal += (piece.enemyVisibleStatus / 7) * 10;
+                goldReveal += (piece.enemyVisibleStatus / 7);
             }
             
             // solo extra evaluation
@@ -179,6 +179,12 @@ function evaluate(AI, game, visiblePieces = null) {
                     case "Flute":
                         if(piece.enchanted) {
                             goldValue += 5;
+                        }
+                    break;
+                    case "Underworld":
+                        if(piece.demonized) {
+                            if(visiblePieces == 2) goldValue += 3;
+                            else goldValue += 1;
                         }
                     break;
                     default:
@@ -290,6 +296,18 @@ function executeActiveAbility(game, abilityPiece, abilityPieceLocation, position
             game.state[abilityPieceLocation[1]][abilityPieceLocation[0]].stay = true;
             game.state[abilityPieceLocation[1]][abilityPieceLocation[0]].enemyVisibleStatus = 7;
             if(log) gameHistory.lastMoves.push([game.turn, enchantSourceObject.name, enchantSourceObject.disguise, enchantSourceObject.enemyVisible, xyToName(enchantSource.x, enchantSource.y), xyToName(enchantTarget.x, enchantTarget.y), enchantSourceObject.enemyVisibleStatus, "🎶"]);
+            return false;
+        break;
+        case "Demonize":
+        case "Vampire":
+            let demonizeTarget = { x: position[0], y: position[1] };
+            let demonizeSource = { x: abilityPieceLocation[0], y: abilityPieceLocation[1] };
+            let demonizeSourceObject = game.state[demonizeSource.y][demonizeSource.x];
+            game.state[demonizeTarget.y][demonizeTarget.x].demonized = true;
+            game.state[demonizeTarget.y][demonizeTarget.x].soloEffect = true;
+            game.state[abilityPieceLocation[1]][abilityPieceLocation[0]].stay = true;
+            game.state[abilityPieceLocation[1]][abilityPieceLocation[0]].enemyVisibleStatus = 7;
+            if(log) gameHistory.lastMoves.push([game.turn, demonizeSourceObject.name, demonizeSourceObject.disguise, demonizeSourceObject.enemyVisible, xyToName(demonizeSource.x, demonizeSource.y), xyToName(demonizeTarget.x, demonizeTarget.y), demonizeSourceObject.enemyVisibleStatus, "🧛"]);
             return false;
         break;
         case "Infect":
@@ -466,7 +484,7 @@ function getChildren(game, maxDepth = 0, depth = 0, maximizingPlayer = true) {
                             if(depth >= (maxDepth-2)) abilityPieces.push([board[y][x].name, x, y]);
                         break;
                         // whenever
-                        case "Infecting Wolf": case "Dog": case "Flute Player":
+                        case "Infecting Wolf": case "Dog": case "Flute Player": case "Vampire":
                             abilityPieces.push([board[y][x].name, x, y]);
                         break;
                         // whenever
@@ -524,6 +542,11 @@ function getChildren(game, maxDepth = 0, depth = 0, maximizingPlayer = true) {
             case "Flute Player":
                 abilityPositions = enemyPieces.filter(el => !game.state[el[1]][el[0]].enchanted).map(el => [el[0], el[1]]);
                 abilityPositions = randomize(abilityPositions).splice(0, 4); // reduce amount of targets to maximum of 4
+            break;
+            case "Vampire":
+                abilityPositions = enemyPieces.filter(el => !game.state[el[1]][el[0]].demonized).map(el => [el[0], el[1]]);
+                abilityPositions = randomize(abilityPositions);
+                if(depth != maxDepth) abilityPositions = abilityPositions.splice(0, 4); // reduce amount of targets to maximum of 4, unless next Vampire turn
             break;
             // all ally
             case "Tanner":
@@ -898,6 +921,29 @@ function getDefensivePosition(moveFrom, moveTo, movedX, movedY) {
     return defensive;
 }
 
+function pieceDied(game, name) {
+    console.log("TOOK", name);
+    if(game.soloTeam == "Apprentice" && !game.ai) {
+        game.soloTeam = "ApprenticeUsed";
+        let apprentice = null;
+        let appx = null, appy = null;
+        for(let y = 0; y < game.height; y++) {
+            for(let x = 0; x < game.width; x++) {
+                let xyPiece = game.state[y][x];
+                if(xyPiece.name == "Apprentice") {
+                    apprentice = deepCopy(xyPiece);
+                    appx = x;
+                    appy = y;
+                }
+            }
+        }
+        if(apprentice) {
+            gamesHistory[game.id].lastMoves.push([2, apprentice.name, apprentice.name, 7, xyToName(appx, appy), xyToName(appx, appy), 7, "⏫🟦🟦"]);
+            game.state[appy][appx] = getPiece(name);
+        }
+    }
+}
+
 // moves a piece from one place to another (and/or replaces the piece with another piece)
 function movePiece(interaction, moveCurGame, from, to, repl = null) {
     // a move has been done
@@ -1058,14 +1104,23 @@ function movePiece(interaction, moveCurGame, from, to, repl = null) {
     else if(notAiTurn || moveCurGame.players[moveCurGame.turn] == null || beatenPiece.enemyVisibleStatus >= 6) { // only run in normal turns, ai's own turns or when effect is visible
         if(!notAiTurn && moveCurGame.players[moveCurGame.turn] != null && beatenPiece.enemyVisibleStatus == 6 && beatenPiece.disguise) beatenPiece.name = beatenPiece.disguise; // see role with disguise if applicable
         
-        if(beatenPiece.protected) { // protected (Witch)
+        if(beatenPiece.protected || beatenPiece.demonized) { // protected (Witch)
             defensive = getDefensivePosition(moveFrom, moveTo, movedX, movedY);
             if(notAiTurn) {
                 moveCurGameHistory.lastMoves.push([moveCurGame.turn, movedPiece.name, movedPiece.disguise, movedPiece.enemyVisible, from, xyToName(defensive.x, defensive.y), movedPiece.enemyVisibleStatus]);
-                moveCurGameHistory.lastMoves.push([beatenPiece.protectedBy, beatenPiece.name, beatenPiece.disguise, beatenPiece.enemyVisible, to, to, beatenPiece.enemyVisibleStatus, "🛡️🟦🟦"]);
+                if(beatenPiece.protected) {
+                    moveCurGameHistory.lastMoves.push([beatenPiece.protectedBy, beatenPiece.name, beatenPiece.disguise, beatenPiece.enemyVisible, to, to, beatenPiece.enemyVisibleStatus, "🛡️🟦🟦"]);
+                } else {
+                    moveCurGameHistory.lastMoves.push([moveCurGame.turn, beatenPiece.name, beatenPiece.disguise, beatenPiece.enemyVisible, to, to, beatenPiece.enemyVisibleStatus, "🔀" + findEmoji("Undead") + "🟦"]);
+                }
             }
             moveCurGame.state[defensive.y][defensive.x] = movedPiece;
-            moveCurGame.state[moveTo.y][moveTo.x] = deepCopy(beatenPiece);
+            if(beatenPiece.protected) {
+                moveCurGame.state[moveTo.y][moveTo.x] = deepCopy(beatenPiece);
+            } else {
+                moveCurGame.state[moveTo.y][moveTo.x] = getPiece("Undead");
+                moveCurGame.state[moveTo.y][moveTo.x].enemyVisibleStatus = 7;
+            }
             beatenPiece.name = "protected";
         } 
         
@@ -1083,7 +1138,10 @@ function movePiece(interaction, moveCurGame, from, to, repl = null) {
             break;
             default:
                 // store move
-                if(notAiTurn) moveCurGameHistory.lastMoves.push([moveCurGame.turn, movedPiece.name, movedPiece.disguise, movedPiece.enemyVisible, from, to, movedPiece.enemyVisibleStatus, "🇽​"]);
+                if(notAiTurn) {
+                    moveCurGameHistory.lastMoves.push([moveCurGame.turn, movedPiece.name, movedPiece.disguise, movedPiece.enemyVisible, from, to, movedPiece.enemyVisibleStatus, "🇽​"]);
+                    pieceDied(moveCurGame, beatenPiece.name);
+                }
             break; // Hooker defense
             case "Hooker":
                 if(beatenPiece.hidden) {
@@ -1103,12 +1161,14 @@ function movePiece(interaction, moveCurGame, from, to, repl = null) {
                     if(notAiTurn) {
                         moveCurGameHistory.lastMoves.push([moveCurGame.turn, movedPiece.name, movedPiece.disguise, movedPiece.enemyVisible, from, to, movedPiece.enemyVisibleStatus, "🇽​"]);
                         moveCurGameHistory.lastMoves.push([0, "Ranger", false, "", to, to, 6, "👁️" + findEmoji(movedPiece.disguise) + "🟦"]);
+                        pieceDied(moveCurGame, beatenPiece.name);
                     }
                 } else {
                     movedPiece.enemyVisibleStatus = 7;
                     if(notAiTurn) {
                         moveCurGameHistory.lastMoves.push([moveCurGame.turn, movedPiece.name, movedPiece.disguise, movedPiece.enemyVisible, from, to, movedPiece.enemyVisibleStatus, "🇽​"]);
                         moveCurGameHistory.lastMoves.push([0, "Ranger", false, "", to, to, 7, "👁️" + findEmoji(movedPiece.name) + "🟦"]);
+                        pieceDied(moveCurGame, beatenPiece.name);
                     }
                 }
             break;
@@ -1121,6 +1181,7 @@ function movePiece(interaction, moveCurGame, from, to, repl = null) {
                     console.log("ASCEND GOLD");
                     moveCurGameHistory.lastMoves.push([moveCurGame.turn, movedPiece.name, movedPiece.disguise, movedPiece.enemyVisible, from, to, movedPiece.enemyVisibleStatus, "🇽​"]);
                     moveCurGameHistory.lastMoves.push([2, "Angel", false, "", to, from, 7, "⬆️🏅🟦"]);
+                    pieceDied(moveCurGame, beatenPiece.name);
                 }
                 moveCurGame.goldEliminated = true;
                 if(!moveCurGame.goldEliminated) moveCurGame.goldAscended = true; //cannot win while eliminated
@@ -1132,7 +1193,10 @@ function movePiece(interaction, moveCurGame, from, to, repl = null) {
             case "Zombie4":
             case "Zombie5":
                 // if a zombie dies, so do its children
-                if(notAiTurn) moveCurGameHistory.lastMoves.push([moveCurGame.turn, movedPiece.name, movedPiece.disguise, movedPiece.enemyVisible, from, to, movedPiece.enemyVisibleStatus, "🇽​"]);
+                if(notAiTurn) {
+                    moveCurGameHistory.lastMoves.push([moveCurGame.turn, movedPiece.name, movedPiece.disguise, movedPiece.enemyVisible, from, to, movedPiece.enemyVisibleStatus, "🇽​"]);
+                    pieceDied(moveCurGame, beatenPiece.name);
+                }
                 let zombieParents = [beatenPiece.zombieID];
                 let zCount = 0;
                 while(zCount < zombieParents.length) {
@@ -1143,7 +1207,10 @@ function movePiece(interaction, moveCurGame, from, to, repl = null) {
                             if((xyPiece.name == "Zombie" || xyPiece.name == "Zombie2" || xyPiece.name == "Zombie3" || xyPiece.name == "Zombie4" || xyPiece.name == "Zombie5") && xyPiece.zombieParent == zombieParents[zCount]) {
                                 zombieParents.push(xyPiece.zombieID);
                                 moveCurGame.state[y][x] = getPiece(null);
-                                if(notAiTurn) moveCurGameHistory.lastMoves.push([moveCurGame.turn, beatenPiece.name, false, "", to, xyToName(x, y), 7, "🇽​"]);
+                                if(notAiTurn) {
+                                    moveCurGameHistory.lastMoves.push([moveCurGame.turn, beatenPiece.name, false, "", to, xyToName(x, y), 7, "🇽​"]);
+                                    pieceDied(moveCurGame, xyPiece.name);
+                                }
                             }
                         }
                     }
@@ -1155,6 +1222,7 @@ function movePiece(interaction, moveCurGame, from, to, repl = null) {
                     moveCurGameHistory.lastMoves.push([moveCurGame.turn, movedPiece.name, movedPiece.disguise, movedPiece.enemyVisible, from, to, movedPiece.enemyVisibleStatus, "🇽​"]);
                     moveCurGameHistory.lastMoves.push([0, "Huntress", false, "", to, from, 7, "🇽​"]);
                     moveCurGame.state[moveTo.y][moveTo.x] = getPiece(null);
+                    pieceDied(moveCurGame, beatenPiece.name);
                 }
             break;
             // Extra Move Pieces
@@ -1162,6 +1230,7 @@ function movePiece(interaction, moveCurGame, from, to, repl = null) {
                 if(notAiTurn && !moveCurGame.whiteEliminated) {
                     moveCurGameHistory.lastMoves.push([moveCurGame.turn, movedPiece.name, movedPiece.disguise, movedPiece.enemyVisible, from, to, movedPiece.enemyVisibleStatus, "🇽​"]);
                     moveCurGameHistory.lastMoves.push([beatenPiece.team, beatenPiece.name, false, "", to, to, 7, "🟦" + "2️⃣" + "🇽"]);
+                    pieceDied(moveCurGame, beatenPiece.name);
                 }
                 if(moveCurGame.turn == 1) moveCurGame.doubleMove0 = true;
                 else if(moveCurGame.turn == 0) moveCurGame.doubleMove1 = true;
@@ -1170,6 +1239,7 @@ function movePiece(interaction, moveCurGame, from, to, repl = null) {
                 if(notAiTurn && !moveCurGame.blackEliminated) {
                     moveCurGameHistory.lastMoves.push([moveCurGame.turn, movedPiece.name, movedPiece.disguise, movedPiece.enemyVisible, from, to, movedPiece.enemyVisibleStatus, "🇽​"]);
                     moveCurGameHistory.lastMoves.push([beatenPiece.team, beatenPiece.name, false, "", to, to, 7, "🟦" + "2️⃣" + "🇽"]);
+                    pieceDied(moveCurGame, beatenPiece.name);
                 }
                 if(moveCurGame.turn == 1) moveCurGame.doubleMove0 = true;
                 else if(moveCurGame.turn == 0) moveCurGame.doubleMove1 = true;
@@ -1178,7 +1248,10 @@ function movePiece(interaction, moveCurGame, from, to, repl = null) {
             case "Fortune Teller":
             case "Aura Teller":
             case "Crowd Seeker":
-                if(notAiTurn) moveCurGameHistory.lastMoves.push([moveCurGame.turn, movedPiece.name, movedPiece.disguise, movedPiece.enemyVisible, from, to, movedPiece.enemyVisibleStatus, "🇽​"]);
+                if(notAiTurn) {
+                    moveCurGameHistory.lastMoves.push([moveCurGame.turn, movedPiece.name, movedPiece.disguise, movedPiece.enemyVisible, from, to, movedPiece.enemyVisibleStatus, "🇽​"]);
+                    pieceDied(moveCurGame, beatenPiece.name);
+                }
                 for(let y = 0; y < moveCurGame.height; y++) {
                     for(let x = 0; x < moveCurGame.width; x++) {
                         let xyPiece = moveCurGame.state[y][x];
@@ -1231,7 +1304,10 @@ function movePiece(interaction, moveCurGame, from, to, repl = null) {
                     moveCurGame.state[moveTo.y][moveTo.x] = beatenPiece;
                     moveCurGame.state[moveTo.y][moveTo.x].enemyVisibleStatus = 7;
                 } else {
-                    if(notAiTurn) moveCurGameHistory.lastMoves.push([moveCurGame.turn, movedPiece.name, movedPiece.disguise, movedPiece.enemyVisible, from, to, movedPiece.enemyVisibleStatus]);
+                    if(notAiTurn) {
+                        moveCurGameHistory.lastMoves.push([moveCurGame.turn, movedPiece.name, movedPiece.disguise, movedPiece.enemyVisible, from, to, movedPiece.enemyVisibleStatus]);
+                        pieceDied(moveCurGame, beatenPiece.name);
+                    }
                 }
             break;
         }
@@ -1241,23 +1317,38 @@ function movePiece(interaction, moveCurGame, from, to, repl = null) {
     if(notAiTurn || moveCurGame.players[moveCurGame.turn] == null || movedPiece.enemyVisibleStatus >= 6) { // only run in normal turns, ai's own turns or when effect is visible
         if(inBoundsInv(moveCurGame.height, moveCurGame.width, moveTo.y, moveTo.x-1) && moveCurGame.state[moveTo.y][moveTo.x-1].hidden == to) {
             moveCurGame.state[moveTo.y][moveTo.x-1] = getPiece(null);
-            if(notAiTurn) moveCurGameHistory.lastMoves.push([moveCurGame.turn, movedPiece.name, movedPiece.disguise, movedPiece.enemyVisible, from, to, movedPiece.enemyVisibleStatus, "🇽" + findEmoji("Hooker") + "🟦"]);
+            if(notAiTurn) {
+                moveCurGameHistory.lastMoves.push([moveCurGame.turn, movedPiece.name, movedPiece.disguise, movedPiece.enemyVisible, from, to, movedPiece.enemyVisibleStatus, "🇽" + findEmoji("Hooker") + "🟦"]);
+                pieceDied(moveCurGame, "Hooker");
+            }
         }
         if(inBoundsInv(moveCurGame.height, moveCurGame.width, moveTo.y, moveTo.x+1) && moveCurGame.state[moveTo.y][moveTo.x+1].hidden == to) {
             moveCurGame.state[moveTo.y][moveTo.x+1] = getPiece(null);
-            if(notAiTurn) moveCurGameHistory.lastMoves.push([moveCurGame.turn, movedPiece.name, movedPiece.disguise, movedPiece.enemyVisible, from, to, movedPiece.enemyVisibleStatus, "🇽" + findEmoji("Hooker") + "🟦"]);
+            if(notAiTurn) {
+                moveCurGameHistory.lastMoves.push([moveCurGame.turn, movedPiece.name, movedPiece.disguise, movedPiece.enemyVisible, from, to, movedPiece.enemyVisibleStatus, "🇽" + findEmoji("Hooker") + "🟦"]);
+                pieceDied(moveCurGame, "Hooker");
+            }
         }
         if(inBoundsInv(moveCurGame.height, moveCurGame.width, moveTo.y+1, moveTo.x-1) && moveCurGame.state[moveTo.y+1][moveTo.x-1].hidden == to) {
             moveCurGame.state[moveTo.y+1][moveTo.x-1] = getPiece(null);
-            if(notAiTurn) moveCurGameHistory.lastMoves.push([moveCurGame.turn, movedPiece.name, movedPiece.disguise, movedPiece.enemyVisible, from, to, movedPiece.enemyVisibleStatus, "🇽" + findEmoji("Hooker") + "🟦"]);
+            if(notAiTurn) {
+                moveCurGameHistory.lastMoves.push([moveCurGame.turn, movedPiece.name, movedPiece.disguise, movedPiece.enemyVisible, from, to, movedPiece.enemyVisibleStatus, "🇽" + findEmoji("Hooker") + "🟦"]);
+                pieceDied(moveCurGame, "Hooker");
+            }
         }
         if(inBoundsInv(moveCurGame.height, moveCurGame.width, moveTo.y+1, moveTo.x) && moveCurGame.state[moveTo.y+1][moveTo.x].hidden == to) {
             moveCurGame.state[moveTo.y+1][moveTo.x] = getPiece(null);
-            if(notAiTurn) moveCurGameHistory.lastMoves.push([moveCurGame.turn, movedPiece.name, movedPiece.disguise, movedPiece.enemyVisible, from, to, movedPiece.enemyVisibleStatus, "🇽" + findEmoji("Hooker") + "🟦"]);
+            if(notAiTurn) {
+                moveCurGameHistory.lastMoves.push([moveCurGame.turn, movedPiece.name, movedPiece.disguise, movedPiece.enemyVisible, from, to, movedPiece.enemyVisibleStatus, "🇽" + findEmoji("Hooker") + "🟦"]);
+                pieceDied(moveCurGame, "Hooker");
+            }
         }
         if(inBoundsInv(moveCurGame.height, moveCurGame.width, moveTo.y+1, moveTo.x+1) && moveCurGame.state[moveTo.y+1][moveTo.x+1].hidden == to) {
             moveCurGame.state[moveTo.y+1][moveTo.x+1] = getPiece(null);
-            if(notAiTurn) moveCurGameHistory.lastMoves.push([moveCurGame.turn, movedPiece.name, movedPiece.disguise, movedPiece.enemyVisible, from, to, movedPiece.enemyVisibleStatus, "🇽" + findEmoji("Hooker") + "🟦"]);
+            if(notAiTurn) {
+                moveCurGameHistory.lastMoves.push([moveCurGame.turn, movedPiece.name, movedPiece.disguise, movedPiece.enemyVisible, from, to, movedPiece.enemyVisibleStatus, "🇽" + findEmoji("Hooker") + "🟦"]);
+                pieceDied(moveCurGame, "Hooker");
+            }
         }
         if(inBoundsInv(moveCurGame.height, moveCurGame.width, moveTo.y-1, moveTo.x-1) && moveCurGame.state[moveTo.y-1][moveTo.x-1].hidden == to) {
             moveCurGame.state[moveTo.y-1][moveTo.x-1] = getPiece(null);
@@ -1265,11 +1356,17 @@ function movePiece(interaction, moveCurGame, from, to, repl = null) {
         }
         if(inBoundsInv(moveCurGame.height, moveCurGame.width, moveTo.y-1, moveTo.x) && moveCurGame.state[moveTo.y-1][moveTo.x].hidden == to) {
             moveCurGame.state[moveTo.y-1][moveTo.x] = getPiece(null);
-            if(notAiTurn) moveCurGameHistory.lastMoves.push([moveCurGame.turn, movedPiece.name, movedPiece.disguise, movedPiece.enemyVisible, from, to, movedPiece.enemyVisibleStatus, "🇽" + findEmoji("Hooker") + "🟦"]);
+            if(notAiTurn) {
+                moveCurGameHistory.lastMoves.push([moveCurGame.turn, movedPiece.name, movedPiece.disguise, movedPiece.enemyVisible, from, to, movedPiece.enemyVisibleStatus, "🇽" + findEmoji("Hooker") + "🟦"]);
+                pieceDied(moveCurGame, "Hooker");
+            }
         }
         if(inBoundsInv(moveCurGame.height, moveCurGame.width, moveTo.y-1, moveTo.x+1) && moveCurGame.state[moveTo.y-1][moveTo.x+1].hidden == to) {
             moveCurGame.state[moveTo.y-1][moveTo.x+1] = getPiece(null);
-            if(notAiTurn) moveCurGameHistory.lastMoves.push([moveCurGame.turn, movedPiece.name, movedPiece.disguise, movedPiece.enemyVisible, from, to, movedPiece.enemyVisibleStatus, "🇽" + findEmoji("Hooker") + "🟦"]);
+            if(notAiTurn) {
+                moveCurGameHistory.lastMoves.push([moveCurGame.turn, movedPiece.name, movedPiece.disguise, movedPiece.enemyVisible, from, to, movedPiece.enemyVisibleStatus, "🇽" + findEmoji("Hooker") + "🟦"]);
+                pieceDied(moveCurGame, "Hooker");
+            }
         }
     }
     
@@ -1544,6 +1641,7 @@ function removeSoloEffect(game) {
     for(let y = 0; y < game.height; y++) {
         for(let x = 0; x < game.width; x++) {
             game.state[y][x].enchanted = false;
+            game.state[y][x].demonized = false;
         }
     }
 }
@@ -1877,6 +1975,19 @@ function getAbilityTargets(curGame, abilityPiece, arg1) {
             }
             aComponents = interactionsFromPositions(aPositions, arg1, "turnstart", "enchant", 3);
         break;
+        // undemonized enemy
+        case "Vampire":
+            aPositions = [];
+            for(let y = 0; y < curGame.height; y++) {
+                for(let x = 0; x < curGame.width; x++) {
+                    let xyPiece = curGame.state[y][x];
+                    if(xyPiece.name != null && xyPiece.team != abilityPiece.team && !xyPiece.undemonized) {
+                        aPositions.push([x, y]);
+                    }
+                }
+            }
+            aComponents = interactionsFromPositions(aPositions, arg1, "turnstart", "demonize", 3);
+        break;
         // Target all ally
         case "Tanner":
             aPositions = [];
@@ -2037,9 +2148,19 @@ client.on('interactionCreate', async interaction => {
             break;
             // enchant
             case "enchant":
+                let enchantSource = nameToXY(arg1);
                 let enchantTarget = nameToXY(arg2);
-			    executeActiveAbility(curGame, "Enchant", null, [enchantTarget.x, enchantTarget.y]);
-                turnMove(interaction, gameID, curGame.turn, "update");
+			    executeActiveAbility(curGame, "Enchant", [enchantSource.x, enchantSource.y], [enchantTarget.x, enchantTarget.y]);
+                await interaction.update(displayBoard(curGame, "Skipping Move"));
+                turnDone(interaction, games[gameID], "Waiting on Opponent", true); // no move after ability use
+            break;
+            // demonize
+            case "demonize":
+                let demonizeSource = nameToXY(arg1);
+                let demonizeTarget = nameToXY(arg2);
+			    executeActiveAbility(curGame, "Demonize", [demonizeSource.x, demonizeSource.y], [demonizeTarget.x, demonizeTarget.y]);
+                await interaction.update(displayBoard(curGame, "Skipping Move"));
+                turnDone(interaction, games[gameID], "Waiting on Opponent", true); // no move after ability use
             break;
             // hooker hide
             case "hide":
@@ -2108,7 +2229,7 @@ client.on('interactionCreate', async interaction => {
                     teamName = "Werewolves (Black)";
                 break;
                 case "solo":
-                    pieces = ["Flute Player","Devil","Zombie","Angel"];
+                    pieces = ["Flute Player","Devil","Zombie","Angel","Vampire","Undead","Apprentice"];
                     teamColor = "Gold";
                     teamName = "Solo (Gold)";
                 break;
@@ -2127,18 +2248,18 @@ client.on('interactionCreate', async interaction => {
             } else {
                 let players;
                 let rand = Math.floor(Math.random() * 100);
-                //rand = 0; // seo: debug solo
+                //rand = 100; // seo: debug solo
                 // determine teams
-                if(rand < 4) { // player town + solo
+                if(rand < 6) { // player town + solo
                     players = [[interaction.member.id, interaction.member.user.username], [null, "*AI*"], [null, "*AI #2*"]];
                 } else if(rand < 48) { // player town
                     players = [[interaction.member.id, interaction.member.user.username], [null, "*AI*"], [null, null]];
-                } else if(rand < 52) { // player wolf + ai
+                } else if(rand < 54) { // player wolf + ai
                     players = [[null, "*AI*"], [interaction.member.id, interaction.member.user.username], [null, "*AI #2*"]];
                 }  else if(rand < 96) { // player wolf
                     players = [[null, "*AI*"], [interaction.member.id, interaction.member.user.username], [null, null]];
                 } else { // player ai
-                    players = [[null, "*AI*"], [null, "*AI #2*"], interaction.member.id, interaction.member.user.username];
+                    players = [[null, "*AI*"], [null, "*AI #2*"], [interaction.member.id, interaction.member.user.username]];
                 }
                 // create game
                 createGame(players[0][0], players[1][0], players[2][0], games.length, players[0][1], players[1][1], players[2][1], interaction.channel.id, interaction.guild.id);
@@ -2291,7 +2412,8 @@ function getTeam(piece) {
         case "Flute Player":
         case "Devil":
         case "Zombie": case "Zombie2": case "Zombie3": case "Zombie4": case "Zombie5": 
-        case "Angel":
+        case "Angel": case "Apprentice":
+        case "Vampire": case "Undead":
             return 2;
     }
 }
@@ -2302,7 +2424,7 @@ function isActive(piece) {
             return false;
         case "Hooker": case "Crowd Seeker": case "Aura Teller": case "Royal Knight": case "Fortune Teller": case "Witch":
         case "Tanner": case "Archivist Fox": case "Dog": case "Infecting Wolf": case "Alpha Wolf": case "Psychic Wolf": case "Clairvoyant Fox": case "Warlock": case "Saboteur Wolf":
-        case "Flute Player": case "Devil": case "Zombie": case "Zombie2": case "Zombie3": case "Zombie4": case "Zombie5": 
+        case "Flute Player": case "Devil": case "Zombie": case "Zombie2": case "Zombie3": case "Zombie4": case "Zombie5": case "Vampire":
             return true;
     }
 }
@@ -2389,14 +2511,20 @@ function getAbilityText(piece) {
             return "Must either be dead or the only remaining piece. Loses the game otherwise.";
             
         case "Flute Player":
-            return "Cannot take pieces. Gets two turns per round. May move or enchant pieces, making them unable to use an ability. Wins when everyone is enchanted.";
+            return "Solo | Cannot take pieces. Gets two turns per round. May move or enchant a piece, making them unable to use an ability. Wins when everyone is enchanted.";
+        case "Vampire":
+            return "Solo | Cannot take pieces. May move or demonize a piece. When a demonized piece is taken, they instead become an Undead.";
+        case "Undead":
+            return "Solo | No ability.";
         case "Devil":
-            return "WIP!! DEVIL";
+            return "Solo | WIP!! DEVIL";
         case "Zombie":
-            return "Cannot take pieces, instead turns them into Zombies. When a Zombie is taken, all Zombies it created disappear.";
+            return "Solo | Cannot take pieces, instead turns them into Zombies. When a Zombie is taken, all Zombies it created disappear. Gets two turns per round.";
             
         case "Angel":
-            return "Takes killer, when taken.";
+            return "UA | Takes killer, when taken.";
+        case "Apprentice":
+            return "UA | Transforms into first taken piece.";
     }
 }
 
@@ -2406,7 +2534,7 @@ function getChessName(piece) {
             return null;
         case "Citizen": case "Ranger": case "Huntress": case "Bartender": case "Fortune Apprentice": case "Child":
         case "Wolf": case "Wolf Cub": case "Tanner": case "Archivist Fox": case "Recluse": case "Dog":
-        case "Angel": case "Zombie": case "Zombie2": case "Zombie3": case "Zombie4": case "Zombie5": 
+        case "Angel": case "Zombie": case "Zombie2": case "Zombie3": case "Zombie4": case "Zombie5": case "Undead": case "Apprentice":
         case "White Pawn": case "Black Pawn": 
             return "Pawn";
          case "Hooker": case "Idiot": case "Crowd Seeker": case "Aura Teller":
@@ -2420,7 +2548,7 @@ function getChessName(piece) {
         case "Runner": case "Fortune Teller": case "Witch":
         case "Warlock": case "Scared Wolf": case "Saboteur Wolf":
         case "Attacked Runner": case "Attacked Scared Wolf":
-         case "Flute Player": 
+        case "Flute Player": case "Vampire":
         case "White Rook": case "Black Rook": 
             return "Rook";
          case "Cursed Civilian":
@@ -2543,7 +2671,7 @@ function getWWRevalValue(piece) {
             case "Infecting Wolf": case "Direwolf": case "Bartender":
                 return 5;
                 
-            case "Flute Player": case "Devil": case "Zombie": case "Zombie2": case "Zombie3": case "Zombie4": case "Zombie5": case "Angel":
+            case "Flute Player": case "Devil": case "Zombie": case "Zombie2": case "Zombie3": case "Zombie4": case "Zombie5": case "Angel": case "Vampire": case "Undead": case "Apprentice":
                 return 0;
             
             default:
@@ -2775,9 +2903,9 @@ function createGame(playerID, playerID2, playerID3, gameID, name1, name2, name3,
             
             // add a solo
             if(name3 != null && height%2 == 1 && height >= 3) { // seo: debug solo
-                let solos = [["Angel","Angel", false],["Flute Player","Flute", true],["Zombie","Graveyard", true]];
+                let solos = [["Angel","Angel", false],["Flute Player","Flute", true],["Zombie","Graveyard", true],["Vampire","Underworld", false],["Apprentice","Apprentice", false]];
                 //let selectedSolo = solos[Math.floor(Math.random() * solos.length)];
-                let selectedSolo = solos[1];
+                let selectedSolo = solos[4];
                 newBoard[Math.floor(height/2)][Math.floor(width/2)] = getPiece(selectedSolo[0]);
                 newGame.soloTeam = selectedSolo[1];
                 newGame.soloDoubleTurns = selectedSolo[2];
@@ -2914,7 +3042,7 @@ function canTakePieces(pieceName) {
     switch(pieceName) {
         default:
             return true;
-        case "Flute Player": case "Angel":
+        case "Flute Player": case "Angel": case "Vampire":
             return false;
     }
 }
@@ -3370,7 +3498,10 @@ function renderBoard(game, message = "Turn", turnOverride = null) {
     if(game.solo && !game.goldEliminated) {
         switch(game.soloTeam) {
             case "Flute":
-                if(game.soloRevealed) boardRows.push("🎶​ **Enchanted:** " + (soloAffectedRoles.length>0?soloAffectedRoles.join(", "):"*None*"));
+                if(game.soloRevealed) boardRows.push(findEmoji("Flute") + "​ **Enchanted:** " + (soloAffectedRoles.length>0?soloAffectedRoles.join(", "):"*None*"));
+            break;
+            case "Underworld":
+                if(game.soloRevealed) boardRows.push(findEmoji("UnderworldCard") + "​ **Demonized:** " + (soloAffectedRoles.length>0?soloAffectedRoles.join(", "):"*None*"));
             break;
             default:
             break;
