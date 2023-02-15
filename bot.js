@@ -181,12 +181,6 @@ function evaluate(AI, game, visiblePieces = null) {
                             goldValue += 5;
                         }
                     break;
-                    case "Underworld":
-                        if(piece.demonized) {
-                            if(visiblePieces == 2) goldValue += 3;
-                            else goldValue += 1;
-                        }
-                    break;
                     default:
                     break;
                 }
@@ -296,18 +290,6 @@ function executeActiveAbility(game, abilityPiece, abilityPieceLocation, position
             game.state[abilityPieceLocation[1]][abilityPieceLocation[0]].stay = true;
             game.state[abilityPieceLocation[1]][abilityPieceLocation[0]].enemyVisibleStatus = 7;
             if(log) gameHistory.lastMoves.push([game.turn, enchantSourceObject.name, enchantSourceObject.disguise, enchantSourceObject.enemyVisible, xyToName(enchantSource.x, enchantSource.y), xyToName(enchantTarget.x, enchantTarget.y), enchantSourceObject.enemyVisibleStatus, "🎶"]);
-            return false;
-        break;
-        case "Demonize":
-        case "Vampire":
-            let demonizeTarget = { x: position[0], y: position[1] };
-            let demonizeSource = { x: abilityPieceLocation[0], y: abilityPieceLocation[1] };
-            let demonizeSourceObject = game.state[demonizeSource.y][demonizeSource.x];
-            game.state[demonizeTarget.y][demonizeTarget.x].demonized = true;
-            game.state[demonizeTarget.y][demonizeTarget.x].soloEffect = true;
-            game.state[abilityPieceLocation[1]][abilityPieceLocation[0]].stay = true;
-            game.state[abilityPieceLocation[1]][abilityPieceLocation[0]].enemyVisibleStatus = 7;
-            if(log) gameHistory.lastMoves.push([game.turn, demonizeSourceObject.name, demonizeSourceObject.disguise, demonizeSourceObject.enemyVisible, xyToName(demonizeSource.x, demonizeSource.y), xyToName(demonizeTarget.x, demonizeTarget.y), demonizeSourceObject.enemyVisibleStatus, "🧛"]);
             return false;
         break;
         case "Infect":
@@ -484,7 +466,7 @@ function getChildren(game, maxDepth = 0, depth = 0, maximizingPlayer = true) {
                             if(depth >= (maxDepth-2)) abilityPieces.push([board[y][x].name, x, y]);
                         break;
                         // whenever
-                        case "Infecting Wolf": case "Dog": case "Flute Player": case "Vampire":
+                        case "Infecting Wolf": case "Dog": case "Flute Player":
                             abilityPieces.push([board[y][x].name, x, y]);
                         break;
                         // whenever
@@ -541,10 +523,6 @@ function getChildren(game, maxDepth = 0, depth = 0, maximizingPlayer = true) {
             // all enemy pieces
             case "Flute Player":
                 abilityPositions = enemyPieces.filter(el => !game.state[el[1]][el[0]].enchanted).map(el => [el[0], el[1]]);
-                abilityPositions = randomize(abilityPositions).splice(0, 4); // reduce amount of targets to maximum of 4
-            break;
-            case "Vampire":
-                abilityPositions = enemyPieces.filter(el => !game.state[el[1]][el[0]].demonized).map(el => [el[0], el[1]]);
                 abilityPositions = randomize(abilityPositions).splice(0, 4); // reduce amount of targets to maximum of 4
             break;
             // all ally
@@ -1080,23 +1058,14 @@ function movePiece(interaction, moveCurGame, from, to, repl = null) {
     else if(notAiTurn || moveCurGame.players[moveCurGame.turn] == null || beatenPiece.enemyVisibleStatus >= 6) { // only run in normal turns, ai's own turns or when effect is visible
         if(!notAiTurn && moveCurGame.players[moveCurGame.turn] != null && beatenPiece.enemyVisibleStatus == 6 && beatenPiece.disguise) beatenPiece.name = beatenPiece.disguise; // see role with disguise if applicable
         
-        if(beatenPiece.protected && beatenPiece.demonized) { // protected (Witch)
+        if(beatenPiece.protected) { // protected (Witch)
             defensive = getDefensivePosition(moveFrom, moveTo, movedX, movedY);
             if(notAiTurn) {
                 moveCurGameHistory.lastMoves.push([moveCurGame.turn, movedPiece.name, movedPiece.disguise, movedPiece.enemyVisible, from, xyToName(defensive.x, defensive.y), movedPiece.enemyVisibleStatus]);
-                if(!beatenPiece.demonized) {
-                    moveCurGameHistory.lastMoves.push([beatenPiece.protectedBy, beatenPiece.name, beatenPiece.disguise, beatenPiece.enemyVisible, to, to, beatenPiece.enemyVisibleStatus, "🛡️🟦🟦"]);
-                } else {
-                    moveCurGameHistory.lastMoves.push([moveCurGame.turn, movedPiece.name, false, "", to, to, 7, "🔀" + findEmoji("Undead") + "🟦"]);
-                }
+                moveCurGameHistory.lastMoves.push([beatenPiece.protectedBy, beatenPiece.name, beatenPiece.disguise, beatenPiece.enemyVisible, to, to, beatenPiece.enemyVisibleStatus, "🛡️🟦🟦"]);
             }
             moveCurGame.state[defensive.y][defensive.x] = movedPiece;
-            if(!beatenPiece.demonized) {
-                moveCurGame.state[moveTo.y][moveTo.x] = deepCopy(beatenPiece);
-            } else {
-                moveCurGame.state[moveTo.y][moveTo.x] = getPiece("Undead");
-                moveCurGame.state[moveTo.y][moveTo.x].enemyVisibleStatus = 7;
-            }
+            moveCurGame.state[moveTo.y][moveTo.x] = deepCopy(beatenPiece);
             beatenPiece.name = "protected";
         } 
         
@@ -1575,7 +1544,6 @@ function removeSoloEffect(game) {
     for(let y = 0; y < game.height; y++) {
         for(let x = 0; x < game.width; x++) {
             game.state[y][x].enchanted = false;
-            game.state[y][x].demonized = false;
         }
     }
 }
@@ -1909,19 +1877,6 @@ function getAbilityTargets(curGame, abilityPiece, arg1) {
             }
             aComponents = interactionsFromPositions(aPositions, arg1, "turnstart", "enchant", 3);
         break;
-        // undemonized enemy
-        case "Flute Player":
-            aPositions = [];
-            for(let y = 0; y < curGame.height; y++) {
-                for(let x = 0; x < curGame.width; x++) {
-                    let xyPiece = curGame.state[y][x];
-                    if(xyPiece.name != null && xyPiece.team != abilityPiece.team && !xyPiece.undemonized) {
-                        aPositions.push([x, y]);
-                    }
-                }
-            }
-            aComponents = interactionsFromPositions(aPositions, arg1, "turnstart", "demonize", 3);
-        break;
         // Target all ally
         case "Tanner":
             aPositions = [];
@@ -2153,7 +2108,7 @@ client.on('interactionCreate', async interaction => {
                     teamName = "Werewolves (Black)";
                 break;
                 case "solo":
-                    pieces = ["Flute Player","Devil","Zombie","Angel","Vampire","Undead"];
+                    pieces = ["Flute Player","Devil","Zombie","Angel"];
                     teamColor = "Gold";
                     teamName = "Solo (Gold)";
                 break;
@@ -2337,7 +2292,6 @@ function getTeam(piece) {
         case "Devil":
         case "Zombie": case "Zombie2": case "Zombie3": case "Zombie4": case "Zombie5": 
         case "Angel":
-        case "Vampire": case "Undead":
             return 2;
     }
 }
@@ -2348,7 +2302,7 @@ function isActive(piece) {
             return false;
         case "Hooker": case "Crowd Seeker": case "Aura Teller": case "Royal Knight": case "Fortune Teller": case "Witch":
         case "Tanner": case "Archivist Fox": case "Dog": case "Infecting Wolf": case "Alpha Wolf": case "Psychic Wolf": case "Clairvoyant Fox": case "Warlock": case "Saboteur Wolf":
-        case "Flute Player": case "Devil": case "Zombie": case "Zombie2": case "Zombie3": case "Zombie4": case "Zombie5": case "Vampire":
+        case "Flute Player": case "Devil": case "Zombie": case "Zombie2": case "Zombie3": case "Zombie4": case "Zombie5": 
             return true;
     }
 }
@@ -2435,18 +2389,14 @@ function getAbilityText(piece) {
             return "Must either be dead or the only remaining piece. Loses the game otherwise.";
             
         case "Flute Player":
-            return "Solo | Cannot take pieces. Gets two turns per round. May move or enchant a piece, making them unable to use an ability. Wins when everyone is enchanted.";
-        case "Vampire":
-            return "Solo | May move or demonize a piece. When a demonized piece is taken, they instead become an Undead.";
-        case "Undead":
-            return "Solo | No ability.";
+            return "Cannot take pieces. Gets two turns per round. May move or enchant pieces, making them unable to use an ability. Wins when everyone is enchanted.";
         case "Devil":
             return "WIP!! DEVIL";
         case "Zombie":
-            return "Solo | Cannot take pieces, instead turns them into Zombies. When a Zombie is taken, all Zombies it created disappear. Gets two turns per round.";
+            return "Cannot take pieces, instead turns them into Zombies. When a Zombie is taken, all Zombies it created disappear.";
             
         case "Angel":
-            return "UA | Takes killer, when taken.";
+            return "Takes killer, when taken.";
     }
 }
 
@@ -2456,7 +2406,7 @@ function getChessName(piece) {
             return null;
         case "Citizen": case "Ranger": case "Huntress": case "Bartender": case "Fortune Apprentice": case "Child":
         case "Wolf": case "Wolf Cub": case "Tanner": case "Archivist Fox": case "Recluse": case "Dog":
-        case "Angel": case "Zombie": case "Zombie2": case "Zombie3": case "Zombie4": case "Zombie5": case "Undead":
+        case "Angel": case "Zombie": case "Zombie2": case "Zombie3": case "Zombie4": case "Zombie5": 
         case "White Pawn": case "Black Pawn": 
             return "Pawn";
          case "Hooker": case "Idiot": case "Crowd Seeker": case "Aura Teller":
@@ -2470,7 +2420,7 @@ function getChessName(piece) {
         case "Runner": case "Fortune Teller": case "Witch":
         case "Warlock": case "Scared Wolf": case "Saboteur Wolf":
         case "Attacked Runner": case "Attacked Scared Wolf":
-        case "Flute Player": case "Vampire":
+         case "Flute Player": 
         case "White Rook": case "Black Rook": 
             return "Rook";
          case "Cursed Civilian":
@@ -2593,7 +2543,7 @@ function getWWRevalValue(piece) {
             case "Infecting Wolf": case "Direwolf": case "Bartender":
                 return 5;
                 
-            case "Flute Player": case "Devil": case "Zombie": case "Zombie2": case "Zombie3": case "Zombie4": case "Zombie5": case "Angel": case "Vampire": case "Undead":
+            case "Flute Player": case "Devil": case "Zombie": case "Zombie2": case "Zombie3": case "Zombie4": case "Zombie5": case "Angel":
                 return 0;
             
             default:
@@ -2825,9 +2775,9 @@ function createGame(playerID, playerID2, playerID3, gameID, name1, name2, name3,
             
             // add a solo
             if(name3 != null && height%2 == 1 && height >= 3) { // seo: debug solo
-                let solos = [["Angel","Angel", false],["Flute Player","Flute", true],["Zombie","Graveyard", true],["Vampire","Underworld", false]];
+                let solos = [["Angel","Angel", false],["Flute Player","Flute", true],["Zombie","Graveyard", true]];
                 //let selectedSolo = solos[Math.floor(Math.random() * solos.length)];
-                let selectedSolo = solos[3];
+                let selectedSolo = solos[1];
                 newBoard[Math.floor(height/2)][Math.floor(width/2)] = getPiece(selectedSolo[0]);
                 newGame.soloTeam = selectedSolo[1];
                 newGame.soloDoubleTurns = selectedSolo[2];
@@ -3421,9 +3371,6 @@ function renderBoard(game, message = "Turn", turnOverride = null) {
         switch(game.soloTeam) {
             case "Flute":
                 if(game.soloRevealed) boardRows.push("🎶​ **Enchanted:** " + (soloAffectedRoles.length>0?soloAffectedRoles.join(", "):"*None*"));
-            break;
-            case "Underworld":
-                if(game.soloRevealed) boardRows.push("🧛​ **Demonized:** " + (soloAffectedRoles.length>0?soloAffectedRoles.join(", "):"*None*"));
             break;
             default:
             break;
