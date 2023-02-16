@@ -869,30 +869,43 @@ function deepCopy(el) {
 }
 
 function turnStart(interaction, gameid, turn, mode = "editreply") {
+    // register message
+    if(mode != "followup" && interaction.message) gamesDiscord[gameid].pmsgs[turn] = interaction.message.id;
+    // abilities
     let availableAbilities = showMoves(gameid, turn, true, "Select a Piece (ABILITY)");
     // show buttons?
     if(availableAbilities.components[0].components.length == 1) turnMove(interaction, gameid, turn, mode); // no
-    else response(interaction, availableAbilities, mode); // yes
+    else response(gameid, interaction, availableAbilities, mode); // yes
 }
 
 function turnStartNot(interaction, gameid, turn, mode = "editreply") {
+    // register message
+    if(mode != "followup" && interaction.message) gamesDiscord[gameid].pmsgs[turn] = interaction.message.id;
+    // waiting
     let board = renderBoard(games[gameid], "Waiting on Opponent");
     let noButtons = { content: board, ephemeral: true, fetchReply: true, components: [{ type: 1, components: [{ type: 2, label: "Start Game", style: 4, custom_id: "start" }] }] };
-    response(interaction, noButtons, mode); // show Start Game Button
+    response(gameid, interaction, noButtons, mode); // show Start Game Button
 }
 
 function turnMove(interaction, gameid, turn, mode = "editreply") {
+    // register message
+    if(mode != "followup" && interaction.message) gamesDiscord[gameid].pmsgs[turn] = interaction.message.id;
     // update spec board
     let msgSpec = displayBoard(games[gameid], "Spectator Board", [], -1);
     msgSpec.ephemeral = false;
     gamesDiscord[gameid].msg.edit(msgSpec);
     // show movable pieces
     let availableMoves = showMoves(gameid, turn, false, "Select a Piece (MOVE)");
-    response(interaction, availableMoves, mode);
+    response(gameid, interaction, availableMoves, mode);
 }
 
-function response(interaction, resp, mode) {
+function response(gameid, interaction, resp, mode) {
     switch(mode) {
+        case "reply":
+            interaction.reply(resp).then(m => {
+                gamesDiscord[gameid].pmsgs[games[gameid].turn] = m.id; 
+            });
+        break;
         case "update":
             interaction.update(resp);
         break;
@@ -2053,6 +2066,15 @@ client.on('interactionCreate', async interaction => {
         let arg2 = interaction.customId.split("-")[2];
         let gameID = getPlayerGameId(interaction.member.id);
         let curGame = games[gameID];
+        
+        // check if its still a valid message
+        if(gamesDiscord[gameID].pmsgs[curGame.turn] && gamesDiscord[gameID].pmsgs[curGame.turn] != interaction.message.id) {
+            console.log(gamesDiscord[gameID].pmsgs[curGame.turn]);
+            console.log("OUTDATED MESSAGE");
+            interaction.update({content: "✘", components: []});
+            return;
+        }
+        
         gamesDiscord[gameID].lastInteraction = interaction;
         gamesDiscord[gameID].lastInteractionTurn = curGame.turn;
         switch(type) {
@@ -2367,6 +2389,24 @@ client.on('interactionCreate', async interaction => {
                     // player board
                     turnStart(interaction, id, 0, "followup"); 
                 });
+            }
+        break;
+        case "resend":
+            if(isPlaying(interaction.member.id)) {
+                let pid = interaction.member.id;
+                let gid = getPlayerGameId(pid);
+                let pgid = -1;
+                if(pid == games[gid].players[0]) pgid = 0;
+                else if(pid == games[gid].players[1]) pgid = 1;
+                else if(pid == games[gid].players[2]) pgid = 2;
+                if(pgid == games[gid].turn) {
+                    turnMove(interaction, gid, games[gid].turn, "reply");
+                } else {
+                    interaction.reply({ content: "**Error:** Please wait until it's your turn to run `/resend`!", ephemeral: true });
+                }
+                
+            } else {
+                interaction.reply({ content: "**Error:** You're not in a game!", ephemeral: true });
             }
         break;
         case "accept":
@@ -2933,7 +2973,7 @@ function createGame(playerID, playerID2, playerID3, gameID, name1, name2, name3,
     games.push(newGame);
     // store some data separately because we dont need to always deep copy it
     gamesHistory.push({ id: gameID, history: [], lastMoves: [], sinceCapture: 0 }); // history data
-    gamesDiscord.push({ id: gameID, channel: channel, guild: guild, msg: null, lastInteraction: null, lastInteractionTurn: null, lastMove: Date.now() }); // discord related data
+    gamesDiscord.push({ id: gameID, channel: channel, guild: guild, msg: null, pmsgs: [], lastInteraction: null, lastInteractionTurn: null, lastMove: Date.now() }); // discord related data
 }
 
 // destroys a game
@@ -3602,6 +3642,10 @@ function registerCommands() {
     client.application?.commands.create({
         name: 'resign',
         description: 'Resigns the game.'
+    });
+    client.application?.commands.create({
+        name: 'resend',
+        description: 'Resends the private board message.'
     });
     client.application?.commands.create({
         name: 'accept',
