@@ -868,9 +868,10 @@ function deepCopy(el) {
     return structuredClone(el);
 }
 
-function turnStart(interaction, gameid, turn, mode = "editreply") {
+function turnStart(interaction, gameid, turn, mode = "editreply", firstMessage = false) {
     // register message
-    if(mode != "followup" && interaction.message) gamesDiscord[gameid].pmsgs[turn] = interaction.message.id;
+    console.log("turnstart", mode, turn, interaction.message ? interaction.message.id : null);
+    if(mode != "followup" && mode != "reply" && interaction.message && !firstMessage) gamesDiscord[gameid].pmsgs[turn] = interaction.message.id;
     // abilities
     let availableAbilities = showMoves(gameid, turn, true, "Select a Piece (ABILITY)");
     // show buttons?
@@ -880,7 +881,8 @@ function turnStart(interaction, gameid, turn, mode = "editreply") {
 
 function turnStartNot(interaction, gameid, turn, mode = "editreply") {
     // register message
-    if(mode != "followup" && interaction.message) gamesDiscord[gameid].pmsgs[turn] = interaction.message.id;
+    console.log("turnstartnot", mode, turn, interaction.message ? interaction.message.id : null);
+    if(mode != "followup" && mode != "reply"  && interaction.message) gamesDiscord[gameid].pmsgs[turn] = interaction.message.id;
     // waiting
     let board = renderBoard(games[gameid], "Waiting on Opponent");
     let noButtons = { content: board, ephemeral: true, fetchReply: true, components: [{ type: 1, components: [{ type: 2, label: "Start Game", style: 4, custom_id: "start" }] }] };
@@ -889,7 +891,8 @@ function turnStartNot(interaction, gameid, turn, mode = "editreply") {
 
 function turnMove(interaction, gameid, turn, mode = "editreply") {
     // register message
-    if(mode != "followup" && interaction.message) gamesDiscord[gameid].pmsgs[turn] = interaction.message.id;
+    console.log("turnmove", mode, turn, interaction.message ? interaction.message.id : null);
+    if(mode != "followup" && mode != "reply"  && interaction.message) gamesDiscord[gameid].pmsgs[turn] = interaction.message.id;
     // update spec board
     let msgSpec = displayBoard(games[gameid], "Spectator Board", [], -1);
     msgSpec.ephemeral = false;
@@ -936,7 +939,7 @@ function getDefensivePosition(moveFrom, moveTo, movedX, movedY) {
 
 function pieceDied(game, name) {
     console.log("TOOK", name);
-    if(game.soloTeam == "Apprentice" && !game.ai) {
+    if(game.soloTeam == "Apprentice" && !game.ai && name != "Apprentice") {
         game.soloTeam = "ApprenticeUsed";
         let apprentice = null;
         let appx = null, appy = null;
@@ -1269,7 +1272,7 @@ function movePiece(interaction, moveCurGame, from, to, repl = null) {
                     for(let x = 0; x < moveCurGame.width; x++) {
                         let xyPiece = moveCurGame.state[y][x];
                         if(xyPiece.name == "Fortune Apprentice") {
-                            moveCurGame.state[y][x] = getPiece(beatenPiece.name);
+                            moveCurGame.state[y][x] = convertPiece(moveCurGame.state[y][x], beatenPiece.name);
                         }
                     }
                 }
@@ -1285,6 +1288,16 @@ function movePiece(interaction, moveCurGame, from, to, repl = null) {
                 }
                 moveCurGame.state[defensive.y][defensive.x] = movedPiece;
                 moveCurGame.state[moveTo.y][moveTo.x] = getPiece("Attacked " + beatenPiece.name);
+                moveCurGame.state[moveTo.y][moveTo.x].enemyVisibleStatus = 7;
+            break;
+            case "Immortal":
+                defensive = getDefensivePosition(moveFrom, moveTo, movedX, movedY);
+                if(notAiTurn) {
+                    moveCurGameHistory.lastMoves.push([moveCurGame.turn, movedPiece.name, movedPiece.disguise, movedPiece.enemyVisible, from, xyToName(defensive.x, defensive.y), movedPiece.enemyVisibleStatus]);
+                    moveCurGameHistory.lastMoves.push([beatenPiece.team, beatenPiece.name, false, "", to, to, 7, "🛡️🟦🟦"]);
+                }
+                moveCurGame.state[defensive.y][defensive.x] = movedPiece;
+                moveCurGame.state[moveTo.y][moveTo.x] = beatenPiece;
                 moveCurGame.state[moveTo.y][moveTo.x].enemyVisibleStatus = 7;
             break;
             case "Cursed Civilian":
@@ -1550,7 +1563,7 @@ function emptyMessage() {
     return { content: "*Loading...*", components: [], ephemeral: true, fetchReply: true };
 }
 
-async function busyWaiting(interaction, gameid, player) {
+async function busyWaiting(interaction, gameid, player, firstMessage = false) {
     await sleep(900);
     while(true) {
         await sleep(100);
@@ -1572,7 +1585,7 @@ async function busyWaiting(interaction, gameid, player) {
             // if edit fails retry;
             try {
                 if(interaction && interaction.replied) {
-                    turnStart(interaction, gameid, player, "editreply");  
+                    turnStart(interaction, gameid, player, "editreply", firstMessage);  
                     return;
                 }
             } catch (err) { 
@@ -2067,17 +2080,53 @@ client.on('interactionCreate', async interaction => {
         let gameID = getPlayerGameId(interaction.member.id);
         let curGame = games[gameID];
         
-        // check if its still a valid message
-        if(gamesDiscord[gameID].pmsgs[curGame.turn] && gamesDiscord[gameID].pmsgs[curGame.turn] != interaction.message.id) {
-            console.log(gamesDiscord[gameID].pmsgs[curGame.turn]);
-            console.log("OUTDATED MESSAGE");
-            interaction.update({content: "✘", components: []});
-            return;
+        if(type != "deny" && type != "accept") {
+            // check if its still a valid message
+            if(gamesDiscord[gameID].pmsgs[curGame.turn] && gamesDiscord[gameID].pmsgs[curGame.turn] != interaction.message.id) {
+                console.log(gamesDiscord[gameID].pmsgs[curGame.turn]);
+                console.log(interaction.message.id);
+                console.log("OUTDATED MESSAGE");
+                interaction.update({content: "✘", components: []});
+                return;
+            }
+            
+            gamesDiscord[gameID].lastInteraction = interaction;
+            gamesDiscord[gameID].lastInteractionTurn = curGame.turn;
         }
         
-        gamesDiscord[gameID].lastInteraction = interaction;
-        gamesDiscord[gameID].lastInteractionTurn = curGame.turn;
         switch(type) {
+            // deny challenge
+            case "deny":
+                if(!isOutstanding(interaction.member.id)) {
+                    interaction.reply({ content: "**Error:** You have no outstanding challenges!", ephemeral: true });
+                } else {
+                    let id = getPlayerGameId(interaction.member.id);
+                    concludeGame(id);
+                    destroyGame(id);
+                    interaction.channel.send("**Challenge:** " + interaction.member.user.username + " denied the challenge!");
+                    console.log("DENY");
+                    
+                    interaction.message.delete();
+                }
+            break;
+            case "accept":
+                if(!isOutstanding(interaction.member.id)) {
+                    interaction.reply({ content: "**Error:** You have no outstanding challenges!", ephemeral: true });
+                } else {
+                    let challenge = outstandingChallenge.filter(el => el[0] == interaction.member.id)[0];
+                    console.log("CHALLENGE", challenge);
+                    
+                    interaction.channel.send("**Challenge**: <@" + challenge[1] + "> Your challenge has been accepted by <@" + interaction.member.id + ">!");
+                    
+                    interaction.reply(displayBoard(games[challenge[2]], "Waiting on Opponent", [], 1));
+                    busyWaiting(interaction, challenge[2], 1, true);
+                    
+                    outstandingChallenge = outstandingChallenge.filter(el => el[0] != interaction.member.id);
+                    
+                    interaction.message.delete();
+                }
+            break;
+            // start game if starting is black
             case "start":
                 await interaction.update(displayBoard(curGame, "Starting Game", []));
                 turnDone(interaction, curGame, "Waiting on Opponent");
@@ -2219,6 +2268,7 @@ client.on('interactionCreate', async interaction => {
     }
     
     if(!interaction.isCommand()) return; // ignore non-slash commands
+    let soloGame = false;
     switch(interaction.commandName) {
         case "ping":
             // Send pinging message
@@ -2251,7 +2301,7 @@ client.on('interactionCreate', async interaction => {
                     teamName = "Werewolves (Black)";
                 break;
                 case "solo":
-                    pieces = ["Flute Player","Devil","Zombie","Angel","Vampire","Undead","Apprentice"];
+                    pieces = ["Flute Player","Devil","Zombie","Angel","Vampire","Undead","Apprentice","Immortal"];
                     teamColor = "Gold";
                     teamName = "Solo (Gold)";
                 break;
@@ -2264,6 +2314,8 @@ client.on('interactionCreate', async interaction => {
             // Send pinging message
             interaction.reply({ content: pieceMsg });
         break;
+        case "play_solo":
+            soloGame = true;
         case "play":
             if(isPlaying(interaction.member.id)) {
                 interaction.reply({ content: "**Error:** You're already in a game!", ephemeral: true });
@@ -2272,16 +2324,26 @@ client.on('interactionCreate', async interaction => {
                 let rand = Math.floor(Math.random() * 100);
                 //rand = 100; // seo: debug solo
                 // determine teams
-                if(rand < 6) { // player town + solo
-                    players = [[interaction.member.id, interaction.member.user.username], [null, "*AI*"], [null, "*AI #2*"]];
-                } else if(rand < 48) { // player town
-                    players = [[interaction.member.id, interaction.member.user.username], [null, "*AI*"], [null, null]];
-                } else if(rand < 54) { // player wolf + ai
-                    players = [[null, "*AI*"], [interaction.member.id, interaction.member.user.username], [null, "*AI #2*"]];
-                }  else if(rand < 96) { // player wolf
-                    players = [[null, "*AI*"], [interaction.member.id, interaction.member.user.username], [null, null]];
-                } else { // player ai
-                    players = [[null, "*AI*"], [null, "*AI #2*"], [interaction.member.id, interaction.member.user.username]];
+                if(!soloGame) {
+                    if(rand < 6) { // player town + solo
+                        players = [[interaction.member.id, interaction.member.user.username], [null, "*AI*"], [null, "*AI #2*"]];
+                    } else if(rand < 48) { // player town
+                        players = [[interaction.member.id, interaction.member.user.username], [null, "*AI*"], [null, null]];
+                    } else if(rand < 54) { // player wolf + ai
+                        players = [[null, "*AI*"], [interaction.member.id, interaction.member.user.username], [null, "*AI #2*"]];
+                    }  else if(rand < 96) { // player wolf
+                        players = [[null, "*AI*"], [interaction.member.id, interaction.member.user.username], [null, null]];
+                    } else { // player ai
+                        players = [[null, "*AI*"], [null, "*AI #2*"], [interaction.member.id, interaction.member.user.username]];
+                    }
+                } else {
+                    if(rand <= 35) { // player town + solo
+                        players = [[interaction.member.id, interaction.member.user.username], [null, "*AI*"], [null, "*AI #2*"]];
+                    } else if(rand <= 70) { // player wolf + solo
+                        players = [[null, "*AI*"], [interaction.member.id, interaction.member.user.username], [null, "*AI #2*"]];
+                    } else { // player solo
+                        players = [[null, "*AI*"], [null, "*AI #2*"], [interaction.member.id, interaction.member.user.username]];
+                    }
                 }
                 // create game
                 createGame(players[0][0], players[1][0], players[2][0], games.length, players[0][1], players[1][1], players[2][1], interaction.channel.id, interaction.guild.id);
@@ -2342,17 +2404,8 @@ client.on('interactionCreate', async interaction => {
                 console.log("RESIGN");
             }
         break;
-        case "deny":
-            if(!isOutstanding(interaction.member.id)) {
-                interaction.reply({ content: "**Error:** You have no outstanding challenges!", ephemeral: true });
-            } else {
-                let id = getPlayerGameId(interaction.member.id);
-                concludeGame(id);
-                destroyGame(id);
-                interaction.reply("**Challenge:** " + interaction.member.user.username + " denied the challenge!");
-                console.log("DENY");
-            }
-        break;
+        case "challenge_solo":
+            soloGame = true;
         case "challenge":
             if(isPlaying(interaction.member.id)) {
                 interaction.reply({ content: "**Error:** You're already in a game!", ephemeral: true });
@@ -2369,14 +2422,14 @@ client.on('interactionCreate', async interaction => {
                 }
                 
                 let gameID = games.length;
-                if(Math.floor(Math.random() * 100) < 15) { // with AI
+                if(Math.floor(Math.random() * 100) < 15 || soloGame) { // with AI
                     createGame(interaction.member.id, opponent.id, null, gameID, interaction.member.user.username, opponent.user.username, "*AI*", interaction.channel.id, interaction.guild.id);
                 } else { // without AI
                     createGame(interaction.member.id, opponent.id, null, gameID, interaction.member.user.username, opponent.user.username, null, interaction.channel.id, interaction.guild.id);
                 }
                 
-                interaction.channel.send("**Challenge**: <@" + opponent.id + "> You have been challenged by <@" + interaction.member.id + ">! Run `/accept` to accept the challenge.");
-                
+                interaction.channel.send({content: "**Challenge**: <@" + opponent.id + "> You have been challenged by <@" + interaction.member.id + ">!", components: [{type: 1, components:[{ type: 2, label: "Accept", style: 3, custom_id: "accept" }, { type: 2, label: "Deny", style: 4, custom_id: "deny" }]}] });
+               
                 outstandingChallenge.push([opponent.id, interaction.member.id, gameID])
                 
                 // display board
@@ -2409,21 +2462,6 @@ client.on('interactionCreate', async interaction => {
                 interaction.reply({ content: "**Error:** You're not in a game!", ephemeral: true });
             }
         break;
-        case "accept":
-            if(!isOutstanding(interaction.member.id)) {
-                interaction.reply({ content: "**Error:** You have no outstanding challenges!", ephemeral: true });
-            } else {
-                let challenge = outstandingChallenge.filter(el => el[0] == interaction.member.id)[0];
-                console.log("CHALLENGE", challenge);
-                
-                interaction.channel.send("**Challenge**: <@" + challenge[1] + "> Your challenge has been accepted by <@" + interaction.member.id + ">!");
-                
-                interaction.reply(displayBoard(games[challenge[2]], "Waiting on Opponent", [], 1));
-                busyWaiting(interaction, challenge[2], 1);
-                
-                outstandingChallenge = outstandingChallenge.filter(el => el[0] != interaction.member.id);
-            }
-        break;
     }
 })
 
@@ -2454,6 +2492,7 @@ function getTeam(piece) {
         case "Zombie": case "Zombie2": case "Zombie3": case "Zombie4": case "Zombie5": 
         case "Angel": case "Apprentice":
         case "Vampire": case "Undead":
+        case "Immortal":
             return 2;
     }
 }
@@ -2560,9 +2599,11 @@ function getAbilityText(piece) {
             return "Solo | WIP!! DEVIL";
         case "Zombie":
             return "Solo | Cannot take pieces, instead turns them into Zombies. When a Zombie is taken, all Zombies it created disappear. Gets two turns per round.";
+        case "Immortal":
+            return "Solo | Cannot be taken. Gets two turns per round.";
             
         case "Angel":
-            return "UA | Takes killer, when taken.";
+            return "UA | Cannot take pieces. Takes killer, when taken.";
         case "Apprentice":
             return "UA | Transforms into first taken piece.";
     }
@@ -2574,7 +2615,7 @@ function getChessName(piece) {
             return null;
         case "Citizen": case "Ranger": case "Huntress": case "Bartender": case "Fortune Apprentice": case "Child":
         case "Wolf": case "Wolf Cub": case "Tanner": case "Archivist Fox": case "Recluse": case "Dog":
-        case "Angel": case "Zombie": case "Zombie2": case "Zombie3": case "Zombie4": case "Zombie5": case "Undead": case "Apprentice":
+        case "Angel": case "Zombie": case "Zombie2": case "Zombie3": case "Zombie4": case "Zombie5": case "Undead": case "Apprentice": case "Immortal":
         case "White Pawn": case "Black Pawn": 
             return "Pawn";
          case "Hooker": case "Idiot": case "Crowd Seeker": case "Aura Teller":
@@ -2693,8 +2734,10 @@ function loadTestingSetup(board) {
 
 function getWWRevalValue(piece) {
         switch(piece) {
-            case "Citizen": case "Cursed Civilian": case "Ranger": case "Child": case "Huntress":
-            case "Wolf": case "Sneaking Wolf": case "Fox": case "White Werewolf": case "Recluse":
+            case "Cursed Civilian": case "White Werewolf": 
+                return -1;
+            case "Citizen": case "Ranger": case "Child": case "Huntress":
+            case "Wolf": case "Sneaking Wolf": case "Fox": case "Recluse":
             case "Attacked Runner": case "Attacked Idiot":
             case "Attacked Scared Wolf": 
                 return 0;
@@ -2711,7 +2754,7 @@ function getWWRevalValue(piece) {
             case "Infecting Wolf": case "Direwolf": case "Bartender":
                 return 5;
                 
-            case "Flute Player": case "Devil": case "Zombie": case "Zombie2": case "Zombie3": case "Zombie4": case "Zombie5": case "Angel": case "Vampire": case "Undead": case "Apprentice":
+            case "Flute Player": case "Devil": case "Zombie": case "Zombie2": case "Zombie3": case "Zombie4": case "Zombie5": case "Angel": case "Vampire": case "Undead": case "Apprentice": case "Immortal":
                 return 0;
             
             default:
@@ -2883,8 +2926,27 @@ function generateRoleList(board) {
             continue;
         }
         
+        let avgTotalValue = (totalValueTown + totalValueWolf) / 2.0;
         // condition
-        if(totalChessValueTown <= (board[0].length*3) && totalWWRValueTown <= (board[0].length*2.4) && totalValueTown <= (board[0].length*4.6) && totalChessValueWolf <= (board[0].length*3) && totalWWRValueWolf <= (board[0].length*2.4) && totalValueWolf <= (board[0].length*4.6) && townSelected.length == board[0].length && wolfSelected.length == board[0].length && combinedIncompTown.indexOf(townSelected[0]) == -1 && (totalValueTown >= totalValueWolf - 2 || totalValueTown <= totalValueWolf) &&combinedIncompTown.indexOf(townSelected[1]) == -1 && combinedIncompTown.indexOf(townSelected[2]) == -1 && combinedIncompTown.indexOf(townSelected[3]) == -1 && combinedIncompTown.indexOf(townSelected[4]) == -1 && combinedIncompWolf.indexOf(wolfSelected[0]) == -1 && combinedIncompWolf.indexOf(wolfSelected[1]) == -1 && combinedIncompWolf.indexOf(wolfSelected[2]) == -1 && combinedIncompWolf.indexOf(wolfSelected[3]) == -1 && combinedIncompWolf.indexOf(wolfSelected[4]) == -1) {
+        if(
+            //check if the setup doesnt have too much power
+            totalChessValueTown <= (board[0].length*3) && totalWWRValueTown <= (board[0].length*2.4) && totalValueTown <= (board[0].length*4.6) && // town
+            totalChessValueWolf <= (board[0].length*3) && totalWWRValueWolf <= (board[0].length*2.4) && totalValueWolf <= (board[0].length*4.6) && // wolf
+            // check if the amount of selected roles is correct
+            townSelected.length == board[0].length && wolfSelected.length == board[0].length && 
+            // check if the teams have roughly the same power
+            (totalChessValueTown >= totalChessValueWolf - 2 && totalChessValueWolf >= totalChessValueTown - 2) &&  // chess value, max of 2 off
+            (totalWWRValueTown >= totalWWRValueWolf - 4 && totalWWRValueWolf >= totalWWRValueTown - 4) &&  // wwr value, max of 4 off
+            (   // total value, depends on average total power
+                (totalWWRValueTown >= totalWWRValueWolf - 0.5 && totalWWRValueWolf >= totalWWRValueTown - 0.5) ||
+                (avgTotalValue >= 5 && totalWWRValueTown >= totalWWRValueWolf - 1 && totalWWRValueWolf >= totalWWRValueTown - 1) ||
+                (avgTotalValue >= 10 && totalWWRValueTown >= totalWWRValueWolf - 2 && totalWWRValueWolf >= totalWWRValueTown - 2) ||
+                (avgTotalValue >= 15  && totalWWRValueTown >= totalWWRValueWolf - 2.5 && totalWWRValueWolf >= totalWWRValueTown - 2.5)
+            ) &&
+            // check for incompatibilities
+            combinedIncompTown.indexOf(townSelected[0]) == -1 && combinedIncompTown.indexOf(townSelected[1]) == -1 && combinedIncompTown.indexOf(townSelected[2]) == -1 && combinedIncompTown.indexOf(townSelected[3]) == -1 && combinedIncompTown.indexOf(townSelected[4]) == -1 &&
+            combinedIncompWolf.indexOf(wolfSelected[0]) == -1 && combinedIncompWolf.indexOf(wolfSelected[1]) == -1 && combinedIncompWolf.indexOf(wolfSelected[2]) == -1 && combinedIncompWolf.indexOf(wolfSelected[3]) == -1 && combinedIncompWolf.indexOf(wolfSelected[4]) == -1
+        ) {
             console.log("INCOMPATIBLE", combinedIncompTown);
             console.log("ACCEPT #" + iterations, totalChessValueTown, totalWWRValueTown, totalValueTown, townSelected.map(el=>el[0]).join(","), totalChessValueWolf, totalWWRValueWolf, totalValueWolf, wolfSelected.map(el=>el[0]).join(","));
             console.log("LIST METADATA", metadata);
@@ -2943,9 +3005,10 @@ function createGame(playerID, playerID2, playerID3, gameID, name1, name2, name3,
             
             // add a solo
             if(name3 != null && height%2 == 1 && height >= 3) { // seo: debug solo
-                let solos = [["Angel","Angel", false],["Flute Player","Flute", true],["Zombie","Graveyard", true],["Vampire","Underworld", false],["Apprentice","Apprentice", false]];
-                //let selectedSolo = solos[Math.floor(Math.random() * solos.length)];
-                let selectedSolo = solos[4];
+                let solos = [["Angel","Angel", false],["Flute Player","Flute", true],["Zombie","Graveyard", true],["Vampire","Underworld", false],["Immortal","Immortal", true]];
+                if(playerID3 == null) solos.push(...[["Apprentice","Apprentice", false]]);
+                let selectedSolo = solos[Math.floor(Math.random() * solos.length)];
+                //let selectedSolo = solos[4];
                 newBoard[Math.floor(height/2)][Math.floor(width/2)] = getPiece(selectedSolo[0]);
                 newGame.soloTeam = selectedSolo[1];
                 newGame.soloDoubleTurns = selectedSolo[2];
@@ -2980,9 +3043,15 @@ function createGame(playerID, playerID2, playerID3, gameID, name1, name2, name3,
 function destroyGame(id) {
     console.log("DESTROY", id);
     players = players.filter(el => el[1] != id); // delete players from playing players
-    games = games.filter(el => el.id != id);
-    gamesHistory = gamesHistory.filter(el => el.id != id);
-    gamesDiscord = gamesDiscord.filter(el => el.id != id);
+    // in a previous version of the code it would filter out the game that is getting destroyed, causing other games to go into the place of that game and potentially also getting destroyed. Thus is now only replaces them with null and only clears them out of the game array completely if the entire array is empty anyway
+    games[id] = null;
+    gamesHistory[id] = null;
+    gamesDiscord[id] = null;
+    if(games.filter(el => el != null).length == 0) {
+        games = [];
+        gamesHistory = [];
+        gamesDiscord = [];
+    }
 }
 
 // concludes a game (reveals all pieces)
@@ -3611,12 +3680,28 @@ function registerCommands() {
         description: 'Starts a game.'
     });
     client.application?.commands.create({
+        name: 'play_solo',
+        description: 'Starts a game with a solo.'
+    });
+    client.application?.commands.create({
         name: 'aigame',
         description: 'Starts a game with just AIs.'
     });
     client.application?.commands.create({
         name: 'challenge',
         description: 'Starts a game with another player.',
+        options: [
+            {
+                type: "MENTIONABLE",
+                name: "opponent",
+                description: "The name of the person you'd like to challenge.",
+                required: true
+            }
+        ]
+    });
+    client.application?.commands.create({
+        name: 'challenge_solo',
+        description: 'Starts a game with another player with a solo.',
         options: [
             {
                 type: "MENTIONABLE",
