@@ -1,6 +1,15 @@
 /* Discord */
-const { Client, Intents, ApplicationCommandOptionType } = require('discord.js');
-global.client = new Client({ intents: ['GUILDS', 'GUILD_WEBHOOKS', 'GUILD_VOICE_STATES', 'GUILD_MEMBERS', 'GUILD_MESSAGES', 'GUILD_MESSAGE_REACTIONS', 'DIRECT_MESSAGES', 'DIRECT_MESSAGE_REACTIONS'] });
+const { Client, Intents, ApplicationCommandOptionType, Options } = require('discord.js');
+global.client = new Client({ 
+    intents: ['GUILDS', 'GUILD_WEBHOOKS', 'GUILD_VOICE_STATES', 'GUILD_MEMBERS', 'GUILD_MESSAGES', 'GUILD_MESSAGE_REACTIONS', 'DIRECT_MESSAGES', 'DIRECT_MESSAGE_REACTIONS'],
+    sweepers: {
+		...Options.DefaultSweeperSettings,
+		messages: {
+			interval: 900, // Every 15 minutes...
+			lifetime: 900,	// Remove messages older than 15 minutes.
+		},
+	}
+});
 config = require("./config.json");
 
 /* Setup */
@@ -677,7 +686,12 @@ function getChildren(game, maxDepth = 0, depth = 0, maximizingPlayer = true) {
 // on the first iteration save and return the move
 function minimaxStart(AI, game, maxDepth, depth, alpha = -Infinity, beta = Infinity) {
     let board = game.state;
-    if ((game.players.length == 2 && !canMove(board, (AI+1)%2)) || (game.players.length == 3 && !canMove(board, (AI+1)%3) && !canMove(board, (AI+2)%3)) || (AI == 2 && soloWin(board, game.soloTeam)) || (AI == 2 && uaWin(board, game.soloTeam))) {
+    if(
+        (game.players.length == 2 && !canMove(board, (AI+1)%2)) ||
+        (game.players.length == 3 && !canMove(board, (AI+1)%3) && !canMove(board, (AI+2)%3)) ||
+        (AI == 2 && soloWin(board, game.soloTeam)) ||
+        (AI == 2 && uaWin(board, game.soloTeam))
+    ) {
         return { value: 1000 - (maxDepth - depth), move: null }; // game winning move
     }
     if (!canMove(board, AI) || (AI != 2 && game.solo && game.soloRevealed && soloWin(board, game.soloTeam))) {
@@ -693,7 +707,7 @@ function minimaxStart(AI, game, maxDepth, depth, alpha = -Infinity, beta = Infin
         debugIterationCounter++;
         var result = minimax(AI, child[4], maxDepth, depth - 1, alpha, beta);
         
-        //if(AI == 2) console.log("MOVE", result, (child[0]==null?"":(child[0] + "~" + (child[1].length==2?xyToName(child[1][0], child[1][1]):child[1]) + " & "))  + child[2] + ">" + xyToName(child[3][0], child[3][1]));
+        //console.log("MOVE", result, (child[0]==null?"":(child[0] + "~" + (child[1].length==2?xyToName(child[1][0], child[1][1]):child[1]) + " & "))  + child[2] + ">" + xyToName(child[3][0], child[3][1]));
         
         // check for triplicate
         let gameHistoryCopy = deepCopy(gamesHistory[game.parentId].history);
@@ -732,7 +746,12 @@ function minimax(AI, game, maxDepth, depth, alpha = -Infinity, beta = Infinity) 
     if (depth === 0) {
         return evaluate(AI, game, AI);
     }
-    if ((game.players.length == 2 && !canMove(board, (AI+1)%2)) || (game.players.length == 3 && !canMove(board, (AI+1)%3)&& !canMove(board, (AI+2)%3)) || (AI == 2 && soloWin(board, game.soloTeam)) || (AI == 2 && uaWin(board, game.soloTeam))) {
+    if (
+        (game.players.length == 2 && !canMove(board, (AI+1)%2)) ||
+        (game.players.length == 3 && !canMove(board, (AI+1)%3) && !canMove(board, (AI+2)%3)) ||
+        (AI == 2 && soloWin(board, game.soloTeam)) ||
+        (AI == 2 && uaWin(board, game.soloTeam))
+    ) {
         return 1000 - (maxDepth - depth) + evaluate(AI, game, AI); // game winning move
     }
     if (!canMove(board, AI) || (AI != 2 && game.solo && game.soloRevealed && soloWin(board, game.soloTeam))) {
@@ -744,6 +763,9 @@ function minimax(AI, game, maxDepth, depth, alpha = -Infinity, beta = Infinity) 
         let children = getChildren(game, maxDepth, depth, true);
         for (const child of children) {
             debugIterationCounter++;
+            /**let result = minimax(AI, child[4], maxDepth, depth - 1, alpha, beta, false);
+            if(depth == 5) console.log(game.turn, "-   MOVE", result, (child[0]==null?"":(child[0] + "~" + (child[1].length==2?xyToName(child[1][0], child[1][1]):child[1]) + " & "))  + child[2] + ">" + xyToName(child[3][0], child[3][1]));
+            value = Math.max(value, result);**/
             value = Math.max(value, minimax(AI, child[4], maxDepth, depth - 1, alpha, beta, false));
             alpha = Math.max(alpha, value);
             if (beta <= alpha) {
@@ -756,7 +778,10 @@ function minimax(AI, game, maxDepth, depth, alpha = -Infinity, beta = Infinity) 
         let children = getChildren(game, maxDepth, depth, false);
         for (const child of children) {
             debugIterationCounter++;
-            value = Math.min(value, minimax(AI, child[4], maxDepth, depth - 1, alpha, beta, true));
+            /**let result = minimax(AI, child[4], maxDepth, depth - 1, alpha, beta, false);
+            if(depth == 5) console.log(game.turn, "+   MOVE", result, (child[0]==null?"":(child[0] + "~" + (child[1].length==2?xyToName(child[1][0], child[1][1]):child[1]) + " & "))  + child[2] + ">" + xyToName(child[3][0], child[3][1]));
+            value = Math.min(value, result);**/
+            value = Math.min(value, minimax(AI, child[4], maxDepth, depth - 1, alpha, beta, false));
             beta = Math.min(beta, value);
             if (beta <= alpha) {
                 break;  // Alpha cut-off
@@ -981,7 +1006,7 @@ function movePiece(interaction, moveCurGame, from, to, repl = null) {
     moveCurGame.state[moveFrom.y][moveFrom.x] = getPiece(null);
     moveCurGame.state[moveTo.y][moveTo.x] = movedPiece;
     
-    if(notAiTurn) moveCurGame.prevMove = movedPiece.team; // store who did the last move
+    moveCurGame.prevMove = movedPiece.team; // store who did the last move
     
     // 0 -> unknown / likely knight
     // 1 -> likely pawn
@@ -1248,8 +1273,7 @@ function movePiece(interaction, moveCurGame, from, to, repl = null) {
                     moveCurGameHistory.lastMoves.push([beatenPiece.team, beatenPiece.name, false, "", to, to, 7, "🟦" + "2️⃣" + "🇽"]);
                     pieceDied(moveCurGame, beatenPiece.name);
                 }
-                if(moveCurGame.turn == 1) moveCurGame.doubleMove0 = true;
-                else if(moveCurGame.turn == 0) moveCurGame.doubleMove1 = true;
+                moveCurGame.doubleMove0 = true;
             break;
             case "Wolf Cub":
                 if(notAiTurn && !moveCurGame.blackEliminated) {
@@ -1257,8 +1281,7 @@ function movePiece(interaction, moveCurGame, from, to, repl = null) {
                     moveCurGameHistory.lastMoves.push([beatenPiece.team, beatenPiece.name, false, "", to, to, 7, "🟦" + "2️⃣" + "🇽"]);
                     pieceDied(moveCurGame, beatenPiece.name);
                 }
-                if(moveCurGame.turn == 1) moveCurGame.doubleMove0 = true;
-                else if(moveCurGame.turn == 0) moveCurGame.doubleMove1 = true;
+                moveCurGame.doubleMove1 = true;
             break;
             // Fortune Apprentice
             case "Fortune Teller":
@@ -2711,27 +2734,6 @@ function getPiece(name, metadata = {}) {
     return piece;
 }
 
-// a testing setup where two pieces are one rank away from promoting
-function loadPromoteTestSetup(board) {
-    board[1][0] = getPiece("Aura Teller");
-    board[board.length-2][4] = getPiece("Alpha Wolf");
-}
-
-function loadTestingSetup(board) {
-    let testTown = "Runner";
-    let testWolf = "Runner";
-    board[board.length-1][0] = getPiece(testTown);
-    board[board.length-1][1] = getPiece(testTown);
-    board[board.length-1][2] = getPiece(testTown);
-    board[board.length-1][3] = getPiece(testTown);
-    board[board.length-1][4] = getPiece(testTown);
-    board[0][0] = getPiece(testWolf);
-    board[0][1] = getPiece(testWolf);
-    board[0][2] = getPiece(testWolf);
-    board[0][3] = getPiece(testWolf);
-    board[0][4] = getPiece(testWolf);
-}
-
 function getWWRevalValue(piece) {
         switch(piece) {
             case "Cursed Civilian": case "White Werewolf": 
@@ -2996,10 +2998,11 @@ function createGame(playerID, playerID2, playerID3, gameID, name1, name2, name3,
     switch(mode) {
         case "wwress":
             // put pieces on board
-            generateRoleList(newBoard);
+            //generateRoleList(newBoard);
             
             //loadPromoteTestSetup(newBoard);
             //loadTestingSetup(newBoard);
+            loadDebugSetup(newBoard);
             
             // push game to list of games
             
@@ -3037,6 +3040,53 @@ function createGame(playerID, playerID2, playerID3, gameID, name1, name2, name3,
     // store some data separately because we dont need to always deep copy it
     gamesHistory.push({ id: gameID, history: [], lastMoves: [], sinceCapture: 0 }); // history data
     gamesDiscord.push({ id: gameID, channel: channel, guild: guild, msg: null, pmsgs: [], lastInteraction: null, lastInteractionTurn: null, lastMove: Date.now() }); // discord related data
+}
+
+
+// a testing setup where two pieces are one rank away from promoting
+function loadPromoteTestSetup(board) {
+    board[1][0] = getPiece("Aura Teller");
+    board[board.length-2][4] = getPiece("Alpha Wolf");
+}
+
+function loadTestingSetup(board) {
+    let testTown = "Runner";
+    let testWolf = "Runner";
+    board[board.length-1][0] = getPiece(testTown);
+    board[board.length-1][1] = getPiece(testTown);
+    board[board.length-1][2] = getPiece(testTown);
+    board[board.length-1][3] = getPiece(testTown);
+    board[board.length-1][4] = getPiece(testTown);
+    board[0][0] = getPiece(testWolf);
+    board[0][1] = getPiece(testWolf);
+    board[0][2] = getPiece(testWolf);
+    board[0][3] = getPiece(testWolf);
+    board[0][4] = getPiece(testWolf);
+}
+
+
+// 0 -> unknown / likely knight
+// 1 -> likely pawn
+// 2 -> likely king
+// 3 -> likely rook / king
+// 4 -> piece known
+// 5 -> active ability known
+// 6 -> role known (disguise affected)
+// 7 -> role known (disguise unaffected)
+function loadDebugSetup(board) {
+    // Location, Name, EnemyVisible, EnemyVisibleStatus
+    let pieces = [
+        ["B4", "Fox", "Knight", 4],
+        ["D2", "Attacked Idiot", "Attacked Idiot", 7],
+        ["E3", "Wolf Cub", "Wolf Cub", 7],
+        ["E5", "Fortune Teller", "Rook", 4],
+    ];
+    for(let p in pieces) {
+        let coords = nameToXY(pieces[p][0]);
+        board[coords.y][coords.x] = getPiece(pieces[p][1]);
+        board[coords.y][coords.x].enemyVisible = pieces[p][2];
+        board[coords.y][coords.x].enemyVisibleStatus = pieces[p][3];
+    }
 }
 
 // destroys a game
