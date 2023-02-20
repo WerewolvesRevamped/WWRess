@@ -2998,11 +2998,11 @@ function createGame(playerID, playerID2, playerID3, gameID, name1, name2, name3,
     switch(mode) {
         case "wwress":
             // put pieces on board
-            //generateRoleList(newBoard);
+            generateRoleList(newBoard);
             
             //loadPromoteTestSetup(newBoard);
             //loadTestingSetup(newBoard);
-            loadDebugSetup(newBoard);
+            //loadDebugSetup(newBoard);
             
             // push game to list of games
             
