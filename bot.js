@@ -763,10 +763,10 @@ function minimax(AI, game, maxDepth, depth, alpha = -Infinity, beta = Infinity) 
         let children = getChildren(game, maxDepth, depth, true);
         for (const child of children) {
             debugIterationCounter++;
-            /**let result = minimax(AI, child[4], maxDepth, depth - 1, alpha, beta, false);
-            if(depth == 5) console.log(game.turn, "-   MOVE", result, (child[0]==null?"":(child[0] + "~" + (child[1].length==2?xyToName(child[1][0], child[1][1]):child[1]) + " & "))  + child[2] + ">" + xyToName(child[3][0], child[3][1]));
+            /**let result = minimax(AI, child[4], maxDepth, depth - 1, alpha, beta);
+            if(depth == 5) console.log("-   MOVE", result, (child[0]==null?"":(child[0] + "~" + (child[1].length==2?xyToName(child[1][0], child[1][1]):child[1]) + " & "))  + child[2] + ">" + xyToName(child[3][0], child[3][1]));
             value = Math.max(value, result);**/
-            value = Math.max(value, minimax(AI, child[4], maxDepth, depth - 1, alpha, beta, false));
+            value = Math.max(value, minimax(AI, child[4], maxDepth, depth - 1, alpha, beta));
             alpha = Math.max(alpha, value);
             if (beta <= alpha) {
                 break;  // Beta cut-off
@@ -778,16 +778,16 @@ function minimax(AI, game, maxDepth, depth, alpha = -Infinity, beta = Infinity) 
         let children = getChildren(game, maxDepth, depth, false);
         for (const child of children) {
             debugIterationCounter++;
-            /**let result = minimax(AI, child[4], maxDepth, depth - 1, alpha, beta, false);
-            if(depth == 5) console.log(game.turn, "+   MOVE", result, (child[0]==null?"":(child[0] + "~" + (child[1].length==2?xyToName(child[1][0], child[1][1]):child[1]) + " & "))  + child[2] + ">" + xyToName(child[3][0], child[3][1]));
+            /**let result = minimax(AI, child[4], maxDepth, depth - 1, alpha, beta);
+            if(depth == 5) console.log("+   MOVE", result, (child[0]==null?"":(child[0] + "~" + (child[1].length==2?xyToName(child[1][0], child[1][1]):child[1]) + " & "))  + child[2] + ">" + xyToName(child[3][0], child[3][1]));
             value = Math.min(value, result);**/
-            value = Math.min(value, minimax(AI, child[4], maxDepth, depth - 1, alpha, beta, false));
+            value = Math.min(value, minimax(AI, child[4], maxDepth, depth - 1, alpha, beta));
             beta = Math.min(beta, value);
             if (beta <= alpha) {
                 break;  // Alpha cut-off
             }
         }
-        return value;
+        return value == Infinity ? -Infinity : value;
     }
 }
 
@@ -3076,10 +3076,9 @@ function loadTestingSetup(board) {
 function loadDebugSetup(board) {
     // Location, Name, EnemyVisible, EnemyVisibleStatus
     let pieces = [
-        ["B4", "Fox", "Knight", 4],
-        ["D2", "Attacked Idiot", "Attacked Idiot", 7],
-        ["E3", "Wolf Cub", "Wolf Cub", 7],
-        ["E5", "Fortune Teller", "Rook", 4],
+        ["B3", "Archivist Fox", "LikelyPawn", 1],
+        ["C3", "Idiot", "Idiot", 7],
+        ["A5", "Child", "Child", 7],
     ];
     for(let p in pieces) {
         let coords = nameToXY(pieces[p][0]);
