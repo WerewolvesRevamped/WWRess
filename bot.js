@@ -21,6 +21,7 @@ client.on("ready", () => {
 
 /** AI **/
 const PawnValue = 2.0;
+const PrinceValue = 3.0;
 const KingValue = 4.0; 
 const KnightValue = 4.0;
 const RookValue = 7.0;
@@ -47,6 +48,14 @@ const KingTable = [
     [-1.0, 1.5, 2.0, 1.5, -1.0],
     [-1.0, 1.0, 1.5, 1.0, -1.0],
     [-2.0, -1.0, -1.0, -1.0, -2.0]
+];
+
+const PrinceTable = [
+    [-3.0, -1.0, -1.0, -1.0, -3.0],
+    [-1.0, 1.5, 2.0, 1.5, -1.0],
+    [-1.0, 2.0, 2.0, 2.0, -1.0],
+    [-1.0, 1.5, 2.0, 1.5, -1.0],
+    [-3.0, -1.0, -1.0, -1.0, -3.0]
 ];
 
 const KnightTable = [
@@ -93,6 +102,8 @@ function getEvaluationData(piece) {
     switch(piece) {
         case "Pawn": case "ActivePawn":
             return { value: PawnValue, table: PawnTable };
+        case "Prince":
+            return { value: PrinceValue, table: PrinceTable };
         case "King": case "ActiveKing":
             return { value: KingValue, table: KingTable };
         case "Knight": case "ActiveKnight":
@@ -2596,9 +2607,9 @@ function getAbilityText(piece) {
         case "Amnesiac":
             return "Changes after one move.";
         case "Runner":
-            return "Survives one attack.";
+            return "Survives one attack, but becomes less mobile.";
         case "Attacked Runner":
-            return "Survived an attack. No ability.";
+            return "Survived an attack. No ability. Moves one square horizontally/vertically.";
         case "Fortune Teller":
             return "Reveal a reachable piece.";
         case "Witch":
@@ -2635,9 +2646,9 @@ function getAbilityText(piece) {
         case "Warlock":
             return "Reveal a reachable piece.";
         case "Scared Wolf":
-            return "Survives one attack.";
+            return "Survives one attack, but becomes less mobile.";
         case "Attacked Scared Wolf":
-            return "Survived an attack. No ability.";
+            return "Survived an attack. No ability. Moves one square horizontally/vertically.";
         case "Saboteur Wolf":
             return "Block a piece's movement/active ability.";
          case "White Werewolf":
@@ -2676,6 +2687,8 @@ function getChessName(piece) {
         case "Angel": case "Zombie": case "Zombie2": case "Zombie3": case "Zombie4": case "Zombie5": case "Undead": case "Apprentice": case "Corpse":
         case "White Pawn": case "Black Pawn": 
             return "Pawn";
+        case "Attacked Runner": case "Attacked Scared Wolf":
+            return "Prince";
          case "Hooker": case "Idiot": case "Crowd Seeker": case "Aura Teller":
          case "Infecting Wolf": case "Alpha Wolf": case "Psychic Wolf": case "Sneaking Wolf":
          case "White King": case "Black King": 
@@ -2687,7 +2700,6 @@ function getChessName(piece) {
             return "Knight";
         case "Runner": case "Fortune Teller": case "Witch":
         case "Warlock": case "Scared Wolf": case "Saboteur Wolf":
-        case "Attacked Runner": case "Attacked Scared Wolf":
         case "Flute Player": case "Vampire": case "Empowered Vampire":
         case "White Rook": case "Black Rook": 
             return "Rook";
@@ -2707,6 +2719,8 @@ function getChessValue(name) {
     switch(name) {
         case "Pawn":
             return 1;
+        case "Prince":
+            return 2;
         case "Knight":
             return 3;
         case "King":
@@ -3227,6 +3241,8 @@ function getUnicode(chessName, team) {
             return team==1?"♕":(team==0?"♛":"♕");
         case "None":
             return team==1?"◼️":(team==0?"◻️":"◼️");
+        case "Prince":
+            return team==1?"◼️":(team==0?"◻️":"◼️");
     }
 }
 
@@ -3448,6 +3464,16 @@ function generatePositions(board, position, hideLog = false, pieceTypeOverride =
             else if(canTake && inBounds(board[0].length, board.length, px, py) && enemyTeam(pieceTeam, board[py][px].team)) positions.push([px, py, true]);
         }
     }
+    /* PRINCE */
+    else if(pieceType == "Prince") {
+        let possibleMoves = [[1,0],[-1,0],[0,1],[0,-1]];
+        for(let i = 0; i < possibleMoves.length; i++) {
+            let px = x + possibleMoves[i][0];
+            let py = y + possibleMoves[i][1];
+            if(inBounds(board[0].length, board.length, px, py) && board[py][px].name == null) positions.push([px, py]);
+            else if(canTake && inBounds(board[0].length, board.length, px, py) && enemyTeam(pieceTeam, board[py][px].team)) positions.push([px, py, true]);
+        }
+    }
     /* KNIGHT */
     else if(pieceType == "Knight") {
         let possibleMoves = [[2,1],[-2,1],[2,-1],[-2,-1],[1,2],[-1,2],[1,-2],[-1,-2]];
@@ -3571,6 +3597,15 @@ function hasAvailableMove(board, position) {
     /* KING */
     else if(pieceType == "King") {
         let possibleMoves = [[1,0],[-1,0],[0,1],[0,-1],[1,1],[-1,1],[1,-1],[-1,-1]];
+        for(let i = 0; i < possibleMoves.length; i++) {
+            let px = x + possibleMoves[i][0];
+            let py = y + possibleMoves[i][1];
+            if(inBounds(board[0].length, board.length, px, py) && board[py][px].team != pieceTeam) return true;
+        }
+    }
+    /* PRINCE */
+    else if(pieceType == "Prince") {
+        let possibleMoves = [[1,0],[-1,0],[0,1],[0,-1]];
         for(let i = 0; i < possibleMoves.length; i++) {
             let px = x + possibleMoves[i][0];
             let py = y + possibleMoves[i][1];
