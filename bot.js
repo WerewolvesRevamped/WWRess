@@ -2360,14 +2360,14 @@ client.on('interactionCreate', async interaction => {
                 if(teamSelArg) {
                     switch(teamSelArg) {
                         case "white":
-                            if(rand < 15) {
+                            if(rand < 15 || soloArg) {
                                 players = [[interaction.member.id, interaction.member.user.username], [null, "*AI*"], [null, "*AI #2*"]];
                             } else {
                                 players = [[interaction.member.id, interaction.member.user.username], [null, "*AI*"], [null, null]];
                             }
                         break;
                         case "black":
-                            if(rand < 15) {
+                            if(rand < 15 || soloArg) {
                                 players = [[null, "*AI*"], [interaction.member.id, interaction.member.user.username], [null, "*AI #2*"]];
                             } else {
                                 players = [[null, "*AI*"], [interaction.member.id, interaction.member.user.username], [null, null]];
@@ -3055,12 +3055,13 @@ function createGame(playerID, playerID2, playerID3, gameID, name1, name2, name3,
             if(name3 != null && height%2 == 1 && height >= 3) { // seo: debug solo
                 let solos = ["angel","flute","graveyard","underworld"];
                 if(playerID3 == null) solos.push(...["apprentice"]);
-                let selectedSoloIndex = solos[Math.floor(Math.random() * solos.length)];
+                let selectedSoloIndex = Math.floor(Math.random() * solos.length);
                 let selectedSoloName = solos[selectedSoloIndex];
-                if(soloArg) selectedSoloName = soloArg;
+                if(soloArg && soloArg.length) selectedSoloName = soloArg;
                 let selectedSolo;
                 //selectedSoloIndex = 3;
                 switch(selectedSoloName) {
+                    default: console.log("INVALID SOLO", soloArg, selectedSoloName); break;
                     case "angel": selectedSolo = ["Angel","Despot","Angel", false]; break;
                     case "flute": selectedSolo = ["Flute Player","Flute Player","Flute", true]; break;
                     case "graveyard": selectedSolo = ["Zombie","Corpse","Graveyard", true]; break;
