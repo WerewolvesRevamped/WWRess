@@ -362,6 +362,15 @@ function executeActiveAbility(game, abilityPiece, abilityPieceLocation, position
             game.state[transformer.y][transformer.x] = convertPiece(game.state[transformer.y][transformer.x], position);
             return false;
         break;
+        case "TransformReveal":
+        case "Bloody Butcher":
+            let transformer2 = { x: abilityPieceLocation[0], y: abilityPieceLocation[1] };
+            let transformer2Name = xyToName(abilityPieceLocation[0], abilityPieceLocation[1]);
+            game.state[transformer2.y][transformer2.x] = convertPiece(game.state[transformer2.y][transformer2.x], position);
+            game.state[transformer2.y][transformer2.x].enemyVisibleStatus = 7;
+            if(log) gameHistory.lastMoves.push([game.turn, game.state[transformer2.y][transformer2.x].name, false, "", transformer2Name, transformer2Name, 7, "❕🟦🟦"]);
+            return false;
+        break;
         case "Invest":
         case "Fortune Teller":
         case "Warlock":
@@ -420,7 +429,7 @@ function executeActiveAbility(game, abilityPiece, abilityPieceLocation, position
                     }
                 break;
             }
-            if(investTargetObject.name == "Recluse") { // recluse reveal
+            if(investTargetObject.name == "Recluse" || investTargetObject.name == "Bard") { // recluse reveal
                 investSuccess = true;
                 if(log) gameHistory.lastMoves.push([game.turn, investigator.name, false, "", xyToName(investigatorC.x, investigatorC.y), xyToName(investTarget.x, investTarget.y), 7, "👁️"]);
                 investigator.enemyVisibleStatus = 7;
@@ -454,6 +463,9 @@ function getChildren(game, maxDepth = 0, depth = 0, maximizingPlayer = true) {
     // iterate through pieces, to find ability pieces
     for(let y = 0; y < game.height; y++) {
         for(let x = 0; x < game.width; x++) {
+            if(game.turn == 1 && board[y][x].name == "Bloody Butcher" && maximizingPlayer) {
+                abilityPieces.push([board[y][x].name, x, y]); // can use ability, but cannot be moved
+            }
             if(board[y][x].team == game.turn) {
                 pieces.push(xyToName(x, y));
                 if(board[y][x].active && !board[y][x].sabotaged && !board[y][x].enchanted && (maximizingPlayer || board[y][x].enemyVisibleStatus >= 6)) {
@@ -593,6 +605,9 @@ function getChildren(game, maxDepth = 0, depth = 0, maximizingPlayer = true) {
             // dog
             case "Dog":
                 abilityPositions = ["Wolf Cub","Fox"];
+            break;
+            case "Bloody Butcher":
+                abilityPositions = ["Revealed Bloody Butcher"];
             break;
             // adjacent ally
             case "Hooker":
@@ -1418,6 +1433,27 @@ function movePiece(interaction, moveCurGame, from, to, repl = null) {
         }
     }
     
+    // packless wolf transformation (also gets val for DW)
+    let wolfCount = 0;
+    for(let y = 0; y < moveCurGame.height; y++) {
+        for(let x = 0; x < moveCurGame.width; x++) {
+            let xyPiece = moveCurGame.state[y][x];
+            if(xyPiece.team == 1) {
+                wolfCount++;
+            }
+        }
+    }
+    if(wolfCount == 1) {
+        for(let y = 0; y < moveCurGame.height; y++) {
+            for(let x = 0; x < moveCurGame.width; x++) {
+                let xyPiece = moveCurGame.state[y][x];
+                if(xyPiece.name == "Packless Wolf") {
+                    moveCurGame.state[y][x] = convertPiece(moveCurGame.state[y][x], "Wolf");
+                }
+            }
+        }
+    }
+    
     // move effects
     if(notAiTurn || moveCurGame.players[moveCurGame.turn] == null || movedPiece.enemyVisibleStatus >= 6) { // only run in normal turns, ai's own turns or when effect is visible
         if(!notAiTurn && moveCurGame.players[moveCurGame.turn] != null && movedPiece.enemyVisibleStatus == 6 && movedPiece.disguise) movedPiece.name = movedPiece.disguise; // see role with disguise if applicable
@@ -1429,15 +1465,6 @@ function movePiece(interaction, moveCurGame, from, to, repl = null) {
             }
             break;
             case "Direwolf": // Direwolf -> Double move if last piece
-                let wolfCount = 0;
-                for(let y = 0; y < moveCurGame.height; y++) {
-                    for(let x = 0; x < moveCurGame.width; x++) {
-                        let xyPiece = moveCurGame.state[y][x];
-                        if(xyPiece.team == 1) {
-                            wolfCount++;
-                        }
-                    }
-                }
                 if(wolfCount == 1 && !moveCurGame.inDoubleMove) {
                 moveCurGame.doubleMove1 = true;
                 movedPiece.enemyVisibleStatus = 7;
@@ -1480,7 +1507,7 @@ function movePiece(interaction, moveCurGame, from, to, repl = null) {
             if(!moveCurGame.ai) console.log("PROMOTE TO", promoteTo.name);
             movePiece(interaction, moveCurGame, to, to, promoteTo);
         }
-    } else if(movedPiece.chess == "Pawn" && p2Turn && (defensive&&defensive.y?defensive.y==moveCurGame.height-1:moveTo.y == moveCurGame.height-1)) {
+    } else if(movedPiece.chess == "Pawn" && movedPiece.name != "Revealed Bloody Butcher" && p2Turn && (defensive&&defensive.y?defensive.y==moveCurGame.height-1:moveTo.y == moveCurGame.height-1)) {
         if(interaction) {
             let kings = ["Alpha Wolf","Psychic Wolf","Sneaking Wolf"];
             let knights = ["Direwolf","Clairvoyant Fox","Fox"];
@@ -1954,6 +1981,7 @@ function removeEffects(curGame, team) {
                 curGame.state[y][x].hidden = false; 
                 curGame.state[y][x].disguise = false;
                 if(curGame.state[y][x].name == "Sneaking Wolf") curGame.state[y][x].disguise = "Wolf"; // keep SnW disguise
+                if(curGame.state[y][x].name == "Bloody Butcher") curGame.state[y][x].disguise = "Butcher"; // keep BB disguise
             } else if(xyPiece.name != null && xyPiece.team != team) {
                 curGame.state[y][x].sabotaged = false;
                 curGame.state[y][x].stay = false;
@@ -2086,6 +2114,12 @@ function getAbilityTargets(curGame, abilityPiece, arg1) {
             aInteractions = [{ type: 2, label: "Back", style: 4, custom_id: "turnstart" }];
             aInteractions.push({ type: 2, label: "Wolf Cub " + getUnicode("Pawn", 1), style: 3, custom_id: "transform-" + arg1 + "-Wolf Cub" });
             aInteractions.push({ type: 2, label: "Fox " + getUnicode("Knight", 1), style: 3, custom_id: "transform-" + arg1 + "-Fox" });
+            aComponents = [{ type: 1, components: aInteractions }];
+        break;
+        // Bloody Butcher
+        case "Bloody Butcher":
+            aInteractions = [{ type: 2, label: "Back", style: 4, custom_id: "turnstart" }];
+            aInteractions.push({ type: 2, label: "Reveal", style: 3, custom_id: "transformreveal-" + arg1 + "-Revealed Bloody Butcher" });
             aComponents = [{ type: 1, components: aInteractions }];
         break;
         // Hooker - Surrounding fields
@@ -2258,6 +2292,12 @@ client.on('interactionCreate', async interaction => {
 			    executeActiveAbility(curGame, "Transform", [transformer.x, transformer.y], arg2);
                 turnMove(interaction, gameID, curGame.turn, "update");   
             break;
+            // transform reveal
+            case "transformreveal":
+                let transformer2 = nameToXY(arg1);
+			    executeActiveAbility(curGame, "TransformReveal", [transformer2.x, transformer2.y], arg2);
+                turnMove(interaction, gameID, curGame.turn, "update");   
+            break;
             // infect
             case "infect":
                 let iwSource = nameToXY(arg1);
@@ -2360,13 +2400,13 @@ client.on('interactionCreate', async interaction => {
             let teamColorDec = "";
             switch(team) {
                 case "townsfolk":
-                    pieces = [["Citizen","Ranger","Huntress","Bartender*","Fortune Apprentice","Child"],["Hooker*","Idiot","Crowd Seeker","Aura Teller"],["Royal Knight","Alcoholic*","Amnesiac"],["Fortune Teller","Runner","Witch"],["Cursed Civilian*"]];
+                    pieces = [["Citizen","Ranger","Huntress","Bartender*","Fortune Apprentice","Child","Bard**","Butcher**"],["Hooker*","Idiot","Crowd Seeker","Aura Teller"],["Royal Knight","Alcoholic*","Amnesiac"],["Fortune Teller","Runner","Witch"],["Cursed Civilian*"]];
                     teamColor = "White";
                     teamName = "Townsfolk (White)";
                     teamColorDec = 16777215;
                 break;
                 case "werewolf":
-                    pieces = [["Wolf","Wolf Cub","Tanner","Archivist Fox","Recluse","Dog"],["Infecting Wolf*","Alpha Wolf","Psychic Wolf","Sneaking Wolf"],["Direwolf*","Clairvoyant Fox","Fox"],["Warlock","Scared Wolf","Saboteur Wolf"],["White Werewolf*"]];
+                    pieces = [["Wolf","Wolf Cub","Tanner","Archivist Fox","Recluse","Dog","Bloody Butcher**","Packless Wolf**"],["Infecting Wolf*","Alpha Wolf","Psychic Wolf","Sneaking Wolf"],["Direwolf*","Clairvoyant Fox","Fox"],["Warlock","Scared Wolf","Saboteur Wolf"],["White Werewolf*"]];
                     teamColor = "Black";
                     teamName = "Werewolves (Black)";
                     teamColorDec = 1;
@@ -2388,7 +2428,7 @@ client.on('interactionCreate', async interaction => {
                     let pieceName = pieces[i][j].replace(/\*/g, "");
                     let limitation = (pieces[i][j].match(/\*/g) || []).length
                     limitations[limitation - 1] = true;
-                    field.value += findEmoji(teamColor + getChessName(pieceName)) + " " + findEmoji(pieceName) + " **" + pieces[i][j].replace(/\*/g,"\*") + ":** " + getAbilityText(pieceName) + "\n";
+                    field.value += findEmoji(teamColor + getChessName(pieceName)) + " " + findEmoji(pieceName) + " **" + pieces[i][j].replace(/\*/g,"\\*") + ":** " + getAbilityText(pieceName) + "\n";
                 }
                 if(field.value.length > 0) {
                     embed.fields.push(field);
@@ -2523,7 +2563,9 @@ client.on('interactionCreate', async interaction => {
         break;
         case "aigame":
             let players = [[null, "*AI #1*"], [null, "*AI #2*"], [null, "*AI #3*"]];
-            createGame(players[0][0], players[1][0], players[2][0], games.length, players[0][1], players[1][1], players[2][1], interaction.channel.id, interaction.guild.id);
+            let modeArg = interaction.options.get("mode")?.value ?? null;
+            if(modeArg == "chess" || modeArg == "minichess" || modeArg == "hexapawn") players[2][1] = null;
+            createGame(players[0][0], players[1][0], players[2][0], games.length, players[0][1], players[1][1], players[2][1], interaction.channel.id, interaction.guild.id, null, modeArg);
             let id = games.length - 1;
                 
             // spectator board
@@ -2567,7 +2609,7 @@ client.on('interactionCreate', async interaction => {
                 let soloArg = interaction.options.get("solo")?.value ?? null;
                 let modeArg = interaction.options.get("mode")?.value ?? null;
                 let gameID = games.length;
-                if((Math.floor(Math.random() * 100) < 15 || soloGame) && modeArg != "chess" && modeArg != "minichess" && modeArg == "hexapawn") { // with AI
+                if((Math.floor(Math.random() * 100) < 15 || soloGame) && modeArg != "chess" && modeArg != "minichess" && modeArg != "hexapawn") { // with AI
                     createGame(interaction.member.id, opponent.id, null, gameID, interaction.member.user.username, opponent.user.username, "*AI*", interaction.channel.id, interaction.guild.id, soloArg, modeArg);
                 } else { // without AI
                     createGame(interaction.member.id, opponent.id, null, gameID, interaction.member.user.username, opponent.user.username, null, interaction.channel.id, interaction.guild.id, soloArg, modeArg);
@@ -2613,7 +2655,7 @@ client.on('interactionCreate', async interaction => {
 
 function getTeam(piece) {
     switch(piece) {
-        case "Citizen": case "Ranger": case "Huntress": case "Bartender": case "Fortune Apprentice": case "Child":
+        case "Citizen": case "Ranger": case "Huntress": case "Bartender": case "Fortune Apprentice": case "Child": case "Bard": case "Butcher": case "Bloody Butcher":
         case "Hooker": case "Idiot": case "Crowd Seeker": case "Aura Teller":
         case "Royal Knight": case "Alcoholic": case "Amnesiac":
         case "Runner": case "Fortune Teller": case "Witch":
@@ -2621,7 +2663,7 @@ function getTeam(piece) {
         case "Attacked Runner": case "Attacked Idiot":
         case "White Pawn": case "White King": case "White Knight": case "White Rook": case "White Queen": case "White Bishop":
             return 0;
-        case "Wolf": case "Wolf Cub": case "Tanner": case "Archivist Fox": case "Recluse": case "Dog":
+        case "Wolf": case "Wolf Cub": case "Tanner": case "Archivist Fox": case "Recluse": case "Dog": case "Revealed Bloody Butcher": case "Packless Wolf":
         case "Infecting Wolf": case "Alpha Wolf": case "Psychic Wolf": case "Sneaking Wolf":
         case "Direwolf": case "Clairvoyant Fox": case "Fox":
         case "Warlock": case "Scared Wolf": case "Saboteur Wolf":
@@ -2669,6 +2711,10 @@ function getAbilityText(piece) {
             return "Replaces FT/AT/CS if they are taken.";
         case "Child":
             return "Additional move, when taken.";
+        case "Bard":
+            return "Reveals if investigated.";
+        case "Butcher":
+            return "No ability.";
         case "Hooker":
             return "May hide in an adjacent ally's field.";
         case "Idiot":
@@ -2708,6 +2754,12 @@ function getAbilityText(piece) {
             return "Reveals if investigated.";
         case "Dog":
             return "Once, becomes a Wolf Cub or Fox.";
+        case "Bloody Butcher":
+            return "Pretends to be a town piece, but is actually a wolf piece. Can only be promoted by town.";
+        case "Revealed Bloody Butcher":
+            return "Pretended to be a town piece, but is actually a wolf piece. Cannot be promoted.";
+        case "Packless Wolf":
+            return "Cannot move unless it is the last wolf piece.";
         case "Infecting Wolf":
             return "Convert enemy piece to wolf + become wolf.";
         case "Alpha Wolf":
@@ -2761,8 +2813,8 @@ function getChessName(piece) {
     switch(piece) {
         default:
             return null;
-        case "Citizen": case "Ranger": case "Huntress": case "Bartender": case "Fortune Apprentice": case "Child":
-        case "Wolf": case "Wolf Cub": case "Tanner": case "Archivist Fox": case "Recluse": case "Dog":
+        case "Citizen": case "Ranger": case "Huntress": case "Bartender": case "Fortune Apprentice": case "Child": case "Bard": case "Butcher": case "Bloody Butcher":
+        case "Wolf": case "Wolf Cub": case "Tanner": case "Archivist Fox": case "Recluse": case "Dog": case "Revealed Bloody Butcher":
         case "Angel": case "Zombie": case "Zombie2": case "Zombie3": case "Zombie4": case "Zombie5": case "Undead": case "Apprentice": case "Corpse":
         case "White Pawn": case "Black Pawn": 
             return "Pawn";
@@ -2789,6 +2841,7 @@ function getChessName(piece) {
          case "Devil":
          case "White Queen": case "Black Queen":
             return "Queen";
+         case "Packless Wolf":
         case "Attacked Idiot":
         case "Selected":
         case null:
@@ -2841,6 +2894,9 @@ function getPiece(name, metadata = {}) {
     	case "Sneaking Wolf":
 		    piece.disguise = "Wolf";
     	break;    
+    	case "Bloody Butcher":
+		    piece.disguise = "Butcher";
+    	break;    
         case "White Pawn": case "White King": case "White Knight": case "White Rook": case "White Queen": case "White Bishop":
         case "Black Pawn": case "Black King": case "Black Knight": case "Black Rook": case "Black Queen": case "Black Bishop":
             piece.enemyVisibleStatus = 7;
@@ -2874,10 +2930,12 @@ function getPiece(name, metadata = {}) {
 
 function getWWRevalValue(piece) {
         switch(piece) {
+            case "Bloody Butcher":
+                return -15;
             case "Cursed Civilian": case "White Werewolf": 
                 return -1;
-            case "Citizen": case "Ranger": case "Child": case "Huntress":
-            case "Wolf": case "Sneaking Wolf": case "Fox": case "Recluse":
+            case "Citizen": case "Ranger": case "Child": case "Huntress": case "Butcher": case "Bard":
+            case "Wolf": case "Sneaking Wolf": case "Fox": case "Recluse": case "Revealed Bloody Butcher": case "Packless Wolf":
             case "Attacked Runner": case "Attacked Idiot":
             case "Attacked Scared Wolf": 
                 return 0;
@@ -2902,73 +2960,49 @@ function getWWRevalValue(piece) {
     }
 }
 
-function getWWRValue(piece) { // UNUSED
-        switch(piece) {
-            case "Cursed Civilian":
-                return -3;
-            case "Citizen":
-            case "Wolf": case "Sneaking Wolf": case "Fox": case "White Werewolf":
-            case "Attacked Runner": case "Attacked Idiot":
-            case "Attacked Scared Wolf": 
-                return 0;
-            case "Ranger": case "Amnesiac": case "Idiot": 
-            case "Recluse": case "Tanner": 
-                return 1;
-            case "Child": case "Crowd Seeker": case "Aura Teller": case "Royal Knight": case "Witch": case "Bartender":
-            case "Wolf Cub": case "Archivist Fox": case "Dog": case "Psychic Wolf":
-                return 2;
-            case "Fortune Apprentice": case "Fortune Teller": case "Runner":
-            case "Alpha Wolf": case "Clairvoyant Fox": case "Scared Wolf": case "Saboteur Wolf": case "Warlock": case "Direwolf":
-                return 3;
-            case "Hooker": case "Alcoholic":
-                return 4;
-            case "Huntress":
-            case "Infecting Wolf":
-                return 5;
-                
-            case "Flute Player": case "Devil": case "Angel": case "Zombie": case "Zombie2": case "Zombie3": case "Zombie4": case "Zombie5": case "Corpse":
-                return 5;
-                
-            default:
-                return 0;
-    }
-}
-
-function generateRoleList(board, simplified = false) {
-    // name, chess value, wwr value, incompatible with, requires
+function generateRoleList(board, mode = 0) {
+    // name, chess value, wwr value, incompatible with, requires, addsToWolves
     // all town pieces
 	 /// !!!!!!! USE getWWRValue for town[2]/wolf[2]
     let town = [
         // pawn
-        ["Citizen", 1, 0, [], ""],
-        ["Ranger", 1, 1, [], ""],
-        ["Huntress", 1, 5, [], ""],
-        ["Fortune Apprentice", 1, 3, [], ""],
-        ["Fortune Apprentice", 1, 3, [], ""], // double chance
-        ["Child", 1, 2, [], ""],
+        ["Citizen", 1, 0, [], "", ""],
+        ["Ranger", 1, 1, [], "", ""],
+        ["Huntress", 1, 5, [], "", ""],
+        ["Fortune Apprentice", 1, 3, [], "", ""],
+        ["Fortune Apprentice", 1, 3, [], "", ""], // double chance
+        ["Child", 1, 2, [], "", ""],
         // king
         ["Idiot", 3, 1, [], ""],
-        ["Crowd Seeker", 3, 2, ["Fortune Teller","Aura Teller"], ""],
-        ["Aura Teller", 3, 2, ["Fortune Teller","Crowd Seeker"], ""],
+        ["Crowd Seeker", 3, 2, ["Fortune Teller","Aura Teller"], "", ""],
+        ["Aura Teller", 3, 2, ["Fortune Teller","Crowd Seeker"], "", ""],
         // knight
-        ["Royal Knight", 3, 2, [], ""],
-        ["Amnesiac", 3, 1, [], []],
-        ["Amnesiac", 3, 1, [], []],
+        ["Royal Knight", 3, 2, [], "", ""],
+        ["Amnesiac", 3, 1, [], "", ""],
+        ["Amnesiac", 3, 1, [], "", ""],
         // rook
-        ["Fortune Teller", 5, 3, ["Crowd Seeker","Aura Teller"], ""],
-        ["Runner", 5, 3, [], ""],
-        ["Witch", 5, 2, [], ""],
+        ["Fortune Teller", 5, 3, ["Crowd Seeker","Aura Teller"], "", ""],
+        ["Runner", 5, 3, [], "", ""],
+        ["Witch", 5, 2, [], "", ""],
     ];
-    if(!simplified) town.push(...[
+    if(mode != 1) town.push(...[
         // king
-        ["Hooker", 3, 4, [], ""],
+        ["Hooker", 3, 4, [], "", ""],
         // knight
-        ["Alcoholic", 3, 4, [], "Bartender"],
+        ["Alcoholic", 3, 4, [], "Bartender", ""],
         // queen
-        ["Cursed Civilian", 9, -3, [], ""],
+        ["Cursed Civilian", 9, -3, [], "", ""],
     
     ]);
-    town.push(["Bartender", 1, 2, [], "Alcoholic"]); // cant be rolled normally
+    if(mode == 2) town.push(...[
+        ["Bard", 1, 1, [], "", ""],
+        ["Butcher", 1, 0, [], "Bloody Butcher", "Packless Wolf"],
+    ]);
+    town.push(...[
+        ["Bartender", 1, 2, [], "Alcoholic", ""],
+        ["Bloody Butcher", 0, -6, [], "Butcher", ""],
+        ["Bloody Butcher", 0, -6, [], "Butcher", ""],
+    ]); // cant be rolled normally
     // all wolf pieces
     let wolf = [
         // pawn
@@ -2990,7 +3024,7 @@ function generateRoleList(board, simplified = false) {
         ["Saboteur Wolf", 5, 3, ["Infecting Wolf"], ""],
         ["Warlock", 5, 3, ["Psychic Wolf","Clairvoyant Fox"], ""],
     ];
-    if(!simplified) wolf.push(...[
+    if(mode != 1) wolf.push(...[
         // king
         ["Infecting Wolf", 3, 5, ["Saboteur Wolf"], ""],
         // knight
@@ -2998,6 +3032,9 @@ function generateRoleList(board, simplified = false) {
         // queen
         ["White Werewolf", 9, 0, [], ""],
     ]);
+    wolf.push(...[
+        ["Packless Wolf", 1, 0, [], ""],
+    ]); // cant be rolled normally
     // preparation
     let townSelected = [];
     let wolfSelected = [];
@@ -3009,19 +3046,25 @@ function generateRoleList(board, simplified = false) {
         metadata = {};
         // select pieces TOWN
         townSelected = [];
+        wolfSelected = [];
+        let wolfOffset = 0;
         for(let i = 0; i < board[0].length; i++) {
-            townSelected.push(town[Math.floor(Math.random() * (town.length-1))]);
+            townSelected.push(town[Math.floor(Math.random() * (town.length-2))]);
             // add previous requirement if exists
             let prevReq = townSelected[townSelected.length - 1][4];
+            let wolfAdd = townSelected[townSelected.length - 1][5];
             if(prevReq && prevReq.length) {
                 townSelected.push(town.filter(el => el[0] == prevReq)[0]);
                 i++;
             }
+            if(wolfAdd && wolfAdd.length) {
+                wolfSelected.push(wolf.filter(el => el[0] == wolfAdd)[0]);
+                wolfOffset++;
+            }
         }
         // select pieces WOLF
-        wolfSelected = [];
-        for(let i = 0; i < board[0].length; i++) {
-            wolfSelected.push(wolf[Math.floor(Math.random() * wolf.length)]);
+        for(let i = 0 + wolfOffset; i < board[0].length; i++) {
+            wolfSelected.push(wolf[Math.floor(Math.random() * (wolf.length-1))]);
             // add previous requirement if exists
             let prevReq = wolfSelected[wolfSelected.length - 1][4];
             if(prevReq && prevReq.length) {
@@ -3053,7 +3096,7 @@ function generateRoleList(board, simplified = false) {
         if(townNames.indexOf("Amnesiac") > -1) { // find 
             let amnesiacCount = townNames.filter(el => el=="Amnesiac").length
             let amnesiacRole = town[Math.floor(Math.random() * town.length)];
-            if(amnesiacRole[0] == "Amnesiac" || amnesiacRole[0] == "Bartender" || (amnesiacRole[0] == "Alcoholic" && townNames.indexOf("Alcoholic") == -1)) {
+            if(amnesiacRole[0] == "Amnesiac" || amnesiacRole[0] == "Bloody Butcher" || amnesiacRole[0] == "Butcher" || amnesiacRole[0] == "Bartender" || (amnesiacRole[0] == "Alcoholic" && townNames.indexOf("Alcoholic") == -1)) {
                 console.log("DISCARD - Amnesiac");
                 continue;
             }
@@ -3149,6 +3192,7 @@ function createGame(playerID, playerID2, playerID3, gameID, name1, name2, name3,
         default:
         case "default":
         case "simplified":
+        case "advanced":
         case "minichess":
             height = 5, width = 5;
         break;
@@ -3171,10 +3215,12 @@ function createGame(playerID, playerID2, playerID3, gameID, name1, name2, name3,
  
     switch(mode) {
         default:
+        case "advanced":
         case "simplified":
         case "default":
             // put pieces on board
-            let listPower = generateRoleList(newBoard, mode=="simplified");
+            let listPower = 0;
+            listPower = generateRoleList(newBoard, mode=="simplified"?1:(mode=="advanced"?2:0));
             
             //loadPromoteTestSetup(newBoard);
             //loadTestingSetup(newBoard);
@@ -3306,17 +3352,17 @@ function loadPromoteTestSetup(board) {
 
 function loadTestingSetup(board) {
     let testTown = "Runner";
-    let testWolf = "Runner";
+    let testWolf = "Packless Wolf";
     board[board.length-1][0] = getPiece(testTown);
     board[board.length-1][1] = getPiece(testTown);
     board[board.length-1][2] = getPiece(testTown);
     board[board.length-1][3] = getPiece(testTown);
     board[board.length-1][4] = getPiece(testTown);
     board[0][0] = getPiece(testWolf);
-    board[0][1] = getPiece(testWolf);
-    board[0][2] = getPiece(testWolf);
+    board[0][1] = getPiece("Wolf");
+    /**board[0][2] = getPiece(testWolf);
     board[0][3] = getPiece(testWolf);
-    board[0][4] = getPiece(testWolf);
+    board[0][4] = getPiece(testWolf);**/
 }
 
 
@@ -3889,7 +3935,9 @@ function generateInteractions(board, team) {
     for(let y = 0; y < board.length; y++) {
         for(let x = 0; x < board[0].length; x++) {
             if(board[y][x].team == team && !board[y][x].sabotaged) {
-                interactions.push({ type: 2, label: xyToName(x, y) + " " + board[y][x].name + " " + getUnicode(board[y][x].chess, team), style: isPawn(board[y][x]) ? 2 : 1, custom_id: "select-" + xyToName(x, y) });
+                let pname = board[y][x].name;
+                if(pname == "Bloody Butcher") pname = "Butcher";
+                interactions.push({ type: 2, label: xyToName(x, y) + " " + pname + " " + getUnicode(board[y][x].chess, team), style: isPawn(board[y][x]) ? 2 : 1, custom_id: "select-" + xyToName(x, y) });
             }
         }
     }
@@ -3902,6 +3950,12 @@ function generateAbilities(game, team) {
     for(let y = 0; y < game.height; y++) {
         for(let x = 0; x < game.width; x++) {
             if(board[y][x].team == team && board[y][x].active && !board[y][x].sabotaged && !board[y][x].enchanted) {
+                let possibleAbilityUsages = getAbilityTargets(game, board[y][x], xyToName(x, y));
+                if(possibleAbilityUsages[0].components.length > 1) { // possible action (back is always available)
+                    interactions.push({ type: 2, label: xyToName(x, y) + " " + board[y][x].name + " " + getUnicode(board[y][x].chess, team), style: 3, custom_id: "ability-" + xyToName(x, y) });
+                }
+            }
+            if(board[y][x].name == "Bloody Butcher" && team == 1 && !board[y][x].sabotaged && !board[y][x].enchanted) {
                 let possibleAbilityUsages = getAbilityTargets(game, board[y][x], xyToName(x, y));
                 if(possibleAbilityUsages[0].components.length > 1) { // possible action (back is always available)
                     interactions.push({ type: 2, label: xyToName(x, y) + " " + board[y][x].name + " " + getUnicode(board[y][x].chess, team), style: 3, custom_id: "ability-" + xyToName(x, y) });
@@ -3927,6 +3981,7 @@ function renderBoard(game, message = "Turn", turnOverride = null) {
     const letterRanks = ["🇦","🇧","🇨","🇩","​🇪","🇫","🇬","🇭","🇮","🇯","🇰","🇱","🇲","🇳","🇴","🇵"];
     const numberRow = ["1️⃣","2️⃣","3️⃣","4️⃣","5️⃣","6️⃣","7️⃣","8️⃣","9️⃣","🔟",findEmoji("eleven"),findEmoji("twelve"),findEmoji("thirteen"),findEmoji("fourteen"),findEmoji("fifteen"),findEmoji("sixteen")];
     const curTurn = turnOverride != null ? turnOverride : game.turn;
+    let bloodyButcher = false;
     // create top letter row
     for(let i = 0; i < game.width; i++) {
         boardRows[0] += letterRanks[i] + "​"; // seperate with zero width space
@@ -3938,6 +3993,7 @@ function renderBoard(game, message = "Turn", turnOverride = null) {
         let row = numberRow[y];
         for(let x = 0; x < game.width; x++) {
                 row += renderField(board[y][x], x, y, curTurn);
+                if(curTurn == 1 && board[y][x].name == "Bloody Butcher") bloodyButcher = true;
                 if(board[y][x].name != null && board[y][x].soloEffect == true) soloAffectedRoles.push(xyToName(x, y));
                 if(board[y][x].team == 2 && board[y][x].enemyVisibleStatus == 0 && board[y][x].protected == true) invulSolo = true; // look for solos on turn 1
                 if(board[y][x].name != null && board[y][x].team == curTurn) visiblePieces.push(board[y][x].name);
@@ -3964,7 +4020,9 @@ function renderBoard(game, message = "Turn", turnOverride = null) {
                     if(lm[0] == 0) lmMsg += "⬜"; 
                     else if(lm[0] == 1) lmMsg += "⬛";
                     else if(lm[0] == 2) lmMsg += "🟧";
-                    if(lm[6] == 6 && lm[2]) lmMsg += findEmoji(lm[2]);
+                    if(lm[0] == curTurn && getTeam(lm[1]) == curTurn && lm[1] == "Bloody Butcher") lmMsg += findEmoji("Butcher");
+                    else if(curTurn == 1 && lm[1] == "Bloody Butcher") lmMsg += findEmoji(lm[1]);
+                    else if(lm[6] == 6 && lm[2]) lmMsg += findEmoji(lm[2]);
                     else if((lm[0] == curTurn && getTeam(lm[1]) == curTurn) || lm[6] >= 6) lmMsg += findEmoji(lm[1]);
                     else lmMsg += findEmoji((getTeam(lm[1]) == 0?"white":(getTeam(lm[1])==1?"black":"gold")) + lm[3]);
                     lmMsg += letterRanks[moveFrom.x];
@@ -4051,8 +4109,13 @@ function renderBoard(game, message = "Turn", turnOverride = null) {
     visiblePieces.sort();
     for(let i = 0; i < visiblePieces.length; i++) {
         if(["Zombie2","Zombie3","Zombie4","Zombie5","Black Pawn","White Pawn","Black Rook","White Rook","Black Knight","White Knight","Black Bishop","White Bishop","Black Queen","White Queen","Black King","White King"].indexOf(visiblePieces[i]) > -1) continue; // unlisted roles
+        if(visiblePieces[i] == "Bloody Butcher") {
+            bloodyButcher = true;
+            continue;
+        }
         boardRows.push(findEmoji((getTeam(visiblePieces[i])==1?"Black":(getTeam(visiblePieces[i])==0?"White":"Gold")) + getChessName(visiblePieces[i])) + " " + findEmoji(visiblePieces[i]) + " **" + visiblePieces[i] + ":** " + getAbilityText(visiblePieces[i]));
     }
+    if(bloodyButcher) boardRows.push(findEmoji("BlackPawn") + " " + findEmoji("Bloody Butcher") + " **Bloody Butcher:** " + getAbilityText("Bloody Butcher"));
     if(invulSolo) boardRows.push(findEmoji("GoldUnknown") + " " + " **Solo/Unaligned:** This piece cannot be taken until its first move.");
     return boardMsg + applyDiscordCharLimit(boardRows, "\n", 1999 - boardMsg.length);
 }
@@ -4088,12 +4151,21 @@ function findEmoji(name) {
 }
 
 function renderField(field, x, y, turn) {
+    let fieldName;
     switch(field.name) {
         default: 
             // get name
-            let fieldName;
             if(field.team == turn || field.enemyVisibleStatus == 7) fieldName = field.name;
             else if(field.enemyVisibleStatus == 6 && !field.disguise) fieldName = field.name;
+            else if(field.enemyVisibleStatus == 6 && field.disguise) fieldName = field.disguise;
+            else fieldName = (field.team==1?"black":(field.team==0?"white":"gold")) + field.enemyVisible;
+            // get emoji
+            return findEmoji(fieldName);
+        case "Bloody Butcher":
+            // get name
+            if(turn == 0 || field.enemyVisibleStatus == 7) fieldName = "Butcher";
+            else if(turn == 1) fieldName = "Bloody Butcher";
+            else if(field.enemyVisibleStatus == 6 && !field.disguise) fieldName = "Butcher";
             else if(field.enemyVisibleStatus == 6 && field.disguise) fieldName = field.disguise;
             else fieldName = (field.team==1?"black":(field.team==0?"white":"gold")) + field.enemyVisible;
             // get emoji
@@ -4131,13 +4203,22 @@ function registerCommands() {
                 name: "mode",
                 description: "Which gamemode you want to play. Defaults to WWRess (Default).",
                 required: false,
-                choices: [{"name": "WWRess (Simplified)","value": "simplified"},{"name": "WWRess","value": "default"},{"name": "Hexapawn","value": "hexapawn"},{"name": "Chess","value": "chess"},{"name": "Minichess","value": "minichess"}]
+                choices: [{"name": "WWRess (Simplified)","value": "simplified"},{"name": "WWRess","value": "default"},{"name": "WWRess (Advanced)","value": "advanced"},{"name": "Hexapawn","value": "hexapawn"},{"name": "Chess","value": "chess"},{"name": "Minichess","value": "minichess"}]
             }
         ]
     });
     client.application?.commands.create({
         name: 'aigame',
-        description: 'Starts a game with just AIs.'
+        description: 'Starts a game with just AIs.',
+        options: [
+            {
+                type: "STRING",
+                name: "mode",
+                description: "Which gamemode you want to play. Defaults to WWRess (Default).",
+                required: false,
+                choices: [{"name": "WWRess (Simplified)","value": "simplified"},{"name": "WWRess","value": "default"},{"name": "WWRess (Advanced)","value": "advanced"},{"name": "Hexapawn","value": "hexapawn"},{"name": "Chess","value": "chess"},{"name": "Minichess","value": "minichess"}]
+            }
+        ]
     });
     client.application?.commands.create({
         name: 'challenge',
@@ -4154,7 +4235,7 @@ function registerCommands() {
                 name: "mode",
                 description: "Which gamemode you want to play. Defaults to WWRess (Default).",
                 required: false,
-                choices: [{"name": "WWRess (Simplified)","value": "simplified"},{"name": "WWRess","value": "default"},{"name": "Hexapawn","value": "hexapawn"},{"name": "Chess","value": "chess"},{"name": "Minichess","value": "minichess"}]
+                choices: [{"name": "WWRess (Simplified)","value": "simplified"},{"name": "WWRess","value": "default"},{"name": "WWRess (Advanced)","value": "advanced"},{"name": "Hexapawn","value": "hexapawn"},{"name": "Chess","value": "chess"},{"name": "Minichess","value": "minichess"}]
             }
         ]
     });
