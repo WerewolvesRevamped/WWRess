@@ -24,6 +24,7 @@ const PawnValue = 2.0;
 const PrinceValue = 3.0;
 const KingValue = 4.0; 
 const KnightValue = 4.0;
+const BishopValue = 4.0;
 const RookValue = 7.0;
 const QueenValue = 13.0;
 const NoneValue = 0.25;
@@ -74,6 +75,14 @@ const RookTable = [
     [0.0, 1.0, 1.0, 1.0, 0.0]
 ];
 
+const BishopTable = [
+    [-2.0, -1.0, -1.0, -1.0, -2.0],
+    [-1.0, 0.5, 0.5, 0.5, -1.0],
+    [-0.5, 0.5, 0.5, 0.5, -0.5],
+    [-1.0, 0.5, 0.5, 0.5, -1.0],
+    [-2.0, -1.0, -1.0, -1.0, -2.0]
+];
+
 const QueenTable = [
     [0.5, 2.0, 1.0, 2.0, 0.5],
     [0.0, 0.5, 0.5, 0.5, 0.0],
@@ -108,6 +117,8 @@ function getEvaluationData(piece) {
             return { value: KingValue, table: KingTable };
         case "Knight": case "ActiveKnight":
             return { value: KnightValue, table: KnightTable };
+        case "Bishop":
+            return { value: BishopValue, table: BishopTable };
         case "Rook": case "ActiveRook":
             return { value: RookValue, table: RookTable };    
         case "Queen": case "ActiveQueen":
@@ -1172,7 +1183,7 @@ function movePiece(interaction, moveCurGame, from, to, repl = null) {
         if(!notAiTurn && moveCurGame.players[moveCurGame.turn] != null && beatenPiece.enemyVisibleStatus == 6 && beatenPiece.disguise) beatenPiece.name = beatenPiece.disguise; // see role with disguise if applicable
         
         if(beatenPiece.protected || beatenPiece.demonized) { // protected (Witch)
-            if(notAiTurn) console.log(beatenPiece);
+            //if(notAiTurn) console.log(beatenPiece);
             defensive = getDefensivePosition(moveFrom, moveTo, movedX, movedY);
             if(notAiTurn) {
                 moveCurGameHistory.lastMoves.push([moveCurGame.turn, movedPiece.name, movedPiece.disguise, movedPiece.enemyVisible, from, xyToName(defensive.x, defensive.y), movedPiece.enemyVisibleStatus]);
@@ -2330,30 +2341,52 @@ client.on('interactionCreate', async interaction => {
             let pieces = [];
             let teamColor = "White";
             let teamName = "";
+            let teamColorDec = "";
             switch(team) {
                 case "townsfolk":
-                    pieces = ["Citizen","Ranger","Huntress","Bartender","Fortune Apprentice","Child","Hooker","Idiot","Crowd Seeker","Aura Teller","Royal Knight","Alcoholic","Amnesiac","Fortune Teller","Runner","Witch","Cursed Civilian"];
+                    pieces = [["Citizen","Ranger","Huntress","Bartender*","Fortune Apprentice","Child"],["Hooker*","Idiot","Crowd Seeker","Aura Teller"],["Royal Knight","Alcoholic*","Amnesiac"],["Fortune Teller","Runner","Witch"],["Cursed Civilian*"]];
                     teamColor = "White";
                     teamName = "Townsfolk (White)";
+                    teamColorDec = 16777215;
                 break;
                 case "werewolf":
-                    pieces = ["Wolf","Wolf Cub","Tanner","Archivist Fox","Recluse","Dog","Infecting Wolf","Alpha Wolf","Psychic Wolf","Sneaking Wolf","Direwolf","Clairvoyant Fox","Fox","Warlock","Scared Wolf","Saboteur Wolf","White Werewolf"];
+                    pieces = [["Wolf","Wolf Cub","Tanner","Archivist Fox","Recluse","Dog"],["Infecting Wolf*","Alpha Wolf","Psychic Wolf","Sneaking Wolf"],["Direwolf*","Clairvoyant Fox","Fox"],["Warlock","Scared Wolf","Saboteur Wolf"],["White Werewolf*"]];
                     teamColor = "Black";
                     teamName = "Werewolves (Black)";
+                    teamColorDec = 1;
                 break;
                 case "solo":
-                    pieces = ["Flute Player","Zombie","Corpse","Vampire","Bat","Undead","Angel","Apprentice"];
+                    pieces = [["Zombie","Corpse","Undead","Angel","Apprentice"],["Bat"],[],["Flute Player","Vampire"],[]];
                     teamColor = "Gold";
                     teamName = "Solo (Gold)";
+                    teamColorDec = 14850359;
                 break;
             }
-            let pieceMsg = findEmoji("WWRess") + " **" + teamName + " Piece List:** " + findEmoji("WWRess") + "\n";
             
+            let limitations = [false, false];
+            let fields = ["Pawns","Kings","Knights","Rooks","Queens"];
+            let embed = { title: findEmoji("WWRess") + " **" + teamName + " Piece List:** " + findEmoji("WWRess"), color: teamColorDec, fields: [] };
             for(let i = 0; i < pieces.length; i++) {
-                pieceMsg += findEmoji(teamColor + getChessName(pieces[i])) + " " + findEmoji(pieces[i]) + " **" + pieces[i] + ":** " + getAbilityText(pieces[i]) + "\n";
+                let field = { name: fields[i], value: "" };
+                for(let j = 0; j < pieces[i].length; j++) {
+                    let pieceName = pieces[i][j].replace(/\*/g, "");
+                    let limitation = (pieces[i][j].match(/\*/g) || []).length
+                    limitations[limitation - 1] = true;
+                    field.value += findEmoji(teamColor + getChessName(pieceName)) + " " + findEmoji(pieceName) + " **" + pieces[i][j].replace(/\*/g,"\*") + ":** " + getAbilityText(pieceName) + "\n";
+                }
+                if(field.value.length > 0) {
+                    embed.fields.push(field);
+                }
+            }
+            if(limitations.filter(el => el).length > 0) {
+                let field = { name: "** **", value: "" };
+                if(limitations[0]) field.value += "\* Not available in simplified mode.\n";
+                if(limitations[1]) field.value += "\*\* Only available in advanced mode.\n";
+                embed.fields.push(field);
             }
             // Send pinging message
-            interaction.reply({ content: pieceMsg });
+            //console.log(embed);
+            interaction.reply({ embeds: [embed] });
         break;
         case "play_solo":
             soloGame = true;
@@ -2365,52 +2398,80 @@ client.on('interactionCreate', async interaction => {
                 let rand = Math.floor(Math.random() * 100);
                 let teamSelArg = interaction.options.get("team")?.value ?? null;
                 let soloArg = interaction.options.get("solo")?.value ?? null;
+                let modeArg = interaction.options.get("mode")?.value ?? null;
                 if(soloArg && soloArg.length) soloGame = true;
                 //rand = 100; // seo: debug solo
                 // determine teams    
-                if(teamSelArg) {
-                    switch(teamSelArg) {
-                        case "white":
-                            if(rand < 15 || soloArg) {
-                                players = [[interaction.member.id, interaction.member.user.username], [null, "*AI*"], [null, "*AI #2*"]];
-                            } else {
-                                players = [[interaction.member.id, interaction.member.user.username], [null, "*AI*"], [null, null]];
+                switch(modeArg) {
+                    default: // wwress
+                        if(teamSelArg) {
+                            switch(teamSelArg) {
+                                case "white":
+                                    if(rand < 15 || soloArg) {
+                                        players = [[interaction.member.id, interaction.member.user.username], [null, "*AI*"], [null, "*AI #2*"]];
+                                    } else {
+                                        players = [[interaction.member.id, interaction.member.user.username], [null, "*AI*"], [null, null]];
+                                    }
+                                break;
+                                case "black":
+                                    if(rand < 15 || soloArg) {
+                                        players = [[null, "*AI*"], [interaction.member.id, interaction.member.user.username], [null, "*AI #2*"]];
+                                    } else {
+                                        players = [[null, "*AI*"], [interaction.member.id, interaction.member.user.username], [null, null]];
+                                    }
+                                break;
+                                case "gold":
+                                    players = [[null, "*AI*"], [null, "*AI #2*"], [interaction.member.id, interaction.member.user.username]];
+                                break;
                             }
-                        break;
-                        case "black":
-                            if(rand < 15 || soloArg) {
+                        } else if(!soloGame) {
+                            if(rand < 6) { // player town + solo
+                                players = [[interaction.member.id, interaction.member.user.username], [null, "*AI*"], [null, "*AI #2*"]];
+                            } else if(rand < 48) { // player town
+                                players = [[interaction.member.id, interaction.member.user.username], [null, "*AI*"], [null, null]];
+                            } else if(rand < 54) { // player wolf + ai
                                 players = [[null, "*AI*"], [interaction.member.id, interaction.member.user.username], [null, "*AI #2*"]];
+                            }  else if(rand < 96) { // player wolf
+                                players = [[null, "*AI*"], [interaction.member.id, interaction.member.user.username], [null, null]];
+                            } else { // player ai
+                                players = [[null, "*AI*"], [null, "*AI #2*"], [interaction.member.id, interaction.member.user.username]];
+                            }
+                        } else {
+                            if(rand <= 35) { // player town + solo
+                                players = [[interaction.member.id, interaction.member.user.username], [null, "*AI*"], [null, "*AI #2*"]];
+                            } else if(rand <= 70) { // player wolf + solo
+                                players = [[null, "*AI*"], [interaction.member.id, interaction.member.user.username], [null, "*AI #2*"]];
+                            } else { // player solo
+                                players = [[null, "*AI*"], [null, "*AI #2*"], [interaction.member.id, interaction.member.user.username]];
+                            }
+                        }
+                    break;
+                    case "hexapawn":
+                    case "chess":
+                        if(teamSelArg) {
+                            switch(teamSelArg) {
+                                case "white":
+                                    players = [[interaction.member.id, interaction.member.user.username], [null, "*AI*"], [null, null]];
+                                break;
+                                case "black":
+                                    players = [[null, "*AI*"], [interaction.member.id, interaction.member.user.username], [null, null]];
+                                break;
+                                case "gold":
+                                    interaction.reply({ content: "**Error:** Invalid combination of arguments!", ephemeral: true });
+                                    return;
+                                break;
+                            }
+                        } else {
+                            if(rand < 50) {
+                                players = [[interaction.member.id, interaction.member.user.username], [null, "*AI*"], [null, null]];
                             } else {
                                 players = [[null, "*AI*"], [interaction.member.id, interaction.member.user.username], [null, null]];
                             }
-                        break;
-                        case "gold":
-                            players = [[null, "*AI*"], [null, "*AI #2*"], [interaction.member.id, interaction.member.user.username]];
-                        break;
-                    }
-                } else if(!soloGame) {
-                    if(rand < 6) { // player town + solo
-                        players = [[interaction.member.id, interaction.member.user.username], [null, "*AI*"], [null, "*AI #2*"]];
-                    } else if(rand < 48) { // player town
-                        players = [[interaction.member.id, interaction.member.user.username], [null, "*AI*"], [null, null]];
-                    } else if(rand < 54) { // player wolf + ai
-                        players = [[null, "*AI*"], [interaction.member.id, interaction.member.user.username], [null, "*AI #2*"]];
-                    }  else if(rand < 96) { // player wolf
-                        players = [[null, "*AI*"], [interaction.member.id, interaction.member.user.username], [null, null]];
-                    } else { // player ai
-                        players = [[null, "*AI*"], [null, "*AI #2*"], [interaction.member.id, interaction.member.user.username]];
-                    }
-                } else {
-                    if(rand <= 35) { // player town + solo
-                        players = [[interaction.member.id, interaction.member.user.username], [null, "*AI*"], [null, "*AI #2*"]];
-                    } else if(rand <= 70) { // player wolf + solo
-                        players = [[null, "*AI*"], [interaction.member.id, interaction.member.user.username], [null, "*AI #2*"]];
-                    } else { // player solo
-                        players = [[null, "*AI*"], [null, "*AI #2*"], [interaction.member.id, interaction.member.user.username]];
-                    }
+                        }
+                    break;
                 }
                 // create game
-                createGame(players[0][0], players[1][0], players[2][0], games.length, players[0][1], players[1][1], players[2][1], interaction.channel.id, interaction.guild.id, soloArg);
+                createGame(players[0][0], players[1][0], players[2][0], games.length, players[0][1], players[1][1], players[2][1], interaction.channel.id, interaction.guild.id, soloArg, modeArg);
                 
                 // display board
                 let id = getPlayerGameId(interaction.member.id);
@@ -2487,11 +2548,12 @@ client.on('interactionCreate', async interaction => {
                 
                 
                 let soloArg = interaction.options.get("solo")?.value ?? null;
+                let modeArg = interaction.options.get("mode")?.value ?? null;
                 let gameID = games.length;
-                if(Math.floor(Math.random() * 100) < 15 || soloGame) { // with AI
-                    createGame(interaction.member.id, opponent.id, null, gameID, interaction.member.user.username, opponent.user.username, "*AI*", interaction.channel.id, interaction.guild.id, soloArg);
+                if((Math.floor(Math.random() * 100) < 15 || soloGame) && modeArg != "chess" && modeArg == "hexapawn") { // with AI
+                    createGame(interaction.member.id, opponent.id, null, gameID, interaction.member.user.username, opponent.user.username, "*AI*", interaction.channel.id, interaction.guild.id, soloArg, modeArg);
                 } else { // without AI
-                    createGame(interaction.member.id, opponent.id, null, gameID, interaction.member.user.username, opponent.user.username, null, interaction.channel.id, interaction.guild.id, soloArg);
+                    createGame(interaction.member.id, opponent.id, null, gameID, interaction.member.user.username, opponent.user.username, null, interaction.channel.id, interaction.guild.id, soloArg, modeArg);
                 }
                 
                 interaction.channel.send({content: "**Challenge**: <@" + opponent.id + "> You have been challenged by <@" + interaction.member.id + ">!", components: [{type: 1, components:[{ type: 2, label: "Accept", style: 3, custom_id: "accept" }, { type: 2, label: "Deny", style: 4, custom_id: "deny" }]}] });
@@ -2540,7 +2602,7 @@ function getTeam(piece) {
         case "Runner": case "Fortune Teller": case "Witch":
         case "Cursed Civilian":
         case "Attacked Runner": case "Attacked Idiot":
-        case "White Pawn": case "White King": case "White Knight": case "White Rook": case "White Queen":
+        case "White Pawn": case "White King": case "White Knight": case "White Rook": case "White Queen": case "White Bishop":
             return 0;
         case "Wolf": case "Wolf Cub": case "Tanner": case "Archivist Fox": case "Recluse": case "Dog":
         case "Infecting Wolf": case "Alpha Wolf": case "Psychic Wolf": case "Sneaking Wolf":
@@ -2548,7 +2610,7 @@ function getTeam(piece) {
         case "Warlock": case "Scared Wolf": case "Saboteur Wolf":
         case "White Werewolf":
         case "Attacked Scared Wolf":
-        case "Black Pawn": case "Black King": case "Black Knight": case "Black Rook": case "Black Queen":
+        case "Black Pawn": case "Black King": case "Black Knight": case "Black Rook": case "Black Queen": case "Black Bishop":
             return 1;
         case "Selected":
         case null:
@@ -2698,6 +2760,8 @@ function getChessName(piece) {
          case "Direwolf": case "Clairvoyant Fox": case "Fox":
          case "White Knight": case "Black Knight": 
             return "Knight";
+        case "White Bishop": case "Black Bishop":
+            return "Bishop";
         case "Runner": case "Fortune Teller": case "Witch":
         case "Warlock": case "Scared Wolf": case "Saboteur Wolf":
         case "Flute Player": case "Vampire": case "Empowered Vampire":
@@ -2760,8 +2824,8 @@ function getPiece(name, metadata = {}) {
     	case "Sneaking Wolf":
 		    piece.disguise = "Wolf";
     	break;    
-        case "White Pawn": case "White King": case "White Knight": case "White Rook": case "White Queen":
-        case "Black Pawn": case "Black King": case "Black Knight": case "Black Rook": case "Black Queen":
+        case "White Pawn": case "White King": case "White Knight": case "White Rook": case "White Queen": case "White Bishop":
+        case "Black Pawn": case "Black King": case "Black Knight": case "Black Rook": case "Black Queen": case "Black Bishop":
             piece.enemyVisibleStatus = 7;
         break;
         case "Zombie":
@@ -2853,51 +2917,70 @@ function getWWRValue(piece) { // UNUSED
     }
 }
 
-function generateRoleList(board) {
+function generateRoleList(board, simplified = false) {
     // name, chess value, wwr value, incompatible with, requires
     // all town pieces
 	 /// !!!!!!! USE getWWRValue for town[2]/wolf[2]
     let town = [
+        // pawn
         ["Citizen", 1, 0, [], ""],
         ["Ranger", 1, 1, [], ""],
         ["Huntress", 1, 5, [], ""],
         ["Fortune Apprentice", 1, 3, [], ""],
         ["Fortune Apprentice", 1, 3, [], ""], // double chance
         ["Child", 1, 2, [], ""],
-        ["Hooker", 3, 4, [], ""],
+        // king
         ["Idiot", 3, 1, [], ""],
         ["Crowd Seeker", 3, 2, ["Fortune Teller","Aura Teller"], ""],
         ["Aura Teller", 3, 2, ["Fortune Teller","Crowd Seeker"], ""],
+        // knight
         ["Royal Knight", 3, 2, [], ""],
-        ["Alcoholic", 3, 4, [], "Bartender"],
         ["Amnesiac", 3, 1, [], []],
         ["Amnesiac", 3, 1, [], []],
+        // rook
         ["Fortune Teller", 5, 3, ["Crowd Seeker","Aura Teller"], ""],
         ["Runner", 5, 3, [], ""],
         ["Witch", 5, 2, [], ""],
-        ["Cursed Civilian", 9, -3, [], ""],
-        ["Bartender", 1, 2, [], "Alcoholic"], // cant be rolled normally
     ];
+    if(!simplified) town.push(...[
+        // king
+        ["Hooker", 3, 4, [], ""],
+        // knight
+        ["Alcoholic", 3, 4, [], "Bartender"],
+        // queen
+        ["Cursed Civilian", 9, -3, [], ""],
+    
+    ]);
+    town.push(["Bartender", 1, 2, [], "Alcoholic"]); // cant be rolled normally
     // all wolf pieces
     let wolf = [
+        // pawn
         ["Wolf", 1, 0, [], ""],
         ["Wolf Cub", 1, 2, [], ""],
         ["Tanner", 1, 1, ["Sneaking Wolf"], ""],
         ["Archivist Fox", 1, 2, [], ""],
         ["Recluse", 1, 1, [], ""],
         ["Dog", 1, 2, ["Fox"], ""],
-        ["Infecting Wolf", 3, 5, ["Saboteur Wolf"], ""],
+        // king
         ["Alpha Wolf", 3, 3, [], ""],
         ["Psychic Wolf", 3, 2, ["Clairvoyant Fox","Warlock"], ""],
         ["Sneaking Wolf", 3, 0, ["Tanner"], ""],
-        ["Direwolf", 3, 3, [], ""],
+        // knight
         ["Clairvoyant Fox", 3, 3, ["Warlock","Psychic Wolf"], ""],
         ["Fox", 3, 0, ["Dog"], ""],
+        // rook
         ["Scared Wolf", 5, 3, [], ""],
         ["Saboteur Wolf", 5, 3, ["Infecting Wolf"], ""],
         ["Warlock", 5, 3, ["Psychic Wolf","Clairvoyant Fox"], ""],
-        ["White Werewolf", 9, 0, [], ""],
     ];
+    if(!simplified) wolf.push(...[
+        // king
+        ["Infecting Wolf", 3, 5, ["Saboteur Wolf"], ""],
+        // knight
+        ["Direwolf", 3, 3, [], ""],
+        // queen
+        ["White Werewolf", 9, 0, [], ""],
+    ]);
     // preparation
     let townSelected = [];
     let wolfSelected = [];
@@ -3035,12 +3118,25 @@ function randomize(arr) {
 
 // setups a new game
 const emptyBoard = [[getPiece(null), getPiece(null), getPiece(null), getPiece(null), getPiece(null)], [getPiece(null), getPiece(null), getPiece(null), getPiece(null), getPiece(null)], [getPiece(null), getPiece(null), getPiece(null), getPiece(null), getPiece(null)], [getPiece(null), getPiece(null), getPiece(null), getPiece(null), getPiece(null)], [getPiece(null), getPiece(null), getPiece(null), getPiece(null), getPiece(null)]];
-function createGame(playerID, playerID2, playerID3, gameID, name1, name2, name3, channel, guild, soloArg = null, height = 5, width = 5, mode = "wwress") {
+function createGame(playerID, playerID2, playerID3, gameID, name1, name2, name3, channel, guild, soloArg = null, mode = "default") {
     
     // store players as playing players
     if(playerID) players.push([playerID, gameID]);
     if(playerID2) players.push([playerID2, gameID]);
     if(playerID3) players.push([playerID3, gameID]);
+    
+    switch(mode) {
+        case "hexapawn": 
+            height = 3, width = 3;
+        break;
+        case "default":
+        case "simplified":
+            height = 5, width = 5;
+        break;
+        case "chess":
+            height = 8, width = 8;
+        break;
+    }
     
     // create a blank new board
     let emptyRow = [];
@@ -3055,9 +3151,11 @@ function createGame(playerID, playerID2, playerID3, gameID, name1, name2, name3,
     let newGame = {id: gameID, players: [ playerID, playerID2 ], playerNames: [ name1, name2 ], state: newBoard, turn: 0, normalTurn: 0, concluded: false, selectedPiece: null, doubleMove0: false, doubleMove1: false, inDoubleMove: false, ai: false, firstMove: false, aiOnly: false, height: height, width: width, doNotSerialize: false, prevMove: -1 };
  
     switch(mode) {
-        case "wwress":
+        default:
+        case "simplified":
+        case "default":
             // put pieces on board
-            let listPower = generateRoleList(newBoard);
+            let listPower = generateRoleList(newBoard, mode=="simplified");
             
             //loadPromoteTestSetup(newBoard);
             //loadTestingSetup(newBoard);
@@ -3066,7 +3164,7 @@ function createGame(playerID, playerID2, playerID3, gameID, name1, name2, name3,
             // push game to list of games
             
             // add a solo
-            if(name3 != null && height%2 == 1 && height >= 3) { // seo: debug solo
+            if(name3 != null && height%2 == 1 && height >= 3 && mode != "simplified") { // seo: debug solo
                 let solos = ["angel","flute","graveyard","underworld"];
                 if(playerID3 == null) solos.push(...["apprentice"]);
                 let selectedSoloIndex = Math.floor(Math.random() * solos.length);
@@ -3113,6 +3211,41 @@ function createGame(playerID, playerID2, playerID3, gameID, name1, name2, name3,
             newBoard[2][0] = getPiece("White Pawn");
             newBoard[2][1] = getPiece("White Pawn");
             newBoard[2][2] = getPiece("White Pawn");
+        break;
+        case "chess":
+            newBoard[0][0] = getPiece("Black Rook");
+            newBoard[0][1] = getPiece("Black Knight");
+            newBoard[0][2] = getPiece("Black Bishop");
+            newBoard[0][3] = getPiece("Black Queen");
+            newBoard[0][4] = getPiece("Black King");
+            newBoard[0][5] = getPiece("Black Bishop");
+            newBoard[0][6] = getPiece("Black Knight");
+            newBoard[0][7] = getPiece("Black Rook");
+            newBoard[1][0] = getPiece("Black Pawn");
+            newBoard[1][1] = getPiece("Black Pawn");
+            newBoard[1][2] = getPiece("Black Pawn");
+            newBoard[1][3] = getPiece("Black Pawn");
+            newBoard[1][4] = getPiece("Black Pawn");
+            newBoard[1][5] = getPiece("Black Pawn");
+            newBoard[1][6] = getPiece("Black Pawn");
+            newBoard[1][7] = getPiece("Black Pawn");
+            
+            newBoard[7][0] = getPiece("White Rook");
+            newBoard[7][1] = getPiece("White Knight");
+            newBoard[7][2] = getPiece("White Bishop");
+            newBoard[7][3] = getPiece("White Queen");
+            newBoard[7][4] = getPiece("White King");
+            newBoard[7][5] = getPiece("White Bishop");
+            newBoard[7][6] = getPiece("White Knight");
+            newBoard[7][7] = getPiece("White Rook");
+            newBoard[6][0] = getPiece("White Pawn");
+            newBoard[6][1] = getPiece("White Pawn");
+            newBoard[6][2] = getPiece("White Pawn");
+            newBoard[6][3] = getPiece("White Pawn");
+            newBoard[6][4] = getPiece("White Pawn");
+            newBoard[6][5] = getPiece("White Pawn");
+            newBoard[6][6] = getPiece("White Pawn");
+            newBoard[6][7] = getPiece("White Pawn");
         break;
     }
     
@@ -3218,6 +3351,8 @@ function showMoves(gameID, turn, abilities = false, message = "") {
     }
     let components = [ { type: 1, components: interactions.slice(0, 5) } ];
     if(interactions.length > 5) components.push({ type: 1, components: interactions.slice(5, 10) });
+    if(interactions.length > 10) components.push({ type: 1, components: interactions.slice(10, 15) });
+    if(interactions.length > 15) components.push({ type: 1, components: interactions.slice(15, 20) });
     return { content: board, ephemeral: true, fetchReply: true, components: components }
 }
 
@@ -3453,6 +3588,48 @@ function generatePositions(board, position, hideLog = false, pieceTypeOverride =
                 break;
             }
         }
+    } /* BISHOP */
+    else if(pieceType == "Bishop") {
+        for(let offset = 1; offset < boardSize; offset++) {
+            if(inBounds(board[0].length, board.length, x+offset, y+offset) && board[y+offset][x+offset].name == null) {
+                positions.push([x+offset, y+offset]);
+            } else if(canTake && inBounds(board[0].length, board.length, x+offset, y+offset) && enemyTeam(pieceTeam, board[y+offset][x+offset].team)) {
+                positions.push([x+offset, y+offset, true]);
+                break;
+            } else {
+                break;
+            }
+        }
+        for(let offset = 1; offset < boardSize; offset++) {
+            if(inBounds(board[0].length, board.length, x-offset, y+offset) && board[y+offset][x-offset].name == null) {
+                positions.push([x-offset, y+offset]);
+            } else if(canTake && inBounds(board[0].length, board.length, x-offset, y+offset) && enemyTeam(pieceTeam, board[y+offset][x-offset].team)) {
+                positions.push([x-offset, y+offset, true]);
+                break;
+            } else {
+                break;
+            }
+        }
+        for(let offset = 1; offset < boardSize; offset++) {
+            if(inBounds(board[0].length, board.length, x+offset, y-offset) && board[y-offset][x+offset].name == null) {
+                positions.push([x+offset, y-offset]);
+            } else if(canTake && inBounds(board[0].length, board.length, x+offset, y-offset) && enemyTeam(pieceTeam, board[y-offset][x+offset].team)) {
+                positions.push([x+offset, y-offset, true]);
+                break;
+            } else {
+                break;
+            }
+        }
+        for(let offset = 1; offset < boardSize; offset++) {
+            if(inBounds(board[0].length, board.length, x-offset, y-offset) && board[y-offset][x-offset].name == null) {
+                positions.push([x-offset, y-offset]);
+            } else if(canTake && inBounds(board[0].length, board.length, x-offset, y-offset) && enemyTeam(pieceTeam, board[y-offset][x-offset].team)) {
+                positions.push([x-offset, y-offset, true]);
+                break;
+            } else {
+                break;
+            }
+        }
     }
     /* KING */
     else if(pieceType == "King") {
@@ -3593,6 +3770,28 @@ function hasAvailableMove(board, position) {
                 return true;
             }
         }
+    } /* BISHOP */
+    else if(pieceType == "Bishop") {
+        for(let offset = 1; offset < boardSize; offset++) {
+            if(inBounds(board[0].length, board.length, x+offset, y+offset) && board[y+offset][x+offset].team != pieceTeam) {
+                return true;
+            }
+        }
+        for(let offset = 1; offset < boardSize; offset++) {
+            if(inBounds(board[0].length, board.length, x-offset, y+offset) && board[y+offset][x-offset].team != pieceTeam) {
+                return true;
+            }
+        }
+        for(let offset = 1; offset < boardSize; offset++) {
+            if(inBounds(board[0].length, board.length, x+offset, y-offset) && board[y-offset][x+offset].team != pieceTeam) {
+                return true;
+            }
+        }
+        for(let offset = 1; offset < boardSize; offset++) {
+            if(inBounds(board[0].length, board.length, x-offset, y-offset) && board[y-offset][x-offset].team != pieceTeam) {
+                return true;
+            }
+        }
     }
     /* KING */
     else if(pieceType == "King") {
@@ -3707,7 +3906,7 @@ function renderBoard(game, message = "Turn", turnOverride = null) {
         row = "";
     }
     const boardSize = Math.max(board.length, board[0].length);
-    if(boardSize <= 8) {
+    if(boardSize <= 6) {
         // display last moves
         for(let i = 0; i < boardRows.length; i++) {
             boardRows[i] += "🟦";
@@ -3748,6 +3947,43 @@ function renderBoard(game, message = "Turn", turnOverride = null) {
         }
         // divider
         boardRows.push("🟦".repeat(game.width) + "🟦🟦🟦🟦🟦🟦🟦🟦🟦");
+    } else if(boardSize <= 8) {
+        // display last moves
+        for(let i = 0; i < boardRows.length; i++) {
+            if(i == 0) {
+                boardRows[i] += "🟦🟦🟦🟦🟦🟦";
+            } else {
+                let lmIndex = gameHistory.lastMoves.length - i;
+                if(gameHistory.lastMoves[lmIndex]) {
+                    let lmMsg = "";
+                    let lm = gameHistory.lastMoves[lmIndex];
+                    let moveFrom = nameToXY(lm[4]);
+                    let moveTo = nameToXY(lm[5]);
+                    if(lm[0] == 0) lmMsg += "⬜"; 
+                    else if(lm[0] == 1) lmMsg += "⬛";
+                    else if(lm[0] == 2) lmMsg += "🟧";
+                    lmMsg += letterRanks[moveFrom.x];
+                    lmMsg += numberRow[moveFrom.y];
+                    if(lm.length == 7) {
+                        lmMsg += "▶️";
+                        lmMsg += letterRanks[moveTo.x];
+                        lmMsg += numberRow[moveTo.y];
+                    } else {
+                        lmMsg += lm[7];
+                        // Array.from("").length is more precise than "".length
+                        if(Array.from(lm[7]).length < 3) {
+                            lmMsg += letterRanks[moveTo.x];
+                            lmMsg += numberRow[moveTo.y];
+                        }
+                    }
+                    boardRows[i] += lmMsg;
+                } else {
+                    boardRows[i] += "🟦🟦🟦🟦🟦🟦";
+                }
+            }
+        }
+        // divider
+        boardRows.push("🟦".repeat(game.width) + "🟦🟦🟦🟦🟦🟦🟦");
     } else { // too big, no last moves
         for(let i = 0; i < boardRows.length; i++) {
             boardRows[i] += "🟦";
@@ -3772,11 +4008,11 @@ function renderBoard(game, message = "Turn", turnOverride = null) {
     visiblePieces = [...new Set(visiblePieces)];
     visiblePieces.sort();
     for(let i = 0; i < visiblePieces.length; i++) {
-        if(visiblePieces[i] == "Zombie2" || visiblePieces[i] == "Zombie3" || visiblePieces[i] == "Zombie4" || visiblePieces[i] == "Zombie5") continue; // unlisted roles
+        if(["Zombie2","Zombie3","Zombie4","Zombie5","Black Pawn","White Pawn","Black Rook","White Rook","Black Knight","White Knight","Black Bishop","White Bishop","Black Queen","White Queen","Black King","White King"].indexOf(visiblePieces[i]) > -1) continue; // unlisted roles
         boardRows.push(findEmoji((getTeam(visiblePieces[i])==1?"Black":(getTeam(visiblePieces[i])==0?"White":"Gold")) + getChessName(visiblePieces[i])) + " " + findEmoji(visiblePieces[i]) + " **" + visiblePieces[i] + ":** " + getAbilityText(visiblePieces[i]));
     }
     if(invulSolo) boardRows.push(findEmoji("GoldUnknown") + " " + " **Solo/Unaligned:** This piece cannot be taken until its first move.");
-    return boardMsg + applyDiscordCharLimit(boardRows, "\n", 1950 - boardMsg.length);
+    return boardMsg + applyDiscordCharLimit(boardRows, "\n", 1999 - boardMsg.length);
 }
 
 // cutoff a message if more doesnt fit
@@ -3794,6 +4030,10 @@ function applyDiscordCharLimit(marr, delimiter, length) {
 
 // find an emoji by name
 function findEmoji(name) {
+    switch(name) {
+        case "White Pawn": name = "WP"; break;
+        case "Black Pawn": name = "BP"; break;
+    }
     name = name.toLowerCase().replace(/[^a-z0-9]/g,"");
     let emoji = client.emojis.cache.find(el => el.name.toLowerCase() === name);
     if(emoji) emoji = `<:${emoji.name}:${emoji.id}>`;
@@ -3842,7 +4082,14 @@ function registerCommands() {
                 name: "solo",
                 description: "Which solo do you want to fight against. Defaults to random/none.",
                 required: false,
-                choices: [{"name": "Flute Team","value": "flute"},{"name": "Underworld Team","value": "underworld"},{"name": "Graveyard Team","value": "graveyard"}]
+                choices: [{"name": "None","value": ""},{"name": "Flute Team","value": "flute"},{"name": "Underworld Team","value": "underworld"},{"name": "Graveyard Team","value": "graveyard"}]
+            },
+            {
+                type: "STRING",
+                name: "mode",
+                description: "Which gamemode you want to play. Defaults to WWRess (Default).",
+                required: false,
+                choices: [{"name": "WWRess (Simplified)","value": "simplified"},{"name": "WWRess","value": "default"},{"name": "Hexapawn","value": "hexapawn"},{"name": "Chess","value": "chess"}]
             }
         ]
     });
@@ -3859,6 +4106,13 @@ function registerCommands() {
                 name: "opponent",
                 description: "The name of the person you'd like to challenge.",
                 required: true
+            },
+            {
+                type: "STRING",
+                name: "mode",
+                description: "Which gamemode you want to play. Defaults to WWRess (Default).",
+                required: false,
+                choices: [{"name": "WWRess (Simplified)","value": "simplified"},{"name": "WWRess","value": "default"},{"name": "Hexapawn","value": "hexapawn"},{"name": "Chess","value": "chess"}]
             }
         ]
     });
