@@ -1458,6 +1458,11 @@ function movePiece(interaction, moveCurGame, from, to, repl = null) {
             let kings = ["Hooker","Idiot","Crowd Seeker","Aura Teller"];
             let knights = ["Royal Knight","Amnesiac"];
             let rooks = ["Fortune Teller","Runner","Witch"];
+            if(movedPiece.name == "White Pawn") {
+                kings = ["White King"];
+                knights = ["White Knight"];
+                rooks = ["White Rook"];
+            }
             let promoteKing = kings[Math.floor(Math.random() * kings.length)];
             let promoteKnight = knights[Math.floor(Math.random() * knights.length)];
             let promoteRook = rooks[Math.floor(Math.random() * rooks.length)];
@@ -1468,6 +1473,9 @@ function movePiece(interaction, moveCurGame, from, to, repl = null) {
             interaction.editReply(displayBoard(moveCurGame, "Promote " + to, [{ type: 1, components: components }] ));
         } else {
             let randomOptions = ["Hooker","Royal Knight","Fortune Teller","Runner","Witch"];
+            if(movedPiece.name == "White Pawn") {
+                randomOptions = ["White Rook", "White Rook", "White Knight", "White King"];
+            }
             let promoteTo = getPiece(randomOptions[Math.floor(Math.random() * randomOptions.length)]);
             if(!moveCurGame.ai) console.log("PROMOTE TO", promoteTo.name);
             movePiece(interaction, moveCurGame, to, to, promoteTo);
@@ -1477,6 +1485,11 @@ function movePiece(interaction, moveCurGame, from, to, repl = null) {
             let kings = ["Alpha Wolf","Psychic Wolf","Sneaking Wolf"];
             let knights = ["Direwolf","Clairvoyant Fox","Fox"];
             let rooks = ["Warlock","Scared Wolf","Saboteur Wolf"];
+            if(movedPiece.name = "Black Pawn") {
+                kings = ["Black King"];
+                knights = ["Black Knight"];
+                rooks = ["Black Rook"];
+            }
             let promoteKing = kings[Math.floor(Math.random() * kings.length)];
             let promoteKnight = knights[Math.floor(Math.random() * knights.length)];
             let promoteRook = rooks[Math.floor(Math.random() * rooks.length)];
@@ -1487,6 +1500,9 @@ function movePiece(interaction, moveCurGame, from, to, repl = null) {
             interaction.editReply(displayBoard(moveCurGame, "Promote " + to, [{ type: 1, components: components }] ));
         } else {
             let randomOptions = ["Alpha Wolf","Direwolf","Warlock","Scared Wolf","Saboteur Wolf"];
+            if(movedPiece.name == "Black Pawn") {
+                randomOptions = ["Black Rook", "Black Rook", "Black Knight", "Black King"];
+            }
             let promoteTo = getPiece(randomOptions[Math.floor(Math.random() * randomOptions.length)]);
             if(!moveCurGame.ai) console.log("PROMOTE TO", promoteTo.name);
             movePiece(interaction, moveCurGame, to, to, promoteTo);
@@ -2448,6 +2464,7 @@ client.on('interactionCreate', async interaction => {
                     break;
                     case "hexapawn":
                     case "chess":
+                    case "minichess":
                         if(teamSelArg) {
                             switch(teamSelArg) {
                                 case "white":
@@ -2550,7 +2567,7 @@ client.on('interactionCreate', async interaction => {
                 let soloArg = interaction.options.get("solo")?.value ?? null;
                 let modeArg = interaction.options.get("mode")?.value ?? null;
                 let gameID = games.length;
-                if((Math.floor(Math.random() * 100) < 15 || soloGame) && modeArg != "chess" && modeArg == "hexapawn") { // with AI
+                if((Math.floor(Math.random() * 100) < 15 || soloGame) && modeArg != "chess" && modeArg != "minichess" && modeArg == "hexapawn") { // with AI
                     createGame(interaction.member.id, opponent.id, null, gameID, interaction.member.user.username, opponent.user.username, "*AI*", interaction.channel.id, interaction.guild.id, soloArg, modeArg);
                 } else { // without AI
                     createGame(interaction.member.id, opponent.id, null, gameID, interaction.member.user.username, opponent.user.username, null, interaction.channel.id, interaction.guild.id, soloArg, modeArg);
@@ -3129,8 +3146,10 @@ function createGame(playerID, playerID2, playerID3, gameID, name1, name2, name3,
         case "hexapawn": 
             height = 3, width = 3;
         break;
+        default:
         case "default":
         case "simplified":
+        case "minichess":
             height = 5, width = 5;
         break;
         case "chess":
@@ -3211,6 +3230,29 @@ function createGame(playerID, playerID2, playerID3, gameID, name1, name2, name3,
             newBoard[2][0] = getPiece("White Pawn");
             newBoard[2][1] = getPiece("White Pawn");
             newBoard[2][2] = getPiece("White Pawn");
+        break;
+        case "minichess":
+            newBoard[0][0] = getPiece("Black Rook");
+            newBoard[0][1] = getPiece("Black Knight");
+            newBoard[0][2] = getPiece("Black Bishop");
+            newBoard[0][3] = getPiece("Black Queen");
+            newBoard[0][4] = getPiece("Black King");
+            newBoard[1][0] = getPiece("Black Pawn");
+            newBoard[1][1] = getPiece("Black Pawn");
+            newBoard[1][2] = getPiece("Black Pawn");
+            newBoard[1][3] = getPiece("Black Pawn");
+            newBoard[1][4] = getPiece("Black Pawn");
+            
+            newBoard[4][0] = getPiece("White Rook");
+            newBoard[4][1] = getPiece("White Knight");
+            newBoard[4][2] = getPiece("White Bishop");
+            newBoard[4][3] = getPiece("White Queen");
+            newBoard[4][4] = getPiece("White King");
+            newBoard[3][0] = getPiece("White Pawn");
+            newBoard[3][1] = getPiece("White Pawn");
+            newBoard[3][2] = getPiece("White Pawn");
+            newBoard[3][3] = getPiece("White Pawn");
+            newBoard[3][4] = getPiece("White Pawn");
         break;
         case "chess":
             newBoard[0][0] = getPiece("Black Rook");
@@ -4089,7 +4131,7 @@ function registerCommands() {
                 name: "mode",
                 description: "Which gamemode you want to play. Defaults to WWRess (Default).",
                 required: false,
-                choices: [{"name": "WWRess (Simplified)","value": "simplified"},{"name": "WWRess","value": "default"},{"name": "Hexapawn","value": "hexapawn"},{"name": "Chess","value": "chess"}]
+                choices: [{"name": "WWRess (Simplified)","value": "simplified"},{"name": "WWRess","value": "default"},{"name": "Hexapawn","value": "hexapawn"},{"name": "Chess","value": "chess"},{"name": "Minichess","value": "minichess"}]
             }
         ]
     });
@@ -4112,7 +4154,7 @@ function registerCommands() {
                 name: "mode",
                 description: "Which gamemode you want to play. Defaults to WWRess (Default).",
                 required: false,
-                choices: [{"name": "WWRess (Simplified)","value": "simplified"},{"name": "WWRess","value": "default"},{"name": "Hexapawn","value": "hexapawn"},{"name": "Chess","value": "chess"}]
+                choices: [{"name": "WWRess (Simplified)","value": "simplified"},{"name": "WWRess","value": "default"},{"name": "Hexapawn","value": "hexapawn"},{"name": "Chess","value": "chess"},{"name": "Minichess","value": "minichess"}]
             }
         ]
     });
