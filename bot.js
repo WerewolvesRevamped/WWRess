@@ -1,7 +1,7 @@
 /* Discord */
-const { Client, Intents, ApplicationCommandOptionType, Options } = require('discord.js');
+const { Client, Intents, ApplicationCommandOptionType, Options, GatewayIntentBits } = require('discord.js');
 global.client = new Client({ 
-    intents: ['GUILDS', 'GUILD_WEBHOOKS', 'GUILD_VOICE_STATES', 'GUILD_MEMBERS', 'GUILD_MESSAGES', 'GUILD_MESSAGE_REACTIONS', 'DIRECT_MESSAGES', 'DIRECT_MESSAGE_REACTIONS'],
+    intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildWebhooks, GatewayIntentBits.GuildVoiceStates, GatewayIntentBits.GuildMembers, GatewayIntentBits.GuildMessages, GatewayIntentBits.GuildMessageReactions, GatewayIntentBits.DirectMessages, GatewayIntentBits.DirectMessageReactions],
     sweepers: {
 		...Options.DefaultSweeperSettings,
 		messages: {
@@ -10,6 +10,7 @@ global.client = new Client({
 		},
 	}
 });
+
 config = require("./config.json");
 
 /* Setup */
@@ -1512,7 +1513,7 @@ function movePiece(interaction, moveCurGame, from, to, repl = null) {
             let kings = ["Alpha Wolf","Psychic Wolf","Sneaking Wolf"];
             let knights = ["Direwolf","Clairvoyant Fox","Fox"];
             let rooks = ["Warlock","Scared Wolf","Saboteur Wolf"];
-            if(movedPiece.name = "Black Pawn") {
+            if(movedPiece.name == "Black Pawn") {
                 kings = ["Black King"];
                 knights = ["Black Knight"];
                 rooks = ["Black Rook"];
@@ -1559,8 +1560,8 @@ async function turnDone(interaction, game, message) {
         let msgSpec = displayBoard(game, "Spectator Board", [], -1);
         msgSpec.ephemeral = false;
         gamesDiscord[game.id].msg.edit(msgSpec);
-        // update prev player board
         if(game.solo && gamesDiscord[game.id].lastInteraction && !game.blackEliminated && !game.whiteEliminated && !game.goldEliminated) {
+        // update prev player board
             await gamesDiscord[game.id].lastInteraction.editReply(displayBoard(game, "Waiting on Opponent", [], gamesDiscord[game.id].lastInteractionTurn));
         }
         // update player message
@@ -2323,8 +2324,8 @@ client.on('interactionCreate', async interaction => {
                 let enchantTarget = nameToXY(arg2);
 			    executeActiveAbility(curGame, "Enchant", [enchantSource.x, enchantSource.y], [enchantTarget.x, enchantTarget.y]);
                 if(countSoloPieces(curGame) == 1) {
-                    turnDone(interaction, games[gameID], "Waiting on Opponent", true); // no move after ability use
                     await interaction.update(displayBoard(curGame, "Skipping Move"));
+                    turnDone(interaction, curGame, "Waiting on Opponent", true); // no move after ability use
                 } else {
                     turnMove(interaction, gameID, curGame.turn, "update");
                 }
@@ -2335,8 +2336,8 @@ client.on('interactionCreate', async interaction => {
                 let demonizeTarget = nameToXY(arg2);
 			    executeActiveAbility(curGame, "Demonize", [demonizeSource.x, demonizeSource.y], [demonizeTarget.x, demonizeTarget.y]);
                 if(countSoloPieces(curGame) == 1) {
-                    turnDone(interaction, games[gameID], "Waiting on Opponent", true); // no move after ability use
                     await interaction.update(displayBoard(curGame, "Skipping Move"));
+                    turnDone(interaction, curGame, "Waiting on Opponent", true); // no move after ability use
                 } else {
                     turnMove(interaction, gameID, curGame.turn, "update");
                 }
@@ -2400,13 +2401,13 @@ client.on('interactionCreate', async interaction => {
             let teamColorDec = "";
             switch(team) {
                 case "townsfolk":
-                    pieces = [["Citizen","Ranger","Huntress","Bartender*","Fortune Apprentice","Child","Bard**","Butcher**"],["Hooker*","Idiot","Crowd Seeker","Aura Teller"],["Royal Knight","Alcoholic*","Amnesiac"],["Fortune Teller","Runner","Witch"],["Cursed Civilian*"]];
+                    pieces = [["Citizen","Ranger","Huntress","Bartender⁎","Fortune Apprentice","Child","Bard⁎⁎","Butcher**"],["Hooker⁎","Idiot","Crowd Seeker","Aura Teller"],["Royal Knight","Alcoholic⁎","Amnesiac"],["Fortune Teller","Runner","Witch"],["Cursed Civilian⁎"]];
                     teamColor = "White";
                     teamName = "Townsfolk (White)";
                     teamColorDec = 16777215;
                 break;
                 case "werewolf":
-                    pieces = [["Wolf","Wolf Cub","Tanner","Archivist Fox","Recluse","Dog","Bloody Butcher**","Packless Wolf**"],["Infecting Wolf*","Alpha Wolf","Psychic Wolf","Sneaking Wolf"],["Direwolf*","Clairvoyant Fox","Fox"],["Warlock","Scared Wolf","Saboteur Wolf"],["White Werewolf*"]];
+                    pieces = [["Wolf","Wolf Cub","Tanner","Archivist Fox","Recluse","Dog","Bloody Butcher⁎⁎","Packless Wolf⁎⁎"],["Infecting Wolf⁎","Alpha Wolf","Psychic Wolf","Sneaking Wolf"],["Direwolf⁎","Clairvoyant Fox","Fox"],["Warlock","Scared Wolf","Saboteur Wolf"],["White Werewolf⁎"]];
                     teamColor = "Black";
                     teamName = "Werewolves (Black)";
                     teamColorDec = 1;
@@ -2425,10 +2426,10 @@ client.on('interactionCreate', async interaction => {
             for(let i = 0; i < pieces.length; i++) {
                 let field = { name: fields[i], value: "" };
                 for(let j = 0; j < pieces[i].length; j++) {
-                    let pieceName = pieces[i][j].replace(/\*/g, "");
-                    let limitation = (pieces[i][j].match(/\*/g) || []).length
+                    let pieceName = pieces[i][j].replace(/\⁎/g, "");
+                    let limitation = (pieces[i][j].match(/\⁎/g) || []).length
                     limitations[limitation - 1] = true;
-                    field.value += findEmoji(teamColor + getChessName(pieceName)) + " " + findEmoji(pieceName) + " **" + pieces[i][j].replace(/\*/g,"\\*") + ":** " + getAbilityText(pieceName) + "\n";
+                    field.value += findEmoji(teamColor + getChessName(pieceName)) + " " + findEmoji(pieceName) + " **" + pieces[i][j] + ":** " + getAbilityText(pieceName) + "\n";
                 }
                 if(field.value.length > 0) {
                     embed.fields.push(field);
@@ -2436,8 +2437,8 @@ client.on('interactionCreate', async interaction => {
             }
             if(limitations.filter(el => el).length > 0) {
                 let field = { name: "** **", value: "" };
-                if(limitations[0]) field.value += "\* Not available in simplified mode.\n";
-                if(limitations[1]) field.value += "\*\* Only available in advanced mode.\n";
+                if(limitations[0]) field.value += "\⁎ Not available in simplified mode.\n";
+                if(limitations[1]) field.value += "\⁎\⁎ Only available in advanced mode.\n";
                 embed.fields.push(field);
             }
             // Send pinging message
@@ -3074,15 +3075,22 @@ function generateRoleList(board, mode = 0) {
         }
         // EVALUATE setup
         // calculate values town
-        let totalChessValueTown = townSelected.map(el => el[1]).reduce((a,b) => a+b);
-        let totalWWRValueTown  = townSelected.map(el => el[2]).reduce((a,b) => a+b);
-        let totalValueTown = totalChessValueTown + totalWWRValueTown;
-        let combinedIncompTown = [].concat.apply([], townSelected.map(el => el[3]));
-        // calculate values wolf
-        let totalChessValueWolf = wolfSelected.map(el => el[1]).reduce((a,b) => a+b);
-        let totalWWRValueWolf  = wolfSelected.map(el => el[2]).reduce((a,b) => a+b);
-        let totalValueWolf = totalChessValueWolf + totalWWRValueWolf;
-        let combinedIncompWolf = [].concat.apply([], wolfSelected.map(el => el[3]));
+        let totalChessValueTown, totalWWRValueTown, totalValueTown, combinedIncompTown, totalChessValueWolf, totalWWRValueWolf, totalValueWolf, combinedIncompWolf;
+        
+        try { 
+            totalChessValueTown = townSelected.map(el => el[1]).reduce((a,b) => a+b);
+            totalWWRValueTown  = townSelected.map(el => el[2]).reduce((a,b) => a+b);
+            totalValueTown = totalChessValueTown + totalWWRValueTown;
+            combinedIncompTown = [].concat.apply([], townSelected.map(el => el[3]));
+            // calculate values wolf
+            totalChessValueWolf = wolfSelected.map(el => el[1]).reduce((a,b) => a+b);
+            totalWWRValueWolf  = wolfSelected.map(el => el[2]).reduce((a,b) => a+b);
+            totalValueWolf = totalChessValueWolf + totalWWRValueWolf;
+            combinedIncompWolf = [].concat.apply([], wolfSelected.map(el => el[3]));
+        } catch (err) {
+            console.log("DISCARD", err);
+            continue;
+        }
         
         // special handling
         // town
@@ -4185,21 +4193,21 @@ function registerCommands() {
         description: 'Starts a game.',
         options: [
             {
-                type: "STRING",
+                type: ApplicationCommandOptionType.String,
                 name: "team",
                 description: "Which team you want to play as. Defaults to random.",
                 required: false,
                 choices: [{"name": "Townsfolk (White)","value": "white"},{"name": "Werewolf (Black)","value": "black"},{"name": "Solo (Gold)","value": "gold"}]
             },
             {
-                type: "STRING",
+                type: ApplicationCommandOptionType.String,
                 name: "solo",
                 description: "Which solo do you want to fight against. Defaults to random/none.",
                 required: false,
                 choices: [{"name": "None","value": ""},{"name": "Flute Team","value": "flute"},{"name": "Underworld Team","value": "underworld"},{"name": "Graveyard Team","value": "graveyard"}]
             },
             {
-                type: "STRING",
+                type: ApplicationCommandOptionType.String,
                 name: "mode",
                 description: "Which gamemode you want to play. Defaults to WWRess (Default).",
                 required: false,
@@ -4212,7 +4220,7 @@ function registerCommands() {
         description: 'Starts a game with just AIs.',
         options: [
             {
-                type: "STRING",
+                type: ApplicationCommandOptionType.String,
                 name: "mode",
                 description: "Which gamemode you want to play. Defaults to WWRess (Default).",
                 required: false,
@@ -4225,13 +4233,13 @@ function registerCommands() {
         description: 'Starts a game with another player.',
         options: [
             {
-                type: "MENTIONABLE",
+                type: ApplicationCommandOptionType.Mentionable,
                 name: "opponent",
                 description: "The name of the person you'd like to challenge.",
                 required: true
             },
             {
-                type: "STRING",
+                type: ApplicationCommandOptionType.String,
                 name: "mode",
                 description: "Which gamemode you want to play. Defaults to WWRess (Default).",
                 required: false,
@@ -4244,13 +4252,13 @@ function registerCommands() {
         description: 'Starts a game with another player with a solo.',
         options: [
             {
-                type: "MENTIONABLE",
+                type: ApplicationCommandOptionType.Mentionable,
                 name: "opponent",
                 description: "The name of the person you'd like to challenge.",
                 required: true
             },
             {
-                type: "STRING",
+                type: ApplicationCommandOptionType.String,
                 name: "solo",
                 description: "Which solo do you want to fight against. Defaults to random",
                 required: false,
@@ -4263,7 +4271,7 @@ function registerCommands() {
         description: 'Lists the pieces of a team.',
         options: [
             {
-                type: "STRING",
+                type: ApplicationCommandOptionType.String,
                 name: "team",
                 description: "The name of the team.",
                 required: true,
