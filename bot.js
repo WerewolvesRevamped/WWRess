@@ -19,6 +19,16 @@ client.on("ready", () => {
     registerCommands();
 });
 
+/**
+sendMessage
+Sends a <message> to interfaces of the game with <gameid>
+*/
+function sendMessage(gameid, message) {
+    let guild = client.guilds.cache.get(gamesDiscord[gameid].guild);
+    let channel = guild.channels.cache.get(gamesDiscord[gameid].channel);
+    channel.send(message);
+}
+
 
 /** AI **/
 const PawnValue = 2.0;
@@ -892,9 +902,7 @@ async function AImove(AI, game) {
     }
     console.log("AI MOVE   ", game.state[nameToXY(bestMove[2]).y][nameToXY(bestMove[2]).x].name + " " + bestMove[2] + ">" + xyToName(bestMove[3][0], bestMove[3][1]), round2dec(minmax.value));
     
-    let guild = client.guilds.cache.get(gamesDiscord[game.id].guild);
-    let channel = guild.channels.cache.get(gamesDiscord[game.id].channel);
-    //channel.send("**AI:** Considered " + debugIterationCounter + " possibilities. Selected: " + ((bestMove[0] == null || bestMove[0][0] == null) ? "" : (bestMove[0][0] + " " + (bestMove[0][0], xyToName(bestMove[0][1], bestMove[0][2]) + "~" + (bestMove[1].length == 2 ? xyToName(bestMove[1][0], bestMove[1][1]) : bestMove[1])) +  " & ") + game.state[nameToXY(bestMove[2]).y][nameToXY(bestMove[2]).x].name + " " + bestMove[2] + ">" + xyToName(bestMove[3][0], bestMove[3][1]) + " - Expected Value: " + round2dec(minmax.value));
+    //sendMessage(game.id, "**AI:** Considered " + debugIterationCounter + " possibilities. Selected: " + ((bestMove[0] == null || bestMove[0][0] == null) ? "" : (bestMove[0][0] + " " + (bestMove[0][0], xyToName(bestMove[0][1], bestMove[0][2]) + "~" + (bestMove[1].length == 2 ? xyToName(bestMove[1][0], bestMove[1][1]) : bestMove[1])) +  " & ") + game.state[nameToXY(bestMove[2]).y][nameToXY(bestMove[2]).x].name + " " + bestMove[2] + ">" + xyToName(bestMove[3][0], bestMove[3][1]) + " - Expected Value: " + round2dec(minmax.value));
     
     movePiece(null, game, bestMove[2], xyToName(bestMove[3][0], bestMove[3][1]));
 }
@@ -1270,10 +1278,8 @@ function movePiece(interaction, moveCurGame, from, to, repl = null) {
             break;
             case "Angel":
                 if(notAiTurn && !moveCurGame.goldEliminated) {
-                    let angelGuild = client.guilds.cache.get(gamesDiscord[moveCurGame.id].guild);
-                    let angelChannel = angelGuild.channels.cache.get(gamesDiscord[moveCurGame.id].channel);
-                    if(moveCurGame.players[2]) angelChannel.send("<@" + moveCurGame.players[2] + "> ascends and wins!");
-                    else angelChannel.send("**Ascension:** " + moveCurGame.playerNames[2] + " ascends and wins! The game continues.");
+                    if(moveCurGame.players[2]) sendMessage(moveCurGame.id, "<@" + moveCurGame.players[2] + "> ascends and wins!");
+                    else sendMessage(moveCurGame.id, "**Ascension:** " + moveCurGame.playerNames[2] + " ascends and wins! The game continues.");
                     console.log("ASCEND GOLD");
                     moveCurGameHistory.lastMoves.push([moveCurGame.turn, movedPiece.name, movedPiece.disguise, movedPiece.enemyVisible, from, to, movedPiece.enemyVisibleStatus, "🇽​"]);
                     moveCurGameHistory.lastMoves.push([2, "Angel", false, "", to, from, 7, "⬆️🏅🟦"]);
@@ -1585,8 +1591,6 @@ async function turnDone(interaction, game, message) {
         let captureDraw = gamesHistory[game.id].sinceCapture >= 30;
         
         if(triplicateDraw || captureDraw) {
-            let guild = client.guilds.cache.get(gamesDiscord[game.id].guild);
-            let channel = guild.channels.cache.get(gamesDiscord[game.id].channel);
             
             // only still living players draw
             let drawPlayers = [];
@@ -1607,8 +1611,8 @@ async function turnDone(interaction, game, message) {
             let drawMessage = [];
             if(triplicateDraw) drawMessage.push("Triplicated Position");
             if(captureDraw) drawMessage.push("30-Moves & No Captures");
-            if(drawPlayers.length == 2) channel.send("**" + drawMessage.join(", ") + ":** The game ends in a draw between " + drawPlayers[0] + " and " + drawPlayers[1] + "!");
-            else channel.send("**" + drawMessage.join(", ") + ":** The game ends in a draw between " + drawPlayers[0] + ", " + drawPlayers[1] + " and " + drawPlayers[2] + "!");
+            if(drawPlayers.length == 2) sendMessage(game.id, "**" + drawMessage.join(", ") + ":** The game ends in a draw between " + drawPlayers[0] + " and " + drawPlayers[1] + "!");
+            else sendMessage(game.id, "**" + drawMessage.join(", ") + ":** The game ends in a draw between " + drawPlayers[0] + ", " + drawPlayers[1] + " and " + drawPlayers[2] + "!");
             
             // destroy game
             concludeGame(game.id);
@@ -1772,16 +1776,13 @@ function nextTurn(game, forceTurn = null) {
             if(forceTurn < 2) game.normalTurn = forceTurn;
         }
         
-        let guild = game.ai ? null : client.guilds.cache.get(gamesDiscord[game.id].guild);
-        let channel = game.ai ? null : guild.channels.cache.get(gamesDiscord[game.id].channel);
-        
         // eliminated players if applicable
         switch(game.turn) {
             case 0:
                 if(!canMove(game.state, 0) && !game.whiteEliminated) {
                     if(!game.ai) {
-                        if(game.players[0]) channel.send("**Elimination:** <@" + game.players[0] + "> was eliminated!");
-                        else channel.send("**Elimination:** " + game.playerNames[0] + " was eliminated!");
+                        if(game.players[0]) sendMessage(game.id, "**Elimination:** <@" + game.players[0] + "> was eliminated!");
+                        else sendMessage(game.id, "**Elimination:** " + game.playerNames[0] + " was eliminated!");
                         console.log("ELIMINATE WHITE");
                         players = players.filter(el => el[0] != game.players[0]);
                     }
@@ -1791,8 +1792,8 @@ function nextTurn(game, forceTurn = null) {
             case 1:
                 if(!canMove(game.state, 1) && !game.blackEliminated) {
                     if(!game.ai) {
-                        if(game.players[1]) channel.send("**Elimination:** <@" + game.players[1] + "> was eliminated!");
-                        else channel.send("**Elimination:** " + game.playerNames[1] + " was eliminated!");
+                        if(game.players[1]) sendMessage(game.id, "**Elimination:** <@" + game.players[1] + "> was eliminated!");
+                        else sendMessage(game.id, "**Elimination:** " + game.playerNames[1] + " was eliminated!");
                         console.log("ELIMINATE BLACK");
                         players = players.filter(el => el[0] != game.players[1]);
                     }
@@ -1803,8 +1804,8 @@ function nextTurn(game, forceTurn = null) {
                 if(!canMove(game.state, 2) && !game.goldEliminated) {
                     removeSoloEffect(game);
                     if(!game.ai) {
-                        if(game.players[2]) channel.send("**Elimination:** <@" + game.players[2] + "> was eliminated!");
-                        else channel.send("**Elimination:** " + game.playerNames[2] + " was eliminated!");
+                        if(game.players[2]) sendMessage(game.id, "**Elimination:** <@" + game.players[2] + "> was eliminated!");
+                        else sendMessage(game.id, "**Elimination:** " + game.playerNames[2] + " was eliminated!");
                         console.log("ELIMINATE GOLD");
                         players = players.filter(el => el[0] != game.players[2]);
                     }
@@ -1843,25 +1844,25 @@ function nextTurn(game, forceTurn = null) {
             // get channel
             // determine winner
             if(!game.blackEliminated && !soloHasWon && findWWW(game)) { // P2 loses by WWW
-                channel.send("**Game End:** White Werewolf causes a loss!");
+                sendMessage(game.id, "**Game End:** White Werewolf causes a loss!");
                 let enemies = "";
                 if(game.players[1]) enemies += "<@" + game.players[1] + ">";
                 else enemies += game.playerNames[1];
                 enemies += " & ";
                 if(game.players[2]) enemies += "<@" + game.players[2] + ">";
                 else enemies += game.playerNames[2];
-                if(game.players[0]) channel.send("**Victory:** " + enemies + " have won against " + game.player[0] + "!");
-                else channel.send("**Victory:** " + enemies + " have won against " + game.playerNames[0] + "!"); 
+                if(game.players[0]) sendMessage(game.id, "**Victory:** " + enemies + " have won against " + game.player[0] + "!");
+                else sendMessage(game.id, "**Victory:** " + enemies + " have won against " + game.playerNames[0] + "!"); 
             } else if(!game.goldEliminated || soloHasWon) { // P3 wins
-                if(soloHasWon) channel.send("**Game End:** Solo Power causes a loss!");
+                if(soloHasWon) sendMessage(game.id, "**Game End:** Solo Power causes a loss!");
                 let enemies = "";
                 if(game.players[0]) enemies += "<@" + game.players[0] + ">";
                 else enemies += game.playerNames[0];
                 enemies += " & ";
                 if(game.players[1]) enemies += "<@" + game.players[1] + ">";
                 else enemies += game.playerNames[1];
-                if(game.players[2]) channel.send("**Victory:** <@" + game.players[2] + "> has won against " + enemies + "!");
-                else channel.send("**Victory:** " + game.playerNames[2] + " has won against " + enemies + "!");
+                if(game.players[2]) sendMessage(game.id, "**Victory:** <@" + game.players[2] + "> has won against " + enemies + "!");
+                else sendMessage(game.id, "**Victory:** " + game.playerNames[2] + " has won against " + enemies + "!");
             } else if(!game.whiteEliminated) { // P1 wins
                 let enemies = "";
                 if(game.players[1]) enemies += "<@" + game.players[1] + ">";
@@ -1876,8 +1877,8 @@ function nextTurn(game, forceTurn = null) {
                     else enemies += game.playerNames[2];
                     enemies += " won by ascension";
                 }
-                if(game.players[0]) channel.send("**Victory:** <@" + game.players[0] + "> has won against " + enemies + "!");
-                else channel.send("**Victory:** " + game.playerNames[0] + " has won against " + enemies + "!");
+                if(game.players[0]) sendMessage(game.id, "**Victory:** <@" + game.players[0] + "> has won against " + enemies + "!");
+                else sendMessage(game.id, "**Victory:** " + game.playerNames[0] + " has won against " + enemies + "!");
             }else if(!game.blackEliminated) { // P2 wins
                 let enemies = "";
                 if(game.players[0]) enemies += "<@" + game.players[0] + ">";
@@ -1892,10 +1893,10 @@ function nextTurn(game, forceTurn = null) {
                     else enemies += game.playerNames[2];
                     enemies += " won by ascension";
                 }
-                if(game.players[1]) channel.send("**Victory:** <@" + game.players[1] + "> has won against " + enemies + "!");
-                else channel.send("**Victory:** " + game.playerNames[1] + " has won against " + enemies + "!");
+                if(game.players[1]) sendMessage(game.id, "**Victory:** <@" + game.players[1] + "> has won against " + enemies + "!");
+                else sendMessage(game.id, "**Victory:** " + game.playerNames[1] + " has won against " + enemies + "!");
             } else {
-                channel.send("**Game End:** The game ends in a stalemate!");
+                sendMessage(game.id, "**Game End:** The game ends in a stalemate!");
             }
             
             // destroy game
@@ -1920,23 +1921,21 @@ function nextTurn(game, forceTurn = null) {
 
         // WIN Message
         if(!game.solo && !canMove(board, game.turn)) {
-            let guild = client.guilds.cache.get(gamesDiscord[game.id].guild);
-            let channel = guild.channels.cache.get(gamesDiscord[game.id].channel);
 
             // www lose
             if(findWWW(game) && oldTurn == 1) {
                 oldTurn = 0;
                 game.turn = 1;
-                channel.send("**Game End:** White Werewolf causes a loss!");
+                sendMessage(game.id, "**Game End:** White Werewolf causes a loss!");
             }
             
-            if(game.players[0] && game.players[1]) channel.send("**Victory:** <@" + game.players[oldTurn] + "> has won against <@" + game.players[game.turn] + ">!"); // no AI
-            else if(oldTurn == 0 && !game.players[0] && game.players[1]) channel.send("**Victory:** " + game.playerNames[0] + " has won against <@" + game.players[1] + ">!"); // town AI
-            else if(oldTurn == 1 && !game.players[0] && game.players[1]) channel.send("**Victory:** <@" + game.players[1] + "> has won against " + game.playerNames[0] + "!"); // town AI
-            else if(oldTurn == 0 && !game.players[1] && game.players[0]) channel.send("**Victory:** <@" + game.players[0] + "> has won against " + game.playerNames[1] + "!"); // wolf AI
-            else if(oldTurn == 1 && !game.players[1] && game.players[0]) channel.send("**Victory:** " + game.playerNames[1] + " has won against <@" + game.players[0] + ">!"); // wolf AI
-            else if(oldTurn == 0 && !game.players[1] && !game.players[0]) channel.send("**Victory:** " + game.playerNames[0] + " has won against " + game.playerNames[1] + "!"); // both AI
-            else if(oldTurn == 1 && !game.players[1] && !game.players[0]) channel.send("**Victory:** " + game.playerNames[1] + " has won against " + game.playerNames[0] + "!"); // both AI
+            if(game.players[0] && game.players[1]) sendMessage(game.id, "**Victory:** <@" + game.players[oldTurn] + "> has won against <@" + game.players[game.turn] + ">!"); // no AI
+            else if(oldTurn == 0 && !game.players[0] && game.players[1]) sendMessage(game.id, "**Victory:** " + game.playerNames[0] + " has won against <@" + game.players[1] + ">!"); // town AI
+            else if(oldTurn == 1 && !game.players[0] && game.players[1]) sendMessage(game.id, "**Victory:** <@" + game.players[1] + "> has won against " + game.playerNames[0] + "!"); // town AI
+            else if(oldTurn == 0 && !game.players[1] && game.players[0]) sendMessage(game.id, "**Victory:** <@" + game.players[0] + "> has won against " + game.playerNames[1] + "!"); // wolf AI
+            else if(oldTurn == 1 && !game.players[1] && game.players[0]) sendMessage(game.id, "**Victory:** " + game.playerNames[1] + " has won against <@" + game.players[0] + ">!"); // wolf AI
+            else if(oldTurn == 0 && !game.players[1] && !game.players[0]) sendMessage(game.id, "**Victory:** " + game.playerNames[0] + " has won against " + game.playerNames[1] + "!"); // both AI
+            else if(oldTurn == 1 && !game.players[1] && !game.players[0]) sendMessage(game.id, "**Victory:** " + game.playerNames[1] + " has won against " + game.playerNames[0] + "!"); // both AI
             concludeGame(game.id);
             delayedDestroy(game.id);
             console.log("WIN");
@@ -2804,7 +2803,7 @@ function getAbilityText(piece) {
             return "Solo | No ability.";
             
         case "Angel":
-            return "UA | Cannot take pieces. Takes killer, when taken.";
+            return "UA | Cannot take pieces. Takes killer, when taken. Must be taken to win.";
         case "Apprentice":
             return "UA | Transforms into first taken piece.";
     }
