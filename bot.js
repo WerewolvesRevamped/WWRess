@@ -157,7 +157,9 @@ function table(defTable, tbl, x, y, boardWidthFactor, boardHeightFactor) {
     else return tbl[Math.floor(y * boardHeightFactor)][Math.floor(x * boardWidthFactor)];
 }
 
+
 function evaluate(AI, game, visiblePieces = null) {
+    //BENCHMARK timeSpentEvaluating -= Date.now();
     let board = game.state;
     // determine material + position
     let whiteValue = 0, blackValue = 0, goldValue = 0;
@@ -239,10 +241,13 @@ function evaluate(AI, game, visiblePieces = null) {
     // calculate value
     switch(AI) {
         case 0: // white ai
+            //BENCHMARK timeSpentEvaluating += Date.now();
             return (whiteValue + blackReveal + goldReveal) - (blackValue + goldValue + whiteReveal);
         case 1: // black ai
+            //BENCHMARK timeSpentEvaluating += Date.now();
             return (blackValue + whiteReveal + goldReveal) - (whiteValue + goldValue + blackReveal);
         case 2: // gold ai
+            //BENCHMARK timeSpentEvaluating += Date.now();
             return (goldValue + whiteReveal + blackReveal) - (whiteValue + blackValue + goldReveal);
     }
 }
@@ -271,7 +276,7 @@ function executeActiveAbility(game, abilityPiece, abilityPieceLocation, position
         case "Alpha Wolf":
             let recallSubject = { x: position[0], y: position[1] };
             let recallSubjectObject = game.state[recallSubject.y][recallSubject.x];
-            game.state[0][recallSubject.x] = deepCopy(recallSubjectObject);
+            game.state[0][recallSubject.x] = shallowCopy(recallSubjectObject);
             game.state[recallSubject.y][recallSubject.x] = getPiece(null);
             if(log) gameHistory.lastMoves.push([game.turn, recallSubjectObject.name, recallSubjectObject.disguise, recallSubjectObject.enemyVisible, xyToName(position[0], position[1]), xyToName(position[0], 0), recallSubjectObject.enemyVisibleStatus, "⤴️"]);
             return true;
@@ -280,7 +285,7 @@ function executeActiveAbility(game, abilityPiece, abilityPieceLocation, position
         case "Horseman of War":
             let cecallSubject = { x: position[0], y: position[1] };
             let cecallSubjectObject = game.state[cecallSubject.y][cecallSubject.x];
-            game.state[2][cecallSubject.x] = deepCopy(cecallSubjectObject);
+            game.state[2][cecallSubject.x] = shallowCopy(cecallSubjectObject);
             game.state[cecallSubject.y][cecallSubject.x] = getPiece(null);
             if(log) gameHistory.lastMoves.push([game.turn, cecallSubjectObject.name, cecallSubjectObject.disguise, cecallSubjectObject.enemyVisible, xyToName(position[0], position[1]), xyToName(position[0], 2), cecallSubjectObject.enemyVisibleStatus, "⤴️"]);
             return true;
@@ -443,7 +448,7 @@ function executeActiveAbility(game, abilityPiece, abilityPieceLocation, position
             let teleportSubject = { x: abilityPieceLocation[0], y: abilityPieceLocation[1] };
             let teleportDestination = { x: position[0], y: position[1] };
             let teleportSubjectObject = game.state[teleportSubject.y][teleportSubject.x];
-            game.state[teleportDestination.y][teleportDestination.x] = deepCopy(teleportSubjectObject);
+            game.state[teleportDestination.y][teleportDestination.x] = shallowCopy(teleportSubjectObject);
             game.state[teleportSubject.y][teleportSubject.x] = getPiece(null);
             if(log) gameHistory.lastMoves.push([game.turn, teleportSubjectObject.name, teleportSubjectObject.disguise, teleportSubjectObject.enemyVisible, xyToName(abilityPieceLocation[0], abilityPieceLocation[1]), xyToName(position[0], position[1]), teleportSubjectObject.enemyVisibleStatus, "↕️"]);
             return true;
@@ -533,8 +538,9 @@ function executeActiveAbility(game, abilityPiece, abilityPieceLocation, position
 
 function getChildren(game, maxDepth = 0, depth = 0, maximizingPlayer = true) {
     let board = game.state;
-    // get all available pieces
     let pieces = [];
+    
+    // get all available pieces
     let abilityPieces = [];
     let enemyPieces = [];
     let skipPointless = false; // some abilities are unlimited, so always better than nothing
@@ -555,7 +561,7 @@ function getChildren(game, maxDepth = 0, depth = 0, maximizingPlayer = true) {
             if(board[y][x].team == game.turn) {
                 pieces.push(xyToName(x, y));
                 if(board[y][x].active && !board[y][x].sabotaged && !board[y][x].enchanted && (maximizingPlayer || board[y][x].enemyVisibleStatus >= 6)) {
-			        let abilityPieceName = (!maximizingPlayer && board[y][x].disguise && board[y][x].enemyVisibleStatus == 6) ? board[y][x].disguise : board[y][x].name;
+                    let abilityPieceName = (!maximizingPlayer && board[y][x].disguise && board[y][x].enemyVisibleStatus == 6) ? board[y][x].disguise : board[y][x].name;
                     // active ability priorities
                     switch(abilityPieceName) {
                         // done by self this turn
@@ -642,7 +648,7 @@ function getChildren(game, maxDepth = 0, depth = 0, maximizingPlayer = true) {
             }
         }
     }
-    
+   
     // find all possible ability/move combinations
     let children = [];
     // option to not use an ability
@@ -779,13 +785,15 @@ function getChildren(game, maxDepth = 0, depth = 0, maximizingPlayer = true) {
         
         for(const abilityPosition of abilityPositions) {
             // make a copy
-            let gameCopy = deepCopy(game); // create a copy of the game to simulate the move on
+            let gameCopy = gameClone(game); // create a copy of the game to simulate the move on
             gameCopy.ai = true; // mark as AI game
             gameCopy.id = null;
             // execute ability
             let piecesChanged = false
             if(abilityPiece[0] != null) {
+                //BENCHMARK timeSpentAbility -= Date.now();
                 piecesChanged = executeActiveAbility(gameCopy, abilityPiece[0], [abilityPiece[1], abilityPiece[2]], abilityPosition, false);
+                //BENCHMARK timeSpentAbility += Date.now();
             }
             
             // redetermine pieces if positions have changed
@@ -802,73 +810,93 @@ function getChildren(game, maxDepth = 0, depth = 0, maximizingPlayer = true) {
             
             // START continue with normal move
             // iterate through all pieces
-            for(let i = 0; i < pieces.length; i++) {
-                let selectedPiece = pieces[i];
-                let positions;
-                if(maximizingPlayer) { // own piece
-                    positions = generatePositions(gameCopy.state, selectedPiece, true);
-                } else { // enemy piece
-                    let selectedPieceCoords = nameToXY(selectedPiece);
-                    let selectedPieceObject = gameCopy.state[selectedPieceCoords.y][selectedPieceCoords.x];
-                    switch(selectedPieceObject.enemyVisibleStatus) {
-                        default: case 7: // type known
-                            positions = generatePositions(gameCopy.state, selectedPiece, true);
-                        break;
-                        case 4: case 5: case 6: // type could be disguise
-                            if(selectedPieceObject.disguise) {
-                                positions = generatePositions(gameCopy.state, selectedPiece, true, getChessName(selectedPieceObject.disguise));
-                            } else {
-                                positions = generatePositions(gameCopy.state, selectedPiece, true);
-                            }
-                        break;
-                        case 0: case 1: case 2: case 3: // type unknown
-                            switch(selectedPieceObject.enemyVisible) {
-                                default:
-                                    positions = generatePositions(gameCopy.state, selectedPiece, true, "Pawn");
-                                break;
-                                case "LikelyRook":
-                                    positions = generatePositions(gameCopy.state, selectedPiece, true, "Rook");
-                                break;
-                                case "LikelyKing":
-                                    positions = generatePositions(gameCopy.state, selectedPiece, true, "King");
-                                break;
-                                case "LikelyPawn":
-                                    positions = generatePositions(gameCopy.state, selectedPiece, true, "Pawn");
-                                break;
-                                case "LikelyKnight":
-                                    positions = generatePositions(gameCopy.state, selectedPiece, true, "Knight");
-                                    if(depth >= (maxDepth-1)) {  // on first move consider it could be a amnesiac->pawn
-                                        positions.push(...generatePositions(gameCopy.state, selectedPiece, true, "Pawn"));
-                                    }
-                                break;
-                                case "Unknown":
-                                    if(depth >= (maxDepth-1)) { // on the first move, consider king and knight
-                                        positions = generatePositions(gameCopy.state, selectedPiece, true, "King");
-                                        positions.push(...generatePositions(gameCopy.state, selectedPiece, true, "Knight"));
-                                    } else { // otherwise just pawn
-                                        positions = generatePositions(gameCopy.state, selectedPiece, true, "Pawn");
-                                    }
-                                break;
-                            }
-                        break;
-                    }
-                }
-                // iterate through that piece's moves
-                for(let j = 0; j < positions.length; j++) {
-                    let gameInnerCopy = deepCopy(gameCopy); // create a copy of the game to simulate the move on
-                    let selectedMove = positions[j];
-                    // simulate move
-                    movePiece(null, gameInnerCopy, selectedPiece, xyToName(selectedMove[0], selectedMove[1]));
-                    //if(depth==4) console.log(abilityPiece, "~", abilityPosition, "|", selectedPiece, ">", selectedMove);
-                    children.push([abilityPiece, abilityPosition, selectedPiece, selectedMove, gameInnerCopy]);
-                }
-            }
+            children = getNormalChildren(pieces, maximizingPlayer, gameCopy, depth, maxDepth, abilityPiece, abilityPosition, false);
             // END normal move section
         }
     }
     // END ability section
     
 	return children; // 0 -> ability piece, 1 -> ability usage, 2 -> piece, 3 -> move, 4 -> state
+}
+
+// Normal move evaluation
+function getNormalChildren(pieces, maximizingPlayer, gameCopy, depth, maxDepth, abilityPiece, abilityPosition, uncloned = false) {
+    let children = [];
+    let pm = pieces.length-1;
+    for(let i = 0; i < pieces.length; i++) {
+        let selectedPiece = pieces[i];
+        let positions;
+        if(maximizingPlayer) { // own piece
+            positions = generatePositions(gameCopy.state, selectedPiece, true);
+        } else { // enemy piece
+            let selectedPieceCoords = nameToXY(selectedPiece);
+            let selectedPieceObject = gameCopy.state[selectedPieceCoords.y][selectedPieceCoords.x];
+            switch(selectedPieceObject.enemyVisibleStatus) {
+                default: case 7: // type known
+                    positions = generatePositions(gameCopy.state, selectedPiece, true);
+                break;
+                case 4: case 5: case 6: // type could be disguise
+                    if(selectedPieceObject.disguise) {
+                        positions = generatePositions(gameCopy.state, selectedPiece, true, getChessName(selectedPieceObject.disguise));
+                    } else {
+                        positions = generatePositions(gameCopy.state, selectedPiece, true);
+                    }
+                break;
+                case 0: case 1: case 2: case 3: // type unknown
+                    switch(selectedPieceObject.enemyVisible) {
+                        default:
+                            positions = generatePositions(gameCopy.state, selectedPiece, true, "Pawn");
+                        break;
+                        case "LikelyRook":
+                            positions = generatePositions(gameCopy.state, selectedPiece, true, "Rook");
+                        break;
+                        case "LikelyKing":
+                            positions = generatePositions(gameCopy.state, selectedPiece, true, "King");
+                        break;
+                        case "LikelyPawn":
+                            positions = generatePositions(gameCopy.state, selectedPiece, true, "Pawn");
+                        break;
+                        case "LikelyKnight":
+                            positions = generatePositions(gameCopy.state, selectedPiece, true, "Knight");
+                            if(depth >= (maxDepth-1)) {  // on first move consider it could be a amnesiac->pawn
+                                positions.push(...generatePositions(gameCopy.state, selectedPiece, true, "Pawn"));
+                            }
+                        break;
+                        case "Unknown":
+                            if(depth >= (maxDepth-1)) { // on the first move, consider king and knight
+                                positions = generatePositions(gameCopy.state, selectedPiece, true, "King");
+                                positions.push(...generatePositions(gameCopy.state, selectedPiece, true, "Knight"));
+                            } else { // otherwise just pawn
+                                positions = generatePositions(gameCopy.state, selectedPiece, true, "Pawn");
+                            }
+                        break;
+                    }
+                break;
+            }
+        }
+        // iterate through that piece's moves
+        for(let j = 0; j < positions.length; j++) {
+            let gameInnerCopy;
+            if(!uncloned && i == pm && j == positions.length-1) {
+                gameInnerCopy = gameCopy; // reuse current copy on last move
+            } else {
+                gameInnerCopy = gameClone(gameCopy); // create a copy of the game to simulate the move on
+                gameInnerCopy.ai = true; // mark as AI game
+                gameInnerCopy.id = null;
+            }
+                       
+            let selectedMove = positions[j];
+            // simulate move
+            //BENCHMARK timeSpentMoving -= Date.now();
+            //BENCHMARK timeSpentMovingCur = true;
+            movePiece(null, gameInnerCopy, selectedPiece, xyToName(selectedMove[0], selectedMove[1]));
+            //BENCHMARK timeSpentMovingCur = false;
+            //BENCHMARK timeSpentMoving += Date.now();
+            //if(depth==4) console.log(abilityPiece, "~", abilityPosition, "|", selectedPiece, ">", selectedMove);
+            children.push([abilityPiece, abilityPosition, selectedPiece, selectedMove, gameInnerCopy]);
+        }
+    }
+    return children;
 }
 
 // on the first iteration save and return the move
@@ -980,9 +1008,17 @@ function minimax(AI, game, maxDepth, depth, alpha = -Infinity, beta = Infinity) 
 }
 
 var debugIterationCounter = 0;
+//BENCHMARK var timeSpentEvaluating = 0;
+//BENCHMARK var timeSpentChecking = 0;
+//BENCHMARK var timeSpentMoving = 0;
+//BENCHMARK var timeSpentMovingCur = false;
+//BENCHMARK var timeSpentMovingClone = 0;
+//BENCHMARK var timeSpentAbility = 0;
+//BENCHMARK  timeSpentCloning = 0;
+//BENCHMARK var timeSpentFastCloning = 0;
 async function AImove(AI, game) {
     removeEffects(game, game.turn); // remove effects
-    let gameCopy = deepCopy(game); // create a copy of the game to simulate the move on
+    let gameCopy = gameClone(game); // create a copy of the game to simulate the move on
     gameCopy.ai = true; // mark as AI game
     gameCopy.id = null;
     gameCopy.parentId = game.id;
@@ -1002,15 +1038,25 @@ async function AImove(AI, game) {
     
     // start minimax to find the best move
     let minmax;
-    debugIterationCounter = 0;
+    var timeSpentTotal = -Date.now();
+    //BENCHMARK debugIterationCounter = 0;
+    //BENCHMARK timeSpentEvaluating = 0;
+    //BENCHMARK timeSpentChecking = 0;
+    //BENCHMARK timeSpentMoving = 0;
+    //BENCHMARK timeSpentMovingCur = false;
+    //BENCHMARK timeSpentMovingClone = 0;
+    //BENCHMARK timeSpentAbility = 0;
+    //BENCHMARK timeSpentCloning = 0;
+    //BENCHMARK timeSpentFastCloning = 0;
+    let modifier = game.aiModifier;
     if(pieceCount >= 50) minmax = { move: null };
-    else if(pieceCount >= 27) minmax = minimaxStart(AI, gameCopy, 1, 1);
-    else if(pieceCount >= 17) minmax = minimaxStart(AI, gameCopy, 2, 2);
-    else if(pieceCount >= 12) minmax = minimaxStart(AI, gameCopy, 3, 3);
-    else if(pieceCount >= 5) minmax = minimaxStart(AI, gameCopy, 4, 4);
-    else if(pieceCount == 4) minmax = minimaxStart(AI, gameCopy, 5, 5);
-    else if(pieceCount == 3) minmax = minimaxStart(AI, gameCopy, 6, 6);
-    else minmax = minimaxStart(AI, gameCopy, 7, 7);
+    else if(pieceCount >= 27) minmax = minimaxStart(AI, gameCopy, 2 + modifier, 2 + modifier);
+    else if(pieceCount >= 17) minmax = minimaxStart(AI, gameCopy, 3 + modifier, 3 + modifier);
+    else if(pieceCount >= 12) minmax = minimaxStart(AI, gameCopy, 4 + modifier, 4 + modifier);
+    else if(pieceCount >= 5) minmax = minimaxStart(AI, gameCopy, 5 + modifier, 5 + modifier);
+    else if(pieceCount == 4) minmax = minimaxStart(AI, gameCopy, 6 + modifier, 6 + modifier);
+    else if(pieceCount == 3) minmax = minimaxStart(AI, gameCopy, 7 + modifier, 7 + modifier);
+    else minmax = minimaxStart(AI, gameCopy, 8 + modifier, 8 + modifier);
     try {
         // minmax cant find a move, do any move
         let children = getChildren(game, 0, 0, true);
@@ -1021,10 +1067,31 @@ async function AImove(AI, game) {
         minmax = { value: null, move: [null, null, "A1", [0, 0]] };
     }
     let bestMove = minmax.move;
-	//console.log("AI BEST MOVE DEBUG", bestMove);
+	console.log("BEST MOVE VAL", minmax.value);
+    
+    if(minmax.value < -20 && game.players.length == 2) {
+        sendMessage(game.id, "**Game End:** *AI* resigned!");
+        concludeGame(game.id);
+        destroyGame(game.id);
+        console.log("RESIGN AI");
+        return;
+    }
     
 
+    timeSpentTotal += Date.now();
+    //console.log(game)
+    const ITER_FACTOR = 10000;
     console.log("CONSIDERED STATES", debugIterationCounter);
+    console.log("SPENT ", timeSpentTotal, "ms TOTAL ", Math.floor(timeSpentTotal/debugIterationCounter*ITER_FACTOR)/ITER_FACTOR, "ms PER STATE");
+    //BENCHMARK console.log("SPENT ", timeSpentEvaluating, "ms EVALUATING ", Math.floor(timeSpentEvaluating/debugIterationCounter*ITER_FACTOR)/ITER_FACTOR, "ms PER STATE ", Math.floor(timeSpentEvaluating/timeSpentTotal*100), "%");
+    //BENCHMARK console.log("SPENT ", timeSpentChecking, "ms CHECKING MOVES ", Math.floor(timeSpentChecking/debugIterationCounter*ITER_FACTOR)/ITER_FACTOR, "ms PER STATE ", Math.floor(timeSpentChecking/timeSpentTotal*100), "%");
+    //BENCHMARK console.log("SPENT ", timeSpentMoving-timeSpentMovingClone, "ms MOVING ", Math.floor((timeSpentMoving-timeSpentMovingClone)/debugIterationCounter*ITER_FACTOR)/ITER_FACTOR, "ms PER STATE ", Math.floor((timeSpentMoving-timeSpentMovingClone)/timeSpentTotal*100), "%");
+    //BENCHMARK console.log("SPENT ", timeSpentAbility, "ms on ABILITY ", Math.floor(timeSpentAbility/debugIterationCounter*ITER_FACTOR)/ITER_FACTOR, "ms PER STATE ", Math.floor(timeSpentAbility/timeSpentTotal*100), "%");
+    //BENCHMARK console.log("SPENT ", timeSpentCloning, "ms slow CLONING ", Math.floor(timeSpentCloning/debugIterationCounter*ITER_FACTOR)/ITER_FACTOR, "ms PER STATE ", Math.floor(timeSpentCloning/timeSpentTotal*100), "%");
+    //BENCHMARK console.log("SPENT ", timeSpentFastCloning, "ms fast CLONING ", Math.floor(timeSpentFastCloning/debugIterationCounter*ITER_FACTOR)/ITER_FACTOR, "ms PER STATE ", Math.floor(timeSpentFastCloning/timeSpentTotal*100), "%");
+    //BENCHMARK console.log("SPENT ", timeSpentCloning+timeSpentFastCloning, "ms total CLONING ", Math.floor((timeSpentCloning+timeSpentFastCloning)/debugIterationCounter*ITER_FACTOR)/ITER_FACTOR, "ms PER STATE ", Math.floor((timeSpentCloning+timeSpentFastCloning)/timeSpentTotal*100), "%");
+    //BENCHMARK console.log("SPENT ", timeSpentMoving, "ms MOVING w/ Cloning ", Math.floor((timeSpentMoving)/debugIterationCounter*ITER_FACTOR)/ITER_FACTOR, "ms PER STATE ", Math.floor((timeSpentMoving)/timeSpentTotal*100), "%");
+    //BENCHMARK console.log("ACCOUNTED FOR ", Math.floor((timeSpentEvaluating+timeSpentChecking+timeSpentMoving-timeSpentMovingClone+timeSpentAbility+timeSpentCloning+timeSpentFastCloning)/timeSpentTotal*100), "%");
     if(bestMove[0] == null || bestMove[0][0] == null) {
         console.log("AI ABILITY -");
     } else {
@@ -1080,9 +1147,48 @@ function getPlayerGameId(id) {
     return players[ind][1];
 }
 
-// create a deep copy of an element by JSON stringifying and then parsing it
+// create a deep copy of an element by JSON stringifying and then parsing it 
 function deepCopy(el) {
-    return structuredClone(el);
+    //BENCHMARK timeSpentCloning -= Date.now();
+    //BENCHMARK if(timeSpentMovingCur) timeSpentMovingClone -= Date.now();
+    //BENCHMARK let clone = JSON.parse(JSON.stringify(el));
+    //BENCHMARK timeSpentCloning += Date.now();
+    //BENCHMARK if(timeSpentMovingCur) timeSpentMovingClone += Date.now();
+    //BENCHMARK return clone;
+    
+    return JSON.parse(JSON.stringify(el));
+}
+
+function shallowCopy(el) {
+    return { ...el };
+}
+
+// clone a board state
+function stateClone(el) {
+    let clone = [];
+    for(let i = 0; i < el.length; i++) {
+        clone[i] = [];
+        for(let j = 0; j < el[0].length; j++) {
+            clone[i][j] = shallowCopy(el[i][j]);
+        }
+    }
+    return clone;
+}
+
+// clone a game
+function gameClone(el) {
+    //BENCHMARK timeSpentFastCloning -= Date.now();
+    //BENCHMARK if(timeSpentMovingCur) timeSpentMovingClone -= Date.now();
+    
+    let clone = { ...el };
+    
+    if(el.state) {
+        clone.state = stateClone(el.state);
+    }
+    
+    //BENCHMARK timeSpentFastCloning += Date.now();
+    //BENCHMARK if(timeSpentMovingCur) timeSpentMovingClone += Date.now();
+    return clone;
 }
 
 function turnStart(interaction, gameid, turn, mode = "editreply", firstMessage = false) {
@@ -1166,7 +1272,7 @@ function pieceDied(game, piece, locName, fromLocName, attackingPiece) {
             for(let x = 0; x < game.width; x++) {
                 let xyPiece = game.state[y][x];
                 if(xyPiece.name == "Apprentice") {
-                    apprentice = deepCopy(xyPiece);
+                    apprentice = shallowCopy(xyPiece);
                     appx = x;
                     appy = y;
                 }
@@ -1183,7 +1289,7 @@ function pieceDied(game, piece, locName, fromLocName, attackingPiece) {
         if(!game.ai) gamesHistory[game.id].lastMoves.push([game.turn, piece.name, piece.name, 7, locName, locName, 7, "🔀" + findEmoji("Undead") + "🟦"]);
         let locXY = nameToXY(locName);
         let loc2XY = nameToXY(fromLocName);
-        game.state[loc2XY.y][loc2XY.x] = deepCopy(attackingPiece);
+        game.state[loc2XY.y][loc2XY.x] = shallowCopy(attackingPiece);
         game.state[locXY.y][locXY.x] = getPiece("Undead");
         game.state[locXY.y][locXY.x].enemyVisibleStatus = 7;
     }
@@ -1230,9 +1336,9 @@ function movePiece(interaction, moveCurGame, from, to, repl = null) {
     let moveTo = nameToXY(to);
             
     // move piece
-    let movedPieceCopy = deepCopy(moveCurGame.state[moveFrom.y][moveFrom.x]);
-    let movedPiece = deepCopy(moveCurGame.state[moveFrom.y][moveFrom.x]);
-    let beatenPiece = deepCopy(moveCurGame.state[moveTo.y][moveTo.x]);
+    let movedPieceCopy = shallowCopy(moveCurGame.state[moveFrom.y][moveFrom.x]);
+    let movedPiece = shallowCopy(moveCurGame.state[moveFrom.y][moveFrom.x]);
+    let beatenPiece = shallowCopy(moveCurGame.state[moveTo.y][moveTo.x]);
     if(repl) movedPiece = repl; // replace piece for promotion
     moveCurGame.state[moveFrom.y][moveFrom.x] = getPiece(null);
     moveCurGame.state[moveTo.y][moveTo.x] = movedPiece;
@@ -1362,7 +1468,7 @@ function movePiece(interaction, moveCurGame, from, to, repl = null) {
                 moveCurGameHistory.lastMoves.push([beatenPiece.protectedBy, beatenPiece.name, beatenPiece.disguise, beatenPiece.enemyVisible, to, to, beatenPiece.enemyVisibleStatus, "🛡️🟦🟦"]);
             }
             moveCurGame.state[defensive.y][defensive.x] = movedPiece;
-            moveCurGame.state[moveTo.y][moveTo.x] = deepCopy(beatenPiece);
+            moveCurGame.state[moveTo.y][moveTo.x] = shallowCopy(beatenPiece);
             beatenPiece.name = "protected";
         } 
         
@@ -1396,6 +1502,9 @@ function movePiece(interaction, moveCurGame, from, to, repl = null) {
                     moveCurGame.state[defensive.y][defensive.x] = movedPiece;
                     moveCurGame.state[moveTo.y][moveTo.x] = beatenPiece;
                     moveCurGame.state[moveTo.y][moveTo.x].enemyVisibleStatus = 7;
+                } else if(notAiTurn) { 
+                    moveCurGameHistory.lastMoves.push([moveCurGame.turn, movedPiece.name, movedPiece.disguise, movedPiece.enemyVisible, from, to, movedPiece.enemyVisibleStatus, "🇽​"]);
+                    pieceDied(moveCurGame, beatenPiece, to, from, movedPiece);
                 }
             break;
             case "Ranger":
@@ -1544,7 +1653,7 @@ function movePiece(interaction, moveCurGame, from, to, repl = null) {
                         for(let x = 0; x < moveCurGame.width; x++) {
                             let xyPiece = moveCurGame.state[y][x];
                             if(xyPiece.name == "Vampire Apprentice") {
-                                vamp = deepCopy(xyPiece);
+                                vamp = shallowCopy(xyPiece);
                                 appx = x;
                                 appy = y;
                             }
@@ -1968,8 +2077,8 @@ function nextTurn(game, forceTurn = null) {
             case 0:
                 if(!canMove(game.state, 0) && !game.whiteEliminated) {
                     if(!game.ai) {
-                        if(game.players[0]) channel.send("**Elimination:** <@" + game.players[0] + "> was eliminated!");
-                        else if(game.playerNames[0]) channel.send("**Elimination:** " + game.playerNames[0] + " was eliminated!");
+                        if(game.players[0]) sendMessage(game.id, "**Elimination:** <@" + game.players[0] + "> was eliminated!");
+                        else if(game.playerNames[0]) sendMessage(game.id, "**Elimination:** " + game.playerNames[0] + " was eliminated!");
                         console.log("ELIMINATE WHITE");
                         players = players.filter(el => el[0] != game.players[0]);
                     }
@@ -1979,8 +2088,8 @@ function nextTurn(game, forceTurn = null) {
             case 1:
                 if(!canMove(game.state, 1) && !game.blackEliminated) {
                     if(!game.ai) {
-                        if(game.players[1]) channel.send("**Elimination:** <@" + game.players[1] + "> was eliminated!");
-                        else if(game.playerNames[1]) channel.send("**Elimination:** " + game.playerNames[1] + " was eliminated!");
+                        if(game.players[1]) sendMessage(game.id, "**Elimination:** <@" + game.players[1] + "> was eliminated!");
+                        else if(game.playerNames[1]) sendMessage(game.id, "**Elimination:** " + game.playerNames[1] + " was eliminated!");
                         console.log("ELIMINATE BLACK");
                         players = players.filter(el => el[0] != game.players[1]);
                     }
@@ -1991,8 +2100,8 @@ function nextTurn(game, forceTurn = null) {
                 if(!canMove(game.state, 2) && !game.goldEliminated) {
                     removeSoloEffect(game);
                     if(!game.ai) {
-                        if(game.players[2]) channel.send("**Elimination:** <@" + game.players[2] + "> was eliminated!");
-                        else if(game.playerNames[2]) channel.send("**Elimination:** " + game.playerNames[2] + " was eliminated!");
+                        if(game.players[2]) sendMessage(game.id, "**Elimination:** <@" + game.players[2] + "> was eliminated!");
+                        else if(game.playerNames[2]) sendMessage(game.id, "**Elimination:** " + game.playerNames[2] + " was eliminated!");
                         console.log("ELIMINATE GOLD");
                         players = players.filter(el => el[0] != game.players[2]);
                     }
@@ -2207,7 +2316,7 @@ function getAbilityTargets(curGame, abilityPiece, arg1) {
         // Target targetable ally
         case "Witch":
         case "Royal Knight":
-            let modGame = deepCopy(curGame.state);
+            let modGame = stateClone(curGame.state);
             let protTeam = modGame[abilitySelection.y][abilitySelection.x].team;
             modGame[abilitySelection.y][abilitySelection.x].team = (protTeam + 1) % 2;
             aPositions = generatePositions(modGame, arg1);
@@ -2486,7 +2595,7 @@ client.on('interactionCreate', async interaction => {
             // select a piece; show available moves
             case "select":    
                 let selection = nameToXY(arg1);
-                let currentGame = deepCopy(curGame);
+                let currentGame = gameClone(curGame);
                 
                 // generate list of possible moves
                 //console.log("BOARD AT SELECT", currentGame.state.map(el => el.map(el2 => el2.name).join(",")).join("\n"));
@@ -2495,7 +2604,7 @@ client.on('interactionCreate', async interaction => {
                 let components = interactionsFromPositions(positions, arg1, "turnmove", "move");
                 //console.log(components);
                 
-                currentGame.selectedPiece = deepCopy(currentGame.state[selection.y][selection.x]);
+                currentGame.selectedPiece = shallowCopy(currentGame.state[selection.y][selection.x]);
                 currentGame.state[selection.y][selection.x] = getPiece("Selected");
                 
                 interaction.update(displayBoard(currentGame, "Pick a Move", components));
@@ -2755,6 +2864,16 @@ client.on('interactionCreate', async interaction => {
                 let teamSelArg = interaction.options.get("team")?.value ?? null;
                 let soloArg = interaction.options.get("solo")?.value ?? null;
                 let modeArg = interaction.options.get("mode")?.value ?? null;
+                let aiArg = interaction.options.get("ai_strength")?.value ?? null;
+                
+                if(aiArg == "weak") {
+                    aiArg = -2;
+                } else if(aiArg == "strong") {
+                    aiArg = +2;
+                } else {
+                    aiArg = 0;
+                }
+                
                 if(soloArg && soloArg.length) soloGame = true;
                 
                 interaction.guild.channels.cache.get("1162103245829832744").send(`<@${interaction.member.id}> has started a \`${modeArg}\` game!`);
@@ -2847,7 +2966,7 @@ client.on('interactionCreate', async interaction => {
                     break;
                 }
                 // create game
-                createGame(players[0][0], players[1][0], players[2][0], games.length, players[0][1], players[1][1], players[2][1], interaction.channel.id, interaction.guild.id, soloArg, modeArg);
+                createGame(players[0][0], players[1][0], players[2][0], games.length, players[0][1], players[1][1], players[2][1], interaction.channel.id, interaction.guild.id, soloArg, modeArg, aiArg);
                 
                 // display board
                 let id = getPlayerGameId(interaction.member.id);
@@ -3537,7 +3656,7 @@ function randomize(arr) {
 
 // setups a new game
 const emptyBoard = [[getPiece(null), getPiece(null), getPiece(null), getPiece(null), getPiece(null)], [getPiece(null), getPiece(null), getPiece(null), getPiece(null), getPiece(null)], [getPiece(null), getPiece(null), getPiece(null), getPiece(null), getPiece(null)], [getPiece(null), getPiece(null), getPiece(null), getPiece(null), getPiece(null)], [getPiece(null), getPiece(null), getPiece(null), getPiece(null), getPiece(null)]];
-function createGame(playerID, playerID2, playerID3, gameID, name1, name2, name3, channel, guild, soloArg = null, mode = "default") {
+function createGame(playerID, playerID2, playerID3, gameID, name1, name2, name3, channel, guild, soloArg = null, mode = "default", strengthModifier = 0) {
     
     // store players as playing players
     if(playerID) players.push([playerID, gameID]);
@@ -3583,7 +3702,7 @@ function createGame(playerID, playerID2, playerID3, gameID, name1, name2, name3,
         newBoard.push(deepCopy(emptyRow));
     }
     
-    let newGame = {id: gameID, players: [ playerID, playerID2 ], playerNames: [ name1, name2 ], state: newBoard, turn: 0, normalTurn: 0, concluded: false, selectedPiece: null, doubleMove0: false, doubleMove1: false, inDoubleMove: false, ai: false, firstMove: false, aiOnly: false, height: height, width: width, doNotSerialize: false, prevMove: -1, reducedIterations: false, stupidChance: 0, mode: mode };
+    let newGame = {id: gameID, players: [ playerID, playerID2 ], playerNames: [ name1, name2 ], state: newBoard, turn: 0, normalTurn: 0, concluded: false, selectedPiece: null, doubleMove0: false, doubleMove1: false, inDoubleMove: false, ai: false, firstMove: false, aiOnly: false, height: height, width: width, doNotSerialize: false, prevMove: -1, reducedIterations: false, stupidChance: 0, mode: mode, aiModifier: strengthModifier };
  
     switch(mode) {
         default:
@@ -3611,7 +3730,7 @@ function createGame(playerID, playerID2, playerID3, gameID, name1, name2, name3,
                 //selectedSoloIndex = 3;
                 switch(selectedSoloName) {
                     default: console.log("INVALID SOLO", soloArg, selectedSoloName); break;
-                    case "angel": selectedSolo = ["Angel","Despot","Angel", false]; break;
+                    case "angel": selectedSolo = ["Angel","Apprentice","Angel", false]; break;
                     case "flute": selectedSolo = ["Flute Player","Flute Player","Flute", true]; break;
                     case "graveyard": selectedSolo = ["Zombie","Corpse","Graveyard", true]; break;
                     case "underworld": selectedSolo = ["Vampire","Bat","Underworld", false]; break;
@@ -3706,7 +3825,7 @@ function createGame(playerID, playerID2, playerID3, gameID, name1, name2, name3,
             newGame.soloTeam = "Horsemen";
             newGame.soloDoubleTurns = false;
             
-            newGame.reducedIterations = true;
+            //newGame.reducedIterations = true;
             
             newGame.solo = true;
             newGame.soloRevealed = false;
@@ -4020,9 +4139,9 @@ function loadTestingSetup(board) {
     board[board.length-1][4] = getPiece(testTown);
     board[0][0] = getPiece(testWolf);
     board[0][1] = getPiece("Wolf");
-    /**board[0][2] = getPiece(testWolf);
+    board[0][2] = getPiece(testWolf);
     board[0][3] = getPiece(testWolf);
-    board[0][4] = getPiece(testWolf);**/
+    board[0][4] = getPiece(testWolf);
 }
 
 
@@ -4170,7 +4289,12 @@ function canTakePieces(pieceName) {
     }
 }
 
+function checkEnemy(piece, team) {
+    return piece.name != null && enemyTeam(team, piece.team);
+}
+
 function generatePositions(board, position, hideLog = false, pieceTypeOverride = null) {
+    //BENCHMARK timeSpentChecking -= Date.now();
     let positions = [];
     position = nameToXY(position);
     let x = position.x, y = position.y;
@@ -4180,6 +4304,7 @@ function generatePositions(board, position, hideLog = false, pieceTypeOverride =
     const pieceType = pieceTypeOverride ? pieceTypeOverride : piece.chess;
     const boardSize = Math.max(board.length, board[0].length);
     const canTake = canTakePieces(piece.name);
+    let temp, xp = x+1, xm = x-1, yp = y+1, ym = y-1, bl = board.length, b0l = board[0].length;
     // Movement Logic
     // cannot move
     if(piece.sabotaged) {
@@ -4187,229 +4312,288 @@ function generatePositions(board, position, hideLog = false, pieceTypeOverride =
     } else if(piece.stay) {
         positions = [[x, y]];
     }
-    /* PAWN */
-    else if(pieceType == "Pawn" && pieceTeam == 0) {
-        if(y>0) {
-            if(board[y-1][x].name == null) positions.push([x, y-1]);
-            if(canTake && x>0 && board[y-1][x-1].name != null && enemyTeam(pieceTeam, board[y-1][x-1].team)) positions.push([x-1, y-1, true]);
-            if(canTake && x<(board[0].length-1) && board[y-1][x+1].name != null && enemyTeam(pieceTeam, board[y-1][x+1].team)) positions.push([x+1, y-1, true]);
-        }            
-    } else if(pieceType == "Pawn" && pieceTeam == 1) {
-        if(y<(board.length-1)) {
-            if(board[y+1][x].name == null) positions.push([x, y+1]);
-            if(canTake && x>0 && board[y+1][x-1].name != null && enemyTeam(pieceTeam, board[y+1][x-1].team)) positions.push([x-1, y+1, true]);
-            if(canTake && x<(board[0].length-1) && board[y+1][x+1].name != null && enemyTeam(pieceTeam, board[y+1][x+1].team)) positions.push([x+1, y+1, true]);
-        }            
-    }  else if(pieceType == "Pawn" && pieceTeam == 2) { // golden pawns can move in both directions
-        if(y>0) {
-            if(board[y-1][x].name == null) positions.push([x, y-1]);
-            if(canTake && x>0 && board[y-1][x-1].name != null && enemyTeam(pieceTeam, board[y-1][x-1].team)) positions.push([x-1, y-1, true]);
-            if(canTake && x<(board[0].length-1) && board[y-1][x+1].name != null && enemyTeam(pieceTeam, board[y-1][x+1].team)) positions.push([x+1, y-1, true]);
-        }         
-        if(y<(board.length-1)) {
-            if(board[y+1][x].name == null) positions.push([x, y+1]);
-            if(canTake && x>0 && board[y+1][x-1].name != null && enemyTeam(pieceTeam, board[y+1][x-1].team)) positions.push([x-1, y+1, true]);
-            if(canTake && x<(board[0].length-1) && board[y+1][x+1].name != null && enemyTeam(pieceTeam, board[y+1][x+1].team)) positions.push([x+1, y+1, true]);
-        }            
-    } 
-    /* ROOK */
-    else if(pieceType == "Rook") {
-        for(let xt1 = x+1; xt1 < board[0].length; xt1++) {
-            if(inBoundsX(board[0].length, xt1) && board[y][xt1].name == null) {
-                positions.push([xt1, y]);
-            } else if(canTake && inBoundsX(board[0].length, xt1) && enemyTeam(pieceTeam, board[y][xt1].team)) {
-                positions.push([xt1, y, true]);
-                break;
-            } else {
-                break;
-            }
-        }
-        for(let xt2 = x-1; xt2 >= 0; xt2--) {
-            if(inBoundsX(board[0].length, xt2) && board[y][xt2].name == null) {
-                positions.push([xt2, y]);
-            } else if(canTake && inBoundsX(board[0].length, xt2) && enemyTeam(pieceTeam, board[y][xt2].team)) {
-                positions.push([xt2, y, true]);
-                break;
-            } else {
-                break;
-            }
-        }
-        for(let yt1 = y+1; yt1 < board.length; yt1++) {
-            if(inBoundsY(board.length, yt1) && board[yt1][x].name == null) {
-                positions.push([x, yt1]);
-            } else if(canTake && inBoundsY(board.length, yt1) && enemyTeam(pieceTeam, board[yt1][x].team)) {
-                positions.push([x, yt1, true]);
-                break;
-            } else {
-                break;
-            }
-        }
-        for(let yt2 = y-1; yt2 >= 0; yt2--) {
-            if(inBoundsY(board.length, yt2) && board[yt2][x].name == null) {
-                positions.push([x, yt2]);
-            } else if(canTake && inBoundsY(board.length, yt2) && enemyTeam(pieceTeam, board[yt2][x].team)) {
-                positions.push([x, yt2, true]);
-                break;
-            } else {
-                break;
-            }
-        }
-    } /* QUEEN */
-    else if(pieceType == "Queen") {
-        for(let xt1 = x+1; xt1 < board[0].length; xt1++) {
-            if(inBoundsX(board[0].length, xt1) && board[y][xt1].name == null) {
-                positions.push([xt1, y]);
-            } else if(canTake && inBoundsX(board[0].length, xt1) && enemyTeam(pieceTeam, board[y][xt1].team)) {
-                positions.push([xt1, y, true]);
-                break;
-            } else {
-                break;
-            }
-        }
-        for(let xt2 = x-1; xt2 >= 0; xt2--) {
-            if(inBoundsX(board[0].length, xt2) && board[y][xt2].name == null) {
-                positions.push([xt2, y]);
-            } else if(canTake && inBoundsX(board[0].length, xt2) && enemyTeam(pieceTeam, board[y][xt2].team)) {
-                positions.push([xt2, y, true]);
-                break;
-            } else {
-                break;
-            }
-        }
-        for(let yt1 = y+1; yt1 < board.length; yt1++) {
-            if(inBoundsY(board.length, yt1) && board[yt1][x].name == null) {
-                positions.push([x, yt1]);
-            } else if(canTake && inBoundsY(board.length, yt1) && enemyTeam(pieceTeam, board[yt1][x].team)) {
-                positions.push([x, yt1, true]);
-                break;
-            } else {
-                break;
-            }
-        }
-        for(let yt2 = y-1; yt2 >= 0; yt2--) {
-            if(inBoundsY(board.length, yt2) && board[yt2][x].name == null) {
-                positions.push([x, yt2]);
-            } else if(canTake && inBoundsY(board.length, yt2) && enemyTeam(pieceTeam, board[yt2][x].team)) {
-                positions.push([x, yt2, true]);
-                break;
-            } else {
-                break;
-            }
-        }
-        for(let offset = 1; offset < boardSize; offset++) {
-            if(inBounds(board[0].length, board.length, x+offset, y+offset) && board[y+offset][x+offset].name == null) {
-                positions.push([x+offset, y+offset]);
-            } else if(canTake && inBounds(board[0].length, board.length, x+offset, y+offset) && enemyTeam(pieceTeam, board[y+offset][x+offset].team)) {
-                positions.push([x+offset, y+offset, true]);
-                break;
-            } else {
-                break;
-            }
-        }
-        for(let offset = 1; offset < boardSize; offset++) {
-            if(inBounds(board[0].length, board.length, x-offset, y+offset) && board[y+offset][x-offset].name == null) {
-                positions.push([x-offset, y+offset]);
-            } else if(canTake && inBounds(board[0].length, board.length, x-offset, y+offset) && enemyTeam(pieceTeam, board[y+offset][x-offset].team)) {
-                positions.push([x-offset, y+offset, true]);
-                break;
-            } else {
-                break;
-            }
-        }
-        for(let offset = 1; offset < boardSize; offset++) {
-            if(inBounds(board[0].length, board.length, x+offset, y-offset) && board[y-offset][x+offset].name == null) {
-                positions.push([x+offset, y-offset]);
-            } else if(canTake && inBounds(board[0].length, board.length, x+offset, y-offset) && enemyTeam(pieceTeam, board[y-offset][x+offset].team)) {
-                positions.push([x+offset, y-offset, true]);
-                break;
-            } else {
-                break;
-            }
-        }
-        for(let offset = 1; offset < boardSize; offset++) {
-            if(inBounds(board[0].length, board.length, x-offset, y-offset) && board[y-offset][x-offset].name == null) {
-                positions.push([x-offset, y-offset]);
-            } else if(canTake && inBounds(board[0].length, board.length, x-offset, y-offset) && enemyTeam(pieceTeam, board[y-offset][x-offset].team)) {
-                positions.push([x-offset, y-offset, true]);
-                break;
-            } else {
-                break;
-            }
-        }
-    } /* BISHOP */
-    else if(pieceType == "Bishop") {
-        for(let offset = 1; offset < boardSize; offset++) {
-            if(inBounds(board[0].length, board.length, x+offset, y+offset) && board[y+offset][x+offset].name == null) {
-                positions.push([x+offset, y+offset]);
-            } else if(canTake && inBounds(board[0].length, board.length, x+offset, y+offset) && enemyTeam(pieceTeam, board[y+offset][x+offset].team)) {
-                positions.push([x+offset, y+offset, true]);
-                break;
-            } else {
-                break;
-            }
-        }
-        for(let offset = 1; offset < boardSize; offset++) {
-            if(inBounds(board[0].length, board.length, x-offset, y+offset) && board[y+offset][x-offset].name == null) {
-                positions.push([x-offset, y+offset]);
-            } else if(canTake && inBounds(board[0].length, board.length, x-offset, y+offset) && enemyTeam(pieceTeam, board[y+offset][x-offset].team)) {
-                positions.push([x-offset, y+offset, true]);
-                break;
-            } else {
-                break;
-            }
-        }
-        for(let offset = 1; offset < boardSize; offset++) {
-            if(inBounds(board[0].length, board.length, x+offset, y-offset) && board[y-offset][x+offset].name == null) {
-                positions.push([x+offset, y-offset]);
-            } else if(canTake && inBounds(board[0].length, board.length, x+offset, y-offset) && enemyTeam(pieceTeam, board[y-offset][x+offset].team)) {
-                positions.push([x+offset, y-offset, true]);
-                break;
-            } else {
-                break;
-            }
-        }
-        for(let offset = 1; offset < boardSize; offset++) {
-            if(inBounds(board[0].length, board.length, x-offset, y-offset) && board[y-offset][x-offset].name == null) {
-                positions.push([x-offset, y-offset]);
-            } else if(canTake && inBounds(board[0].length, board.length, x-offset, y-offset) && enemyTeam(pieceTeam, board[y-offset][x-offset].team)) {
-                positions.push([x-offset, y-offset, true]);
-                break;
-            } else {
-                break;
-            }
+    else {
+        switch(pieceType) {
+            /* PAWN */
+            case "Pawn": {
+                switch(pieceTeam) {
+                    case 0: { // White Pawn
+                        if(y>0) {
+                            if(board[ym][x].name == null) positions.push([x, ym]);
+                            if(canTake && x>0 && checkEnemy(board[ym][xm], pieceTeam)) positions.push([xm, ym, true]);
+                            if(canTake && x<(b0l-1) && checkEnemy(board[ym][xp], pieceTeam)) positions.push([xp, ym, true]);
+                        }        
+                    } break;
+                    case 1: { // Black Pawn
+                        if(y<(bl-1)) {
+                            if(board[yp][x].name == null) positions.push([x, yp]);
+                            if(canTake && x>0 && checkEnemy(board[yp][xm], pieceTeam)) positions.push([xm, yp, true]);
+                            if(canTake && x<(b0l-1) && checkEnemy(board[yp][xp], pieceTeam)) positions.push([xp, yp, true]);
+                        }    
+                    } break;
+                    case 2: { // GoldPawn
+                        if(y>0) {
+                            if(board[ym][x].name == null) positions.push([x, ym]);
+                            if(canTake && x>0 && checkEnemy(board[ym][xm], pieceTeam)) positions.push([xm, ym, true]);
+                            if(canTake && x<(b0l-1) && checkEnemy(board[ym][xp], pieceTeam)) positions.push([xp, ym, true]);
+                        }         
+                        if(y<(bl-1)) {
+                            if(board[yp][x].name == null) positions.push([x, yp]);
+                            if(canTake && x>0 && checkEnemy(board[yp][xm], pieceTeam)) positions.push([xm, yp, true]);
+                            if(canTake && x<(b0l-1) && checkEnemy(board[yp][xp], pieceTeam)) positions.push([xp, yp, true]);
+                        }         
+                    } break;
+                }
+            } break;
+            /* ROOK */
+            case "Rook": {
+                for(let xt1 = xp; xt1 < b0l; xt1++) {
+                    if(inBoundsX(b0l, xt1)) {
+                        if(board[y][xt1].name == null) { // can move there
+                            positions.push([xt1, y]);
+                            continue;
+                        } else if(canTake && enemyTeam(pieceTeam, board[y][xt1].team)) { // can take there
+                            positions.push([xt1, y, true]);
+                            break;
+                        }
+                    }
+                    break; // break if cant move or take there
+                }
+                for(let xt2 = xm; xt2 >= 0; xt2--) {
+                    if(inBoundsX(b0l, xt2)) {
+                        if(board[y][xt2].name == null) { // can move there
+                            positions.push([xt2, y]);
+                            continue;
+                        } else if(canTake && enemyTeam(pieceTeam, board[y][xt2].team)) { // can take there
+                            positions.push([xt2, y, true]);
+                            break;
+                        }
+                    }
+                    break; // break if cant move or take there
+                }
+                for(let yt1 = yp; yt1 < bl; yt1++) {
+                    if(inBoundsY(bl, yt1)) {
+                        if(board[yt1][x].name == null) { // can move there
+                            positions.push([x, yt1]);
+                            continue;
+                        } else if(canTake && enemyTeam(pieceTeam, board[yt1][x].team)) { // can take there
+                            positions.push([x, yt1, true]);
+                            break;
+                        } 
+                    }
+                    break;// break if cant move or take there
+                }
+                for(let yt2 = ym; yt2 >= 0; yt2--) {
+                    if(inBoundsY(bl, yt2)) {
+                        if(board[yt2][x].name == null) { // can move there
+                            positions.push([x, yt2]);
+                            continue;
+                        } else if(canTake && enemyTeam(pieceTeam, board[yt2][x].team)) { // can take there
+                            positions.push([x, yt2, true]);
+                            break;
+                        } 
+                    }
+                    break;// break if cant move or take there
+                }
+            } break;
+            /* QUEEN */
+            case "Queen": {
+                for(let xt1 = xp; xt1 < b0l; xt1++) {
+                    if(inBoundsX(b0l, xt1)) {
+                        if(board[y][xt1].name == null) { // can move there
+                            positions.push([xt1, y]);
+                            continue;
+                        } else if(canTake && enemyTeam(pieceTeam, board[y][xt1].team)) { // can take there
+                            positions.push([xt1, y, true]);
+                            break;
+                        }
+                    }
+                    break; // break if cant move or take there
+                }
+                for(let xt2 = xm; xt2 >= 0; xt2--) {
+                    if(inBoundsX(b0l, xt2)) {
+                        if(board[y][xt2].name == null) { // can move there
+                            positions.push([xt2, y]);
+                            continue;
+                        } else if(canTake && enemyTeam(pieceTeam, board[y][xt2].team)) { // can take there
+                            positions.push([xt2, y, true]);
+                            break;
+                        }
+                    }
+                    break; // break if cant move or take there
+                }
+                for(let yt1 = yp; yt1 < bl; yt1++) {
+                    if(inBoundsY(bl, yt1)) {
+                        if(board[yt1][x].name == null) { // can move there
+                            positions.push([x, yt1]);
+                            continue;
+                        } else if(canTake && enemyTeam(pieceTeam, board[yt1][x].team)) { // can take there
+                            positions.push([x, yt1, true]);
+                            break;
+                        } 
+                    }
+                    break;// break if cant move or take there
+                }
+                for(let yt2 = ym; yt2 >= 0; yt2--) {
+                    if(inBoundsY(bl, yt2)) {
+                        if(board[yt2][x].name == null) { // can move there
+                            positions.push([x, yt2]);
+                            continue;
+                        } else if(canTake && enemyTeam(pieceTeam, board[yt2][x].team)) { // can take there
+                            positions.push([x, yt2, true]);
+                            break;
+                        } 
+                    }
+                    break; // break if cant move or take there
+                }
+                for(let offset = 1; offset < boardSize; offset++) {
+                    let xof = x+offset, yof = y+offset;
+                    if(inBounds(b0l, bl, xof, yof)) {
+                        if(board[yof][xof].name == null) { // can move there
+                            positions.push([xof, yof]);
+                            continue;
+                        } else if(canTake && enemyTeam(pieceTeam, board[yof][xof].team)) { // can take there
+                            positions.push([xof, yof, true]);
+                            break;
+                        }
+                    }
+                    break; // break if cant move or take there
+                }
+                for(let offset = 1; offset < boardSize; offset++) {
+                    let xof = x-offset, yof = y+offset;
+                    if(inBounds(b0l, bl, xof, yof)) {
+                        if(board[yof][xof].name == null) { // can move there
+                            positions.push([xof, yof]);
+                            continue;
+                        } else if(canTake && enemyTeam(pieceTeam, board[yof][xof].team)) { // can take there
+                            positions.push([xof, yof, true]);
+                            break;
+                        }
+                    }
+                    break; // break if cant move or take there
+                }
+                for(let offset = 1; offset < boardSize; offset++) {
+                    let xof = x+offset, yof = y-offset;
+                    if(inBounds(b0l, bl, xof, yof)) {
+                        if(board[yof][xof].name == null) { // can move there
+                            positions.push([xof, yof]);
+                            continue;
+                        } else if(canTake && enemyTeam(pieceTeam, board[yof][xof].team)) { // can take there
+                            positions.push([xof, yof, true]);
+                            break;
+                        }
+                    }
+                    break; // break if cant move or take there
+                }
+                for(let offset = 1; offset < boardSize; offset++) {
+                    let xof = x-offset, yof = y-offset;
+                    if(inBounds(b0l, bl, xof, yof)) {
+                        if(board[yof][xof].name == null) { // can move there
+                            positions.push([xof, yof]);
+                            continue;
+                        } else if(canTake && enemyTeam(pieceTeam, board[yof][xof].team)) { // can take there
+                            positions.push([xof, yof, true]);
+                            break;
+                        }
+                    }
+                    break; // break if cant move or take there
+                }
+            } break;
+            /* BISHOP */
+            case "Bishop": {
+                for(let offset = 1; offset < boardSize; offset++) {
+                    let xof = x+offset, yof = y+offset;
+                    if(inBounds(b0l, bl, xof, yof)) {
+                        if(board[yof][xof].name == null) { // can move there
+                            positions.push([xof, yof]);
+                            continue;
+                        } else if(canTake && enemyTeam(pieceTeam, board[yof][xof].team)) { // can take there
+                            positions.push([xof, yof, true]);
+                            break;
+                        }
+                    }
+                    break; // break if cant move or take there
+                }
+                for(let offset = 1; offset < boardSize; offset++) {
+                    let xof = x-offset, yof = y+offset;
+                    if(inBounds(b0l, bl, xof, yof)) {
+                        if(board[yof][xof].name == null) { // can move there
+                            positions.push([xof, yof]);
+                            continue;
+                        } else if(canTake && enemyTeam(pieceTeam, board[yof][xof].team)) { // can take there
+                            positions.push([xof, yof, true]);
+                            break;
+                        }
+                    }
+                    break; // break if cant move or take there
+                }
+                for(let offset = 1; offset < boardSize; offset++) {
+                    let xof = x+offset, yof = y-offset;
+                    if(inBounds(b0l, bl, xof, yof)) {
+                        if(board[yof][xof].name == null) { // can move there
+                            positions.push([xof, yof]);
+                            continue;
+                        } else if(canTake && enemyTeam(pieceTeam, board[yof][xof].team)) { // can take there
+                            positions.push([xof, yof, true]);
+                            break;
+                        }
+                    }
+                    break; // break if cant move or take there
+                }
+                for(let offset = 1; offset < boardSize; offset++) {
+                    let xof = x-offset, yof = y-offset;
+                    if(inBounds(b0l, bl, xof, yof)) {
+                        if(board[yof][xof].name == null) { // can move there
+                            positions.push([xof, yof]);
+                            continue;
+                        } else if(canTake && enemyTeam(pieceTeam, board[yof][xof].team)) { // can take there
+                            positions.push([xof, yof, true]);
+                            break;
+                        }
+                    }
+                    break; // break if cant move or take there
+                }
+            } break;
+            /* KING */
+            case "King": {
+                let possibleMoves = [[1,0],[-1,0],[0,1],[0,-1],[1,1],[-1,1],[1,-1],[-1,-1]]; // possible movements
+                for(let i = 0; i < possibleMoves.length; i++) {
+                    let px = x + possibleMoves[i][0];
+                    let py = y + possibleMoves[i][1];
+                    if(inBounds(b0l, bl, px, py)) {
+                        if(board[py][px].name == null) positions.push([px, py]); // can move
+                        else if(canTake && enemyTeam(pieceTeam, board[py][px].team)) positions.push([px, py, true]); // can take
+                    }
+                }
+            } break;
+            /* PRINCE */
+            case "Prince": {
+                let possibleMoves = [[1,0],[-1,0],[0,1],[0,-1]]; // possible movements
+                for(let i = 0; i < possibleMoves.length; i++) {
+                    let px = x + possibleMoves[i][0];
+                    let py = y + possibleMoves[i][1];
+                    if(inBounds(b0l, bl, px, py)) {
+                        if(board[py][px].name == null) positions.push([px, py]); // can move
+                        else if(canTake && enemyTeam(pieceTeam, board[py][px].team)) positions.push([px, py, true]); // can take
+                    }
+                }
+            } break;
+            /* KNIGHT */
+            case "Knight": {
+                let possibleMoves = [[2,1],[-2,1],[2,-1],[-2,-1],[1,2],[-1,2],[1,-2],[-1,-2]]; // possible movements
+                for(let i = 0; i < possibleMoves.length; i++) {
+                    let px = x + possibleMoves[i][0];
+                    let py = y + possibleMoves[i][1];
+                    if(inBounds(b0l, bl, px, py)) {
+                        if(board[py][px].name == null) positions.push([px, py]); // can move
+                        else if(canTake && enemyTeam(pieceTeam, board[py][px].team)) positions.push([px, py, true]); // can take
+                    }
+                }
+            } break;
         }
     }
-    /* KING */
-    else if(pieceType == "King") {
-        let possibleMoves = [[1,0],[-1,0],[0,1],[0,-1],[1,1],[-1,1],[1,-1],[-1,-1]];
-        for(let i = 0; i < possibleMoves.length; i++) {
-            let px = x + possibleMoves[i][0];
-            let py = y + possibleMoves[i][1];
-            if(inBounds(board[0].length, board.length, px, py) && board[py][px].name == null) positions.push([px, py]);
-            else if(canTake && inBounds(board[0].length, board.length, px, py) && enemyTeam(pieceTeam, board[py][px].team)) positions.push([px, py, true]);
-        }
-    }
-    /* PRINCE */
-    else if(pieceType == "Prince") {
-        let possibleMoves = [[1,0],[-1,0],[0,1],[0,-1]];
-        for(let i = 0; i < possibleMoves.length; i++) {
-            let px = x + possibleMoves[i][0];
-            let py = y + possibleMoves[i][1];
-            if(inBounds(board[0].length, board.length, px, py) && board[py][px].name == null) positions.push([px, py]);
-            else if(canTake && inBounds(board[0].length, board.length, px, py) && enemyTeam(pieceTeam, board[py][px].team)) positions.push([px, py, true]);
-        }
-    }
-    /* KNIGHT */
-    else if(pieceType == "Knight") {
-        let possibleMoves = [[2,1],[-2,1],[2,-1],[-2,-1],[1,2],[-1,2],[1,-2],[-1,-2]];
-        for(let i = 0; i < possibleMoves.length; i++) {
-            let px = x + possibleMoves[i][0];
-            let py = y + possibleMoves[i][1];
-            if(inBounds(board[0].length, board.length, px, py) && board[py][px].name == null) positions.push([px, py]);
-            else if(canTake && inBounds(board[0].length, board.length, px, py) && enemyTeam(pieceTeam, board[py][px].team)) positions.push([px, py, true]);
-        }
-    }
-    positions.sort((a,b) => (xyToName(a[0], a[1]) > xyToName(b[0], b[1])) ? 1 : ((xyToName(b[0], b[1]) > xyToName(a[0], a[1])) ? -1 : 0));
+    if(hideLog) positions.sort((a,b) => (xyToName(a[0], a[1]) > xyToName(b[0], b[1])) ? 1 : ((xyToName(b[0], b[1]) > xyToName(a[0], a[1])) ? -1 : 0));
+    //BENCHMARK timeSpentChecking += Date.now();
     return positions;
 }
 
@@ -4865,6 +5049,13 @@ function registerCommands() {
                 description: "Which gamemode you want to play. Defaults to WWRess (Default).",
                 required: false,
                 choices: [{"name": "WWRess (Simplified)","value": "simplified"},{"name": "WWRess","value": "default"},{"name": "WWRess (Advanced)","value": "advanced"},{"name": "Hexapawn","value": "hexapawn"},{"name": "Pawnford","value": "pawnford"},{"name": "Big Pawnford","value": "pawnford_big"},{"name": "Chess","value": "chess"},{"name": "Minichess","value": "minichess"}]
+            },
+            {
+                type: ApplicationCommandOptionType.String,
+                name: "ai_strength",
+                description: "The strength of the AI.",
+                required: false,
+                choices: [{"name": "Weak","value": "weak"},{"name": "Medium (Default)","value": "default"},{"name": "Strong","value": "strong"}]
             }
         ]
     });
@@ -4878,6 +5069,13 @@ function registerCommands() {
                 description: "Which gamemode you want to play. Defaults to WWRess (Default).",
                 required: false,
                 choices: [{"name": "Flute Boss","value": "boss_flute"},{"name": "Bat Boss","value": "boss_bat"},{"name": "Ghast Boss (Reversed)","value": "boss_ghast"},{"name": "Zombie Boss","value": "boss_zombie"},{"name": "Horsemen Boss","value": "boss_horseman"},{"name": "Horsemen Boss (Reversed)","value": "boss_horseman_reversed"}]
+            },
+            {
+                type: ApplicationCommandOptionType.String,
+                name: "ai_strength",
+                description: "The strength of the AI.",
+                required: false,
+                choices: [{"name": "Weak","value": "weak"},{"name": "Medium (Default)","value": "default"},{"name": "Strong","value": "strong"}]
             }
         ]
     });
