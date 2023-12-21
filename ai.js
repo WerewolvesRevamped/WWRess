@@ -1,4 +1,3 @@
-
 /** AI **/
 const PawnValue = 2.0;
 const PrinceValue = 3.0;
@@ -87,6 +86,10 @@ const SoloTable = [
     [-1.0, -0.75, -0.25, -0.75, -1.0]
 ];
 
+/**
+getEvaluationData(pieceChessName)
+Returns an object containing the value of a piece as well as a table marking which locations are best for the piece
+**/
 function getEvaluationData(piece) {
     switch(piece) {
         case "Pawn": case "ActivePawn":
@@ -121,12 +124,21 @@ function getEvaluationData(piece) {
     }
 }
 
+/**
+table(returnTableDirectly, inputTable, Xcoord, Ycoord, XwidthFactor, YwidthFactor)
+Receives a table and either returns a value from certain X/Y coordinates directly, or scales the coordinates according to factors first and then returns
+**/
 function table(defTable, tbl, x, y, boardWidthFactor, boardHeightFactor) {
     if(defTable) return tbl[y][x];
     else return tbl[Math.floor(y * boardHeightFactor)][Math.floor(x * boardWidthFactor)];
 }
 
+/**
+evaluate(currentPlayer, currentGame, visibleTeam)
+Evaluates the current game state for a certain player (AI) with pieces from a certain team visible
+**/
 function evaluate(AI, game, visiblePieces = null) {
+    //BENCHMARK timeSpentEvaluating -= Date.now();
     let board = game.state;
     // determine material + position
     let whiteValue = 0, blackValue = 0, goldValue = 0;
@@ -208,18 +220,26 @@ function evaluate(AI, game, visiblePieces = null) {
     // calculate value
     switch(AI) {
         case 0: // white ai
+            //BENCHMARK timeSpentEvaluating += Date.now();
             return (whiteValue + blackReveal + goldReveal) - (blackValue + goldValue + whiteReveal);
         case 1: // black ai
+            //BENCHMARK timeSpentEvaluating += Date.now();
             return (blackValue + whiteReveal + goldReveal) - (whiteValue + goldValue + blackReveal);
         case 2: // gold ai
+            //BENCHMARK timeSpentEvaluating += Date.now();
             return (goldValue + whiteReveal + blackReveal) - (whiteValue + blackValue + goldReveal);
     }
 }
 
+/**
+getChildren(currentGame, maximumIteration, remainingIterations, isCurrentPlayerAI)
+Retrieves all relevant child states of the current game state
+**/
 function getChildren(game, maxDepth = 0, depth = 0, maximizingPlayer = true) {
     let board = game.state;
-    // get all available pieces
     let pieces = [];
+    
+    // get all available pieces
     let abilityPieces = [];
     let enemyPieces = [];
     let skipPointless = false; // some abilities are unlimited, so always better than nothing
@@ -240,7 +260,7 @@ function getChildren(game, maxDepth = 0, depth = 0, maximizingPlayer = true) {
             if(board[y][x].team == game.turn) {
                 pieces.push(xyToName(x, y));
                 if(board[y][x].active && !board[y][x].sabotaged && !board[y][x].enchanted && (maximizingPlayer || board[y][x].enemyVisibleStatus >= 6)) {
-			        let abilityPieceName = (!maximizingPlayer && board[y][x].disguise && board[y][x].enemyVisibleStatus == 6) ? board[y][x].disguise : board[y][x].name;
+                    let abilityPieceName = (!maximizingPlayer && board[y][x].disguise && board[y][x].enemyVisibleStatus == 6) ? board[y][x].disguise : board[y][x].name;
                     // active ability priorities
                     switch(abilityPieceName) {
                         // done by self this turn
@@ -273,6 +293,7 @@ function getChildren(game, maxDepth = 0, depth = 0, maximizingPlayer = true) {
                             atFound = true;
                         break;
                         case "Tanner":
+                        case "Horseman of Famine":
                             if(depth >= maxDepth && !tFound) {
                                 abilityPieces.push([board[y][x].name, x, y]);
                                 skipPointless = true;
@@ -299,10 +320,11 @@ function getChildren(game, maxDepth = 0, depth = 0, maximizingPlayer = true) {
                         break;
                         // done by self in next turn
                         case "Saboteur Wolf": 
+                        case "Horseman of Pestilence": 
                             if(depth >= (maxDepth-2)) abilityPieces.push([board[y][x].name, x, y]);
                         break;
                         // whenever
-                        case "Infecting Wolf": case "Dog": case "Flute Player": case "Vampire":
+                        case "Infecting Wolf": case "Dog": case "Flute Player": case "Vampire": case "Ghast": case "FireballUp": case "FireballDown":
                             abilityPieces.push([board[y][x].name, x, y]);
                         break;
                         // whenever
@@ -312,6 +334,11 @@ function getChildren(game, maxDepth = 0, depth = 0, maximizingPlayer = true) {
                             }
                             awFound = true;
                         break;
+                        // whenever
+                        case "Horseman of War":
+                        case "Horseman of Death":
+                            abilityPieces.push([board[y][x].name, x, y]);
+                        break;
                     }
                     // end priorities
                 }
@@ -320,7 +347,7 @@ function getChildren(game, maxDepth = 0, depth = 0, maximizingPlayer = true) {
             }
         }
     }
-    
+   
     // find all possible ability/move combinations
     let children = [];
     // option to not use an ability
@@ -329,12 +356,13 @@ function getChildren(game, maxDepth = 0, depth = 0, maximizingPlayer = true) {
     for(let abilityPiece of abilityPieces) {
         // find valid options for ability
         let abilityPositions = [];
+        let ax = abilityPiece[1], ay = abilityPiece[2];
         switch(abilityPiece[0]) {
             case null: default:
                 abilityPositions = [[null]];
             break;
             // targetable enemy
-            case "Fortune Teller": case "Warlock": case "Infecting Wolf": case "Saboteur Wolf":
+            case "Fortune Teller": case "Warlock": case "Infecting Wolf": case "Saboteur Wolf": case "Horseman of Pestilence":
                 abilityPositions = generatePositions(game.state, xyToName(abilityPiece[1], abilityPiece[2]), true).filter(el => el[2]).map(el => [el[0], el[1]]); // only select moves with targets
             break;
             // all enemy
@@ -368,6 +396,7 @@ function getChildren(game, maxDepth = 0, depth = 0, maximizingPlayer = true) {
             break;
             // all ally
             case "Tanner":
+            case "Horseman of Famine":
                 abilityPositions = pieces.map(el => {
                     let tanXY = nameToXY(el);
                     return [tanXY.x, tanXY.y];
@@ -380,9 +409,26 @@ function getChildren(game, maxDepth = 0, depth = 0, maximizingPlayer = true) {
             case "Bloody Butcher":
                 abilityPositions = ["Revealed Bloody Butcher"];
             break;
+            case "Ghast":
+                if(inBounds(game.width, game.height, ax, ay - 1) && game.state[ay - 1][ax].name == null) {
+                    abilityPositions.push("up");
+                }
+                if(inBounds(game.width, game.height, ax, ay + 1) && game.state[ay + 1][ax].name == null) {
+                    abilityPositions.push("down");
+                }
+            break;
+            case "FireballUp":
+                if(inBounds(game.width, game.height, ax, ay - 1)) {
+                    abilityPositions = [[ax, ay - 1]];
+                }
+            break;
+            case "FireballDown":
+                if(inBounds(game.width, game.height, ax, ay + 1)) {
+                    abilityPositions = [[ax, ay + 1]];
+                }
+            break;
             // adjacent ally
             case "Hooker":
-                let ax = abilityPiece[1], ay = abilityPiece[2];
                 if(inBounds(game.width, game.height, ax, ay-1) && game.state[ay-1][ax].team == 0) abilityPositions.push([ax, ay-1]);
                 if(inBounds(game.width, game.height, ax, ay+1) && game.state[ay+1][ax].team == 0) abilityPositions.push([ax, ay+1]);
                 if(inBounds(game.width, game.height, ax-1, ay-1) && game.state[ay-1][ax-1].team == 0) abilityPositions.push([ax-1, ay-1]);
@@ -393,15 +439,32 @@ function getChildren(game, maxDepth = 0, depth = 0, maximizingPlayer = true) {
                 if(inBounds(game.width, game.height, ax+1, ay+1) && game.state[ay+1][ax+1].team == 0) abilityPositions.push([ax+1, ay+1]);
             break;
             case "Bat":
-                let ax2 = abilityPiece[1], ay2 = abilityPiece[2];
-                if(inBounds(game.width, game.height, ax2, ay2-1) && game.state[ay2-1][ax2].team == 2) abilityPositions.push([ax2, ay2-1]);
-                if(inBounds(game.width, game.height, ax2, ay2+1) && game.state[ay2+1][ax2].team == 2) abilityPositions.push([ax2, ay2+1]);
-                if(inBounds(game.width, game.height, ax2-1, ay2-1) && game.state[ay2-1][ax2-1].team == 2) abilityPositions.push([ax2-1, ay2-1]);
-                if(inBounds(game.width, game.height, ax2-1, ay2) && game.state[ay2][ax2-1].team == 2) abilityPositions.push([ax2-1, ay2]);
-                if(inBounds(game.width, game.height, ax2-1, ay2+1) && game.state[ay2+1][ax2-1].team == 2) abilityPositions.push([ax2-1, ay2+1]);
-                if(inBounds(game.width, game.height, ax2+1, ay2-1) && game.state[ay2-1][ax2+1].team == 2) abilityPositions.push([ax2+1, ay2-1]);
-                if(inBounds(game.width, game.height, ax2+1, ay2) && game.state[ay2][ax2+1].team == 2) abilityPositions.push([ax2+1, ay2]);
-                if(inBounds(game.width, game.height, ax2+1, ay2+1) && game.state[ay2+1][ax2+1].team == 2) abilityPositions.push([ax2+1, ay2+1]);
+                if(inBounds(game.width, game.height, ax, ay-1) && game.state[ay-1][ax].team == 2) abilityPositions.push([ax, ay-1]);
+                if(inBounds(game.width, game.height, ax, ay+1) && game.state[ay+1][ax].team == 2) abilityPositions.push([ax, ay+1]);
+                if(inBounds(game.width, game.height, ax-1, ay-1) && game.state[ay-1][ax-1].team == 2) abilityPositions.push([ax-1, ay-1]);
+                if(inBounds(game.width, game.height, ax-1, ay) && game.state[ay][ax-1].team == 2) abilityPositions.push([ax-1, ay]);
+                if(inBounds(game.width, game.height, ax-1, ay+1) && game.state[ay+1][ax-1].team == 2) abilityPositions.push([ax-1, ay+1]);
+                if(inBounds(game.width, game.height, ax+1, ay-1) && game.state[ay-1][ax+1].team == 2) abilityPositions.push([ax+1, ay-1]);
+                if(inBounds(game.width, game.height, ax+1, ay) && game.state[ay][ax+1].team == 2) abilityPositions.push([ax+1, ay]);
+                if(inBounds(game.width, game.height, ax+1, ay+1) && game.state[ay+1][ax+1].team == 2) abilityPositions.push([ax+1, ay+1]);
+            break;
+            case "Horseman of Death":
+                if(inBounds(game.width, game.height, ax, ay-1) && game.state[ay-1][ax].team == 0) abilityPositions.push([ax, ay-1]);
+                if(inBounds(game.width, game.height, ax, ay+1) && game.state[ay+1][ax].team == 0) abilityPositions.push([ax, ay+1]);
+                if(inBounds(game.width, game.height, ax-1, ay-1) && game.state[ay-1][ax-1].team == 0) abilityPositions.push([ax-1, ay-1]);
+                if(inBounds(game.width, game.height, ax-1, ay) && game.state[ay][ax-1].team == 0) abilityPositions.push([ax-1, ay]);
+                if(inBounds(game.width, game.height, ax-1, ay+1) && game.state[ay+1][ax-1].team == 0) abilityPositions.push([ax-1, ay+1]);
+                if(inBounds(game.width, game.height, ax+1, ay-1) && game.state[ay-1][ax+1].team == 0) abilityPositions.push([ax+1, ay-1]);
+                if(inBounds(game.width, game.height, ax+1, ay) && game.state[ay][ax+1].team == 0) abilityPositions.push([ax+1, ay]);
+                if(inBounds(game.width, game.height, ax+1, ay+1) && game.state[ay+1][ax+1].team == 0) abilityPositions.push([ax+1, ay+1]);
+                if(inBounds(game.width, game.height, ax, ay-1) && game.state[ay-1][ax].team == 1) abilityPositions.push([ax, ay-1]);
+                if(inBounds(game.width, game.height, ax, ay+1) && game.state[ay+1][ax].team == 1) abilityPositions.push([ax, ay+1]);
+                if(inBounds(game.width, game.height, ax-1, ay-1) && game.state[ay-1][ax-1].team == 1) abilityPositions.push([ax-1, ay-1]);
+                if(inBounds(game.width, game.height, ax-1, ay) && game.state[ay][ax-1].team == 1) abilityPositions.push([ax-1, ay]);
+                if(inBounds(game.width, game.height, ax-1, ay+1) && game.state[ay+1][ax-1].team == 1) abilityPositions.push([ax-1, ay+1]);
+                if(inBounds(game.width, game.height, ax+1, ay-1) && game.state[ay-1][ax+1].team == 1) abilityPositions.push([ax+1, ay-1]);
+                if(inBounds(game.width, game.height, ax+1, ay) && game.state[ay][ax+1].team == 1) abilityPositions.push([ax+1, ay]);
+                if(inBounds(game.width, game.height, ax+1, ay+1) && game.state[ay+1][ax+1].team == 1) abilityPositions.push([ax+1, ay+1]);
             break;
             // alpha wolf
             case "Alpha Wolf":
@@ -410,17 +473,26 @@ function getChildren(game, maxDepth = 0, depth = 0, maximizingPlayer = true) {
                         if(game.state[0][coords.x].name == null) abilityPositions.push([coords.x, coords.y]);
                 }
             break;
+            // how
+            case "Horseman of War":
+                for(let i = 0; i < pieces.length; i++) {
+                        let coords = nameToXY(pieces[i]);
+                        if(game.state[2][coords.x].name == null) abilityPositions.push([coords.x, coords.y]);
+                }
+            break;
         }
         
         for(const abilityPosition of abilityPositions) {
             // make a copy
-            let gameCopy = deepCopy(game); // create a copy of the game to simulate the move on
+            let gameCopy = gameClone(game); // create a copy of the game to simulate the move on
             gameCopy.ai = true; // mark as AI game
             gameCopy.id = null;
             // execute ability
             let piecesChanged = false
             if(abilityPiece[0] != null) {
+                //BENCHMARK timeSpentAbility -= Date.now();
                 piecesChanged = executeActiveAbility(gameCopy, abilityPiece[0], [abilityPiece[1], abilityPiece[2]], abilityPosition, false);
+                //BENCHMARK timeSpentAbility += Date.now();
             }
             
             // redetermine pieces if positions have changed
@@ -437,73 +509,96 @@ function getChildren(game, maxDepth = 0, depth = 0, maximizingPlayer = true) {
             
             // START continue with normal move
             // iterate through all pieces
-            for(let i = 0; i < pieces.length; i++) {
-                let selectedPiece = pieces[i];
-                let positions;
-                if(maximizingPlayer) { // own piece
-                    positions = generatePositions(gameCopy.state, selectedPiece, true);
-                } else { // enemy piece
-                    let selectedPieceCoords = nameToXY(selectedPiece);
-                    let selectedPieceObject = gameCopy.state[selectedPieceCoords.y][selectedPieceCoords.x];
-                    switch(selectedPieceObject.enemyVisibleStatus) {
-                        default: case 7: // type known
-                            positions = generatePositions(gameCopy.state, selectedPiece, true);
-                        break;
-                        case 4: case 5: case 6: // type could be disguise
-                            if(selectedPieceObject.disguise) {
-                                positions = generatePositions(gameCopy.state, selectedPiece, true, getChessName(selectedPieceObject.disguise));
-                            } else {
-                                positions = generatePositions(gameCopy.state, selectedPiece, true);
-                            }
-                        break;
-                        case 0: case 1: case 2: case 3: // type unknown
-                            switch(selectedPieceObject.enemyVisible) {
-                                default:
-                                    positions = generatePositions(gameCopy.state, selectedPiece, true, "Pawn");
-                                break;
-                                case "LikelyRook":
-                                    positions = generatePositions(gameCopy.state, selectedPiece, true, "Rook");
-                                break;
-                                case "LikelyKing":
-                                    positions = generatePositions(gameCopy.state, selectedPiece, true, "King");
-                                break;
-                                case "LikelyPawn":
-                                    positions = generatePositions(gameCopy.state, selectedPiece, true, "Pawn");
-                                break;
-                                case "LikelyKnight":
-                                    positions = generatePositions(gameCopy.state, selectedPiece, true, "Knight");
-                                    if(depth >= (maxDepth-1)) {  // on first move consider it could be a amnesiac->pawn
-                                        positions.push(...generatePositions(gameCopy.state, selectedPiece, true, "Pawn"));
-                                    }
-                                break;
-                                case "Unknown":
-                                    if(depth >= (maxDepth-1)) { // on the first move, consider king and knight
-                                        positions = generatePositions(gameCopy.state, selectedPiece, true, "King");
-                                        positions.push(...generatePositions(gameCopy.state, selectedPiece, true, "Knight"));
-                                    } else { // otherwise just pawn
-                                        positions = generatePositions(gameCopy.state, selectedPiece, true, "Pawn");
-                                    }
-                                break;
-                            }
-                        break;
-                    }
-                }
-                // iterate through that piece's moves
-                for(let j = 0; j < positions.length; j++) {
-                    let gameInnerCopy = deepCopy(gameCopy); // create a copy of the game to simulate the move on
-                    let selectedMove = positions[j];
-                    // simulate move
-                    movePiece(null, gameInnerCopy, selectedPiece, xyToName(selectedMove[0], selectedMove[1]));
-                    //if(depth==4) console.log(abilityPiece, "~", abilityPosition, "|", selectedPiece, ">", selectedMove);
-                    children.push([abilityPiece, abilityPosition, selectedPiece, selectedMove, gameInnerCopy]);
-                }
-            }
+            children = getNormalChildren(pieces, maximizingPlayer, gameCopy, depth, maxDepth, abilityPiece, abilityPosition, false);
             // END normal move section
         }
     }
     // END ability section
     
 	return children; // 0 -> ability piece, 1 -> ability usage, 2 -> piece, 3 -> move, 4 -> state
+}
+
+/**
+getNormalChildren(availablePieces, isCurrentPlayerAI, currentGame, remainingIterations, maximumIteration, abilityPiece, abilityPosition, isUncloned)
+Normal move evaluation
+ **/
+function getNormalChildren(pieces, maximizingPlayer, gameCopy, depth, maxDepth, abilityPiece, abilityPosition, uncloned = false) {
+    let children = [];
+    let pm = pieces.length-1;
+    for(let i = 0; i < pieces.length; i++) {
+        let selectedPiece = pieces[i];
+        let positions;
+        if(maximizingPlayer) { // own piece
+            positions = generatePositions(gameCopy.state, selectedPiece, true);
+        } else { // enemy piece
+            let selectedPieceCoords = nameToXY(selectedPiece);
+            let selectedPieceObject = gameCopy.state[selectedPieceCoords.y][selectedPieceCoords.x];
+            switch(selectedPieceObject.enemyVisibleStatus) {
+                default: case 7: // type known
+                    positions = generatePositions(gameCopy.state, selectedPiece, true);
+                break;
+                case 4: case 5: case 6: // type could be disguise
+                    if(selectedPieceObject.disguise) {
+                        positions = generatePositions(gameCopy.state, selectedPiece, true, getChessName(selectedPieceObject.disguise));
+                    } else {
+                        positions = generatePositions(gameCopy.state, selectedPiece, true);
+                    }
+                break;
+                case 0: case 1: case 2: case 3: // type unknown
+                    switch(selectedPieceObject.enemyVisible) {
+                        default:
+                            positions = generatePositions(gameCopy.state, selectedPiece, true, "Pawn");
+                        break;
+                        case "LikelyRook":
+                            positions = generatePositions(gameCopy.state, selectedPiece, true, "Rook");
+                        break;
+                        case "LikelyKing":
+                            positions = generatePositions(gameCopy.state, selectedPiece, true, "King");
+                        break;
+                        case "LikelyPawn":
+                            positions = generatePositions(gameCopy.state, selectedPiece, true, "Pawn");
+                        break;
+                        case "LikelyKnight":
+                            positions = generatePositions(gameCopy.state, selectedPiece, true, "Knight");
+                            if(depth >= (maxDepth-1)) {  // on first move consider it could be a amnesiac->pawn
+                                positions.push(...generatePositions(gameCopy.state, selectedPiece, true, "Pawn"));
+                            }
+                        break;
+                        case "Unknown":
+                            if(depth >= (maxDepth-1)) { // on the first move, consider king and knight
+                                positions = generatePositions(gameCopy.state, selectedPiece, true, "King");
+                                positions.push(...generatePositions(gameCopy.state, selectedPiece, true, "Knight"));
+                            } else { // otherwise just pawn
+                                positions = generatePositions(gameCopy.state, selectedPiece, true, "Pawn");
+                            }
+                        break;
+                    }
+                break;
+            }
+        }
+        // iterate through that piece's moves
+        for(let j = 0; j < positions.length; j++) {
+            let gameInnerCopy;
+            if(!uncloned && i == pm && j == positions.length-1) {
+                gameInnerCopy = gameCopy; // reuse current copy on last move
+            } else {
+                gameInnerCopy = gameClone(gameCopy); // create a copy of the game to simulate the move on
+                gameInnerCopy.ai = true; // mark as AI game
+                gameInnerCopy.id = null;
+            }
+                       
+            let selectedMove = positions[j];
+            // simulate move
+            //BENCHMARK timeSpentMoving -= Date.now();
+            //BENCHMARK timeSpentMovingCur = true;
+            movePieceWrapper(null, gameInnerCopy, selectedPiece, xyToName(selectedMove[0], selectedMove[1]));
+            //BENCHMARK timeSpentMovingCur = false;
+            //BENCHMARK timeSpentMoving += Date.now();
+            //if(depth==4) console.log(abilityPiece, "~", abilityPosition, "|", selectedPiece, ">", selectedMove);
+            children.push([abilityPiece, abilityPosition, selectedPiece, selectedMove, gameInnerCopy]);
+        }
+    }
+    return children;
 }
 
 // on the first iteration save and return the move
@@ -563,6 +658,7 @@ function minimaxStart(AI, game, maxDepth, depth, alpha = -Infinity, beta = Infin
     return { value, move: bestMove };
 }
 
+// further minmax iterations
 function minimax(AI, game, maxDepth, depth, alpha = -Infinity, beta = Infinity) {
     let board = game.state;
     // Base case: if we have reached the maximum search depth or the game is over, return the heuristic value of the state
@@ -615,9 +711,17 @@ function minimax(AI, game, maxDepth, depth, alpha = -Infinity, beta = Infinity) 
 }
 
 var debugIterationCounter = 0;
+//BENCHMARK var timeSpentEvaluating = 0;
+//BENCHMARK var timeSpentChecking = 0;
+//BENCHMARK var timeSpentMoving = 0;
+//BENCHMARK var timeSpentMovingCur = false;
+//BENCHMARK var timeSpentMovingClone = 0;
+//BENCHMARK var timeSpentAbility = 0;
+//BENCHMARK  timeSpentCloning = 0;
+//BENCHMARK var timeSpentFastCloning = 0;
 async function AImove(AI, game) {
     removeEffects(game, game.turn); // remove effects
-    let gameCopy = deepCopy(game); // create a copy of the game to simulate the move on
+    let gameCopy = gameClone(game); // create a copy of the game to simulate the move on
     gameCopy.ai = true; // mark as AI game
     gameCopy.id = null;
     gameCopy.parentId = game.id;
@@ -629,17 +733,33 @@ async function AImove(AI, game) {
             if(game.state[y][x].team >= 0) pieceCount++;
         }
     }
+    if(game.reducedIterations) pieceCount += 7;
+    if(!game.ai && game.stupidChance != 0 && Math.random() < game.stupidChance) {
+        console.log("BLUNDER");
+        pieceCount += 100;
+    }
     
     // start minimax to find the best move
     let minmax;
-    debugIterationCounter = 0;
-    if(pieceCount >= 27) minmax = minimaxStart(AI, gameCopy, 1, 1);
-    if(pieceCount >= 17) minmax = minimaxStart(AI, gameCopy, 2, 2);
-    else if(pieceCount >= 12) minmax = minimaxStart(AI, gameCopy, 3, 3);
-    else if(pieceCount >= 5) minmax = minimaxStart(AI, gameCopy, 4, 4);
-    else if(pieceCount == 4) minmax = minimaxStart(AI, gameCopy, 5, 5);
-    else if(pieceCount == 3) minmax = minimaxStart(AI, gameCopy, 6, 6);
-    else minmax = minimaxStart(AI, gameCopy, 7, 7);
+    var timeSpentTotal = -Date.now();
+    //BENCHMARK debugIterationCounter = 0;
+    //BENCHMARK timeSpentEvaluating = 0;
+    //BENCHMARK timeSpentChecking = 0;
+    //BENCHMARK timeSpentMoving = 0;
+    //BENCHMARK timeSpentMovingCur = false;
+    //BENCHMARK timeSpentMovingClone = 0;
+    //BENCHMARK timeSpentAbility = 0;
+    //BENCHMARK timeSpentCloning = 0;
+    //BENCHMARK timeSpentFastCloning = 0;
+    let modifier = game.aiModifier;
+    if(pieceCount >= 50) minmax = { move: null };
+    else if(pieceCount >= 27) minmax = minimaxStart(AI, gameCopy, 2 + modifier, 2 + modifier);
+    else if(pieceCount >= 17) minmax = minimaxStart(AI, gameCopy, 3 + modifier, 3 + modifier);
+    else if(pieceCount >= 12) minmax = minimaxStart(AI, gameCopy, 4 + modifier, 4 + modifier);
+    else if(pieceCount >= 5) minmax = minimaxStart(AI, gameCopy, 5 + modifier, 5 + modifier);
+    else if(pieceCount == 4) minmax = minimaxStart(AI, gameCopy, 6 + modifier, 6 + modifier);
+    else if(pieceCount == 3) minmax = minimaxStart(AI, gameCopy, 7 + modifier, 7 + modifier);
+    else minmax = minimaxStart(AI, gameCopy, 8 + modifier, 8 + modifier);
     try {
         // minmax cant find a move, do any move
         let children = getChildren(game, 0, 0, true);
@@ -650,10 +770,31 @@ async function AImove(AI, game) {
         minmax = { value: null, move: [null, null, "A1", [0, 0]] };
     }
     let bestMove = minmax.move;
-	//console.log("AI BEST MOVE DEBUG", bestMove);
+	console.log("BEST MOVE VAL", minmax.value);
+    
+    if(minmax.value < -20 && game.players.length == 2 && gamesHistory[game.id].length > 10) {
+        sendMessage(game.id, "**Game End:** *AI* resigned!");
+        concludeGame(game.id);
+        destroyGame(game.id);
+        console.log("RESIGN AI");
+        return;
+    }
     
 
+    timeSpentTotal += Date.now();
+    //console.log(game)
+    const ITER_FACTOR = 10000;
     console.log("CONSIDERED STATES", debugIterationCounter);
+    console.log("SPENT ", timeSpentTotal, "ms TOTAL ", Math.floor(timeSpentTotal/debugIterationCounter*ITER_FACTOR)/ITER_FACTOR, "ms PER STATE");
+    //BENCHMARK console.log("SPENT ", timeSpentEvaluating, "ms EVALUATING ", Math.floor(timeSpentEvaluating/debugIterationCounter*ITER_FACTOR)/ITER_FACTOR, "ms PER STATE ", Math.floor(timeSpentEvaluating/timeSpentTotal*100), "%");
+    //BENCHMARK console.log("SPENT ", timeSpentChecking, "ms CHECKING MOVES ", Math.floor(timeSpentChecking/debugIterationCounter*ITER_FACTOR)/ITER_FACTOR, "ms PER STATE ", Math.floor(timeSpentChecking/timeSpentTotal*100), "%");
+    //BENCHMARK console.log("SPENT ", timeSpentMoving-timeSpentMovingClone, "ms MOVING ", Math.floor((timeSpentMoving-timeSpentMovingClone)/debugIterationCounter*ITER_FACTOR)/ITER_FACTOR, "ms PER STATE ", Math.floor((timeSpentMoving-timeSpentMovingClone)/timeSpentTotal*100), "%");
+    //BENCHMARK console.log("SPENT ", timeSpentAbility, "ms on ABILITY ", Math.floor(timeSpentAbility/debugIterationCounter*ITER_FACTOR)/ITER_FACTOR, "ms PER STATE ", Math.floor(timeSpentAbility/timeSpentTotal*100), "%");
+    //BENCHMARK console.log("SPENT ", timeSpentCloning, "ms slow CLONING ", Math.floor(timeSpentCloning/debugIterationCounter*ITER_FACTOR)/ITER_FACTOR, "ms PER STATE ", Math.floor(timeSpentCloning/timeSpentTotal*100), "%");
+    //BENCHMARK console.log("SPENT ", timeSpentFastCloning, "ms fast CLONING ", Math.floor(timeSpentFastCloning/debugIterationCounter*ITER_FACTOR)/ITER_FACTOR, "ms PER STATE ", Math.floor(timeSpentFastCloning/timeSpentTotal*100), "%");
+    //BENCHMARK console.log("SPENT ", timeSpentCloning+timeSpentFastCloning, "ms total CLONING ", Math.floor((timeSpentCloning+timeSpentFastCloning)/debugIterationCounter*ITER_FACTOR)/ITER_FACTOR, "ms PER STATE ", Math.floor((timeSpentCloning+timeSpentFastCloning)/timeSpentTotal*100), "%");
+    //BENCHMARK console.log("SPENT ", timeSpentMoving, "ms MOVING w/ Cloning ", Math.floor((timeSpentMoving)/debugIterationCounter*ITER_FACTOR)/ITER_FACTOR, "ms PER STATE ", Math.floor((timeSpentMoving)/timeSpentTotal*100), "%");
+    //BENCHMARK console.log("ACCOUNTED FOR ", Math.floor((timeSpentEvaluating+timeSpentChecking+timeSpentMoving-timeSpentMovingClone+timeSpentAbility+timeSpentCloning+timeSpentFastCloning)/timeSpentTotal*100), "%");
     if(bestMove[0] == null || bestMove[0][0] == null) {
         console.log("AI ABILITY -");
     } else {
@@ -662,10 +803,7 @@ async function AImove(AI, game) {
     }
     console.log("AI MOVE   ", game.state[nameToXY(bestMove[2]).y][nameToXY(bestMove[2]).x].name + " " + bestMove[2] + ">" + xyToName(bestMove[3][0], bestMove[3][1]), round2dec(minmax.value));
     
-    let guild = client.guilds.cache.get(gamesDiscord[game.id].guild);
-    let channel = guild.channels.cache.get(gamesDiscord[game.id].channel);
-    //channel.send("**AI:** Considered " + debugIterationCounter + " possibilities. Selected: " + ((bestMove[0] == null || bestMove[0][0] == null) ? "" : (bestMove[0][0] + " " + (bestMove[0][0], xyToName(bestMove[0][1], bestMove[0][2]) + "~" + (bestMove[1].length == 2 ? xyToName(bestMove[1][0], bestMove[1][1]) : bestMove[1])) +  " & ") + game.state[nameToXY(bestMove[2]).y][nameToXY(bestMove[2]).x].name + " " + bestMove[2] + ">" + xyToName(bestMove[3][0], bestMove[3][1]) + " - Expected Value: " + round2dec(minmax.value));
+    //sendMessage(game.id, "**AI:** Considered " + debugIterationCounter + " possibilities. Selected: " + ((bestMove[0] == null || bestMove[0][0] == null) ? "" : (bestMove[0][0] + " " + (bestMove[0][0], xyToName(bestMove[0][1], bestMove[0][2]) + "~" + (bestMove[1].length == 2 ? xyToName(bestMove[1][0], bestMove[1][1]) : bestMove[1])) +  " & ") + game.state[nameToXY(bestMove[2]).y][nameToXY(bestMove[2]).x].name + " " + bestMove[2] + ">" + xyToName(bestMove[3][0], bestMove[3][1]) + " - Expected Value: " + round2dec(minmax.value));
     
-    movePiece(null, game, bestMove[2], xyToName(bestMove[3][0], bestMove[3][1]));
+    movePieceWrapper(null, game, bestMove[2], xyToName(bestMove[3][0], bestMove[3][1]));
 }
-
