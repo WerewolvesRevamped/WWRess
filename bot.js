@@ -31,7 +31,7 @@ client.on("ready", () => {
 /** GLOBAL VARIABLES **/
 var games = [];
 var gamesHistory = [];
-var gamesDiscord = [];
+var gamesInterfaces = [];
 var players = [];
 var outstandingChallenge = [];
 
@@ -40,8 +40,8 @@ sendMessage
 Sends a <message> to interfaces of the game with <gameid>
 */
 function sendMessage(gameid, message) {
-    let guild = client.guilds.cache.get(gamesDiscord[gameid].guild);
-    let channel = guild.channels.cache.get(gamesDiscord[gameid].channel);
+    let guild = client.guilds.cache.get(gamesInterfaces[gameid].guild);
+    let channel = guild.channels.cache.get(gamesInterfaces[gameid].channel);
     channel.send(message);
 }
 
@@ -50,9 +50,56 @@ updateSpectatorBoard
 Updates the spectator (public) board for a certain game
 **/
 function updateSpectatorBoard(gameid) {
-    let msgSpec = displayBoard(games[gameid], "Spectator Board", [], -1);
-    msgSpec.ephemeral = false;
-    gamesDiscord[gameid].msg.edit(msgSpec);
+    if(gamesInterfaces[gameid].spectator.type == "discord") {
+        let msgSpec = displayBoard(games[gameid], "Spectator Board", [], -1);
+        msgSpec.ephemeral = false;
+        gamesInterfaces[gameid].spectator.msg.edit(msgSpec);
+    }
+}
+
+/**
+requireAction
+Requires a player interaction
+**/
+function requireAction(game, actionType, metadata, interaction) {
+    switch(actionType) {
+        case "promote_white": {
+            let kings = ["Hooker","Idiot","Crowd Seeker","Aura Teller"];
+            let knights = ["Royal Knight","Amnesiac"];
+            let rooks = ["Fortune Teller","Runner","Witch"];
+            if(metadata.name == "White Pawn") {
+                kings = ["White King"];
+                knights = ["White Knight"];
+                rooks = ["White Rook"];
+            }
+            let promoteKing = kings[Math.floor(Math.random() * kings.length)];
+            let promoteKnight = knights[Math.floor(Math.random() * knights.length)];
+            let promoteRook = rooks[Math.floor(Math.random() * rooks.length)];
+            let components = [];
+            components.push({ type: 2, label: promoteKing + " " + getUnicode(getChessName(promoteKing), 0), style: 1, custom_id: "promote-"+to+"-"+promoteKing });
+            components.push({ type: 2, label: promoteKnight + " " + getUnicode(getChessName(promoteKnight), 0), style: 1, custom_id: "promote-"+to+"-" + promoteKnight });
+            components.push({ type: 2, label: promoteRook + " " + getUnicode(getChessName(promoteRook), 0), style: 1, custom_id: "promote-"+to+"-" + promoteRook });
+            interaction.editReply(displayBoard(moveCurGame, "Promote " + to, [{ type: 1, components: components }] ));
+        } break;
+        case "promote_black": {
+            let kings = ["Alpha Wolf","Psychic Wolf","Sneaking Wolf"];
+            let knights = ["Direwolf","Clairvoyant Fox","Fox"];
+            let rooks = ["Warlock","Scared Wolf","Saboteur Wolf"];
+            if(metadata.name == "Black Pawn") {
+                kings = ["Black King"];
+                knights = ["Black Knight"];
+                rooks = ["Black Rook"];
+            }
+            let promoteKing = kings[Math.floor(Math.random() * kings.length)];
+            let promoteKnight = knights[Math.floor(Math.random() * knights.length)];
+            let promoteRook = rooks[Math.floor(Math.random() * rooks.length)];
+            let components = [];
+            components.push({ type: 2, label: promoteKing + " " + getUnicode(getChessName(promoteKing), 1), style: 1, custom_id: "promote-"+to+"-"+promoteKing });
+            components.push({ type: 2, label: promoteKnight + " " + getUnicode(getChessName(promoteKnight), 1), style: 1, custom_id: "promote-"+to+"-" + promoteKnight });
+            components.push({ type: 2, label: promoteRook + " " + getUnicode(getChessName(promoteRook), 1), style: 1, custom_id: "promote-"+to+"-" + promoteRook });
+            interaction.editReply(displayBoard(moveCurGame, "Promote " + to, [{ type: 1, components: components }] ));
+        } break;
+    }
 }
 
 /**
@@ -96,7 +143,7 @@ function getPlayerGameId(id) {
 function turnStart(interaction, gameid, turn, mode = "editreply", firstMessage = false) {
     // register message
     console.log("turnstart", mode, turn, interaction.message ? interaction.message.id : null);
-    if(mode != "followup" && mode != "reply" && interaction.message && !firstMessage) gamesDiscord[gameid].pmsgs[turn] = interaction.message.id;
+    if(mode != "followup" && mode != "reply" && interaction.message && !firstMessage) gamesInterfaces[gameid].interfaces[turn] = { type: "discord", msg: interaction.message.id };
     // abilities
     let availableAbilities = showMoves(gameid, turn, true, "Select a Piece (ABILITY)");
     // show buttons?
@@ -107,7 +154,7 @@ function turnStart(interaction, gameid, turn, mode = "editreply", firstMessage =
 function turnStartNot(interaction, gameid, turn, mode = "editreply") {
     // register message
     console.log("turnstartnot", mode, turn, interaction.message ? interaction.message.id : null);
-    if(mode != "followup" && mode != "reply"  && interaction.message) gamesDiscord[gameid].pmsgs[turn] = interaction.message.id;
+    if(mode != "followup" && mode != "reply"  && interaction.message) gamesInterfaces[gameid].interfaces[turn] = { type: "discord", msg: interaction.message.id };
     // waiting
     let board = renderBoard(games[gameid], "Waiting on Opponent");
     let noButtons = { content: board, ephemeral: true, fetchReply: true, components: [{ type: 1, components: [{ type: 2, label: "Start Game", style: 4, custom_id: "start" }] }] };
@@ -117,7 +164,7 @@ function turnStartNot(interaction, gameid, turn, mode = "editreply") {
 function turnMove(interaction, gameid, turn, mode = "editreply") {
     // register message
     console.log("turnmove", mode, turn, interaction.message ? interaction.message.id : null);
-    if(mode != "followup" && mode != "reply"  && interaction.message) gamesDiscord[gameid].pmsgs[turn] = interaction.message.id;
+    if(mode != "followup" && mode != "reply"  && interaction.message) gamesInterfaces[gameid].interfaces[turn] = { type: "discord", msg: interaction.message.id };
     // update spec board
     updateSpectatorBoard(gameid)
     // show movable pieces
@@ -129,7 +176,7 @@ function response(gameid, interaction, resp, mode) {
     switch(mode) {
         case "reply":
             interaction.reply(resp).then(m => {
-                gamesDiscord[gameid].pmsgs[games[gameid].turn] = m.id; 
+                gamesInterfaces[gameid].interfaces[games[gameid].turn] = { type: "discord", msg: m.id }; 
             });
         break;
         case "update":
@@ -154,40 +201,10 @@ function movePieceWrapper(interaction, moveCurGame, from, to, repl = null) {
     let result = movePiece(moveCurGame, from, to, repl);
     switch(result.action) {
         case "promote_white": {
-            let kings = ["Hooker","Idiot","Crowd Seeker","Aura Teller"];
-            let knights = ["Royal Knight","Amnesiac"];
-            let rooks = ["Fortune Teller","Runner","Witch"];
-            if(result.piece.name == "White Pawn") {
-                kings = ["White King"];
-                knights = ["White Knight"];
-                rooks = ["White Rook"];
-            }
-            let promoteKing = kings[Math.floor(Math.random() * kings.length)];
-            let promoteKnight = knights[Math.floor(Math.random() * knights.length)];
-            let promoteRook = rooks[Math.floor(Math.random() * rooks.length)];
-            let components = [];
-            components.push({ type: 2, label: promoteKing + " " + getUnicode(getChessName(promoteKing), 0), style: 1, custom_id: "promote-"+to+"-"+promoteKing });
-            components.push({ type: 2, label: promoteKnight + " " + getUnicode(getChessName(promoteKnight), 0), style: 1, custom_id: "promote-"+to+"-" + promoteKnight });
-            components.push({ type: 2, label: promoteRook + " " + getUnicode(getChessName(promoteRook), 0), style: 1, custom_id: "promote-"+to+"-" + promoteRook });
-            interaction.editReply(displayBoard(moveCurGame, "Promote " + to, [{ type: 1, components: components }] ));
+            requireAction(moveCurGame, "promote_white", result.piece, interaction);
         } break;
         case "promote_black": {
-            let kings = ["Alpha Wolf","Psychic Wolf","Sneaking Wolf"];
-            let knights = ["Direwolf","Clairvoyant Fox","Fox"];
-            let rooks = ["Warlock","Scared Wolf","Saboteur Wolf"];
-            if(result.piece.name == "Black Pawn") {
-                kings = ["Black King"];
-                knights = ["Black Knight"];
-                rooks = ["Black Rook"];
-            }
-            let promoteKing = kings[Math.floor(Math.random() * kings.length)];
-            let promoteKnight = knights[Math.floor(Math.random() * knights.length)];
-            let promoteRook = rooks[Math.floor(Math.random() * rooks.length)];
-            let components = [];
-            components.push({ type: 2, label: promoteKing + " " + getUnicode(getChessName(promoteKing), 1), style: 1, custom_id: "promote-"+to+"-"+promoteKing });
-            components.push({ type: 2, label: promoteKnight + " " + getUnicode(getChessName(promoteKnight), 1), style: 1, custom_id: "promote-"+to+"-" + promoteKnight });
-            components.push({ type: 2, label: promoteRook + " " + getUnicode(getChessName(promoteRook), 1), style: 1, custom_id: "promote-"+to+"-" + promoteRook });
-            interaction.editReply(displayBoard(moveCurGame, "Promote " + to, [{ type: 1, components: components }] ));
+            requireAction(moveCurGame, "promote_lack", result.piece, interaction);
         } break;
         case "turn_done": {
             turnDoneWrapper(interaction, moveCurGame, "Waiting on Opponent");
@@ -201,16 +218,16 @@ async function turnDoneWrapper(interaction, game, message) {
     if(!game.ai) {
         // buffer if move too fast
         let thisMove = Date.now();
-        let moveDiff = thisMove - gamesDiscord[game.id].lastMove;
-        gamesDiscord[game.id].lastMove = thisMove;
+        let moveDiff = thisMove - gamesInterfaces[game.id].lastMove;
+        gamesInterfaces[game.id].lastMove = thisMove;
         if(moveDiff < turnMinDuration) {
             await sleep(turnMinDuration - moveDiff);
         }
         // update spectator message
         updateSpectatorBoard(game.id);
-        if(game.solo && gamesDiscord[game.id].lastInteraction && !game.blackEliminated && !game.whiteEliminated && !game.goldEliminated) {
+        if(game.solo && gamesInterfaces[game.id].lastInteraction && !game.blackEliminated && !game.whiteEliminated && !game.goldEliminated) {
         // update prev player board
-            await gamesDiscord[game.id].lastInteraction.editReply(displayBoard(game, "Waiting on Opponent", [], gamesDiscord[game.id].lastInteractionTurn));
+            await gamesInterfaces[game.id].lastInteraction.editReply(displayBoard(game, "Waiting on Opponent", [], gamesInterfaces[game.id].lastInteractionTurn));
         }
         // update player message
         if(interaction) {
@@ -541,16 +558,16 @@ client.on('interactionCreate', async interaction => {
         
         if(type != "deny" && type != "accept") {
             // check if its still a valid message
-            if(gamesDiscord[gameID].pmsgs[curGame.turn] && gamesDiscord[gameID].pmsgs[curGame.turn] != interaction.message.id) {
-                console.log(gamesDiscord[gameID].pmsgs[curGame.turn]);
+            if(gamesInterfaces[gameID].interfaces[curGame.turn] && gamesInterfaces[gameID].interfaces[curGame.turn].msg != interaction.message.id) {
+                console.log(gamesInterfaces[gameID].interfaces[curGame.turn].msg);
                 console.log(interaction.message.id);
                 console.log("OUTDATED MESSAGE");
                 interaction.update({content: "✘", components: []});
                 return;
             }
             
-            gamesDiscord[gameID].lastInteraction = interaction;
-            gamesDiscord[gameID].lastInteractionTurn = curGame.turn;
+            gamesInterfaces[gameID].lastInteraction = interaction;
+            gamesInterfaces[gameID].lastInteractionTurn = curGame.turn;
         }
         
         switch(type) {
@@ -975,20 +992,20 @@ client.on('interactionCreate', async interaction => {
                 
                 if(games[id].players[0]) { // player is P1
                     interaction.reply(msgSpec).then(m => {
-                        gamesDiscord[id].msg = m;
+                        gamesInterfaces[id].spectator.msg = m;
                         // player board
                         turnStart(interaction, id, 0, "followup"); 
                     });
                 } else if(games[id].players[1]) { // player is P2
                     interaction.reply(msgSpec).then(m => {
-                        gamesDiscord[id].msg = m;
+                        gamesInterfaces[id].spectator.msg = m;
                         games[id].turn = 1;
                         // player board
                         turnStartNot(interaction, id, 1, "followup"); 
                     });
                 } else if(games[id].players[2]) { // player is P3
                     interaction.reply(msgSpec).then(m => {
-                        gamesDiscord[id].msg = m;
+                        gamesInterfaces[id].spectator.msg = m;
                         games[id].turn = 2;
                         games[id].normalTurn = 1;
                         // player board
@@ -1008,7 +1025,7 @@ client.on('interactionCreate', async interaction => {
             let msgSpec = displayBoard(games[id], "Spectator Board", [], -1);
             msgSpec.ephemeral = false;
             interaction.reply(msgSpec).then(m => {
-                gamesDiscord[id].msg = m;
+                gamesInterfaces[id].spectator.msg = m;
                 games[id].aiOnly = true;
                 AImove(0, games[id]);
             });
@@ -1061,7 +1078,7 @@ client.on('interactionCreate', async interaction => {
                 let msgSpec = displayBoard(games[id], "Spectator Board", [], -1);
                 msgSpec.ephemeral = false;
                 interaction.reply(msgSpec).then(m => {
-                    gamesDiscord[id].msg = m;
+                    gamesInterfaces[id].spectator.msg = m;
                     // player board
                     turnStart(interaction, id, 0, "followup"); 
                 });
@@ -2117,7 +2134,7 @@ function createGame(playerID, playerID2, playerID3, gameID, name1, name2, name3,
     games.push(newGame);
     // store some data separately because we dont need to always deep copy it
     gamesHistory.push({ id: gameID, history: [], lastMoves: [], sinceCapture: 0 }); // history data
-    gamesDiscord.push({ id: gameID, channel: channel, guild: guild, msg: null, pmsgs: [], lastInteraction: null, lastInteractionTurn: null, lastMove: Date.now() }); // discord related data
+    gamesInterfaces.push({ id: gameID, channel: channel, guild: guild, spectator: { type: "spectator", msg: null }, interfaces: [], lastInteraction: null, lastInteractionTurn: null, lastMove: Date.now() }); // discord related data
 }
 
 
@@ -2173,11 +2190,11 @@ function destroyGame(id) {
     // in a previous version of the code it would filter out the game that is getting destroyed, causing other games to go into the place of that game and potentially also getting destroyed. Thus is now only replaces them with null and only clears them out of the game array completely if the entire array is empty anyway
     games[id] = null;
     gamesHistory[id] = null;
-    gamesDiscord[id] = null;
+    gamesInterfaces[id] = null;
     if(games.filter(el => el != null).length == 0) {
         games = [];
         gamesHistory = [];
-        gamesDiscord = [];
+        gamesInterfaces = [];
     }
 }
 
@@ -2195,9 +2212,7 @@ function concludeGame(id) {
     
     console.log("CONCLUDE UPDATE", id);
     // Update Spectator Board
-    let msgSpec = displayBoard(games[id], "Spectator Board", [], -1);
-    msgSpec.ephemeral = false;
-    gamesDiscord[id].msg.edit(msgSpec);
+    updateSpectatorBoard(id);
 }
 
 // turn = 0 for town, 1 for wolves
