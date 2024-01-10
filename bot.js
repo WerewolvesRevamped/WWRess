@@ -1732,10 +1732,9 @@ function createGame(playerID, playerID2, playerID3, gameID, name1, name2, name3,
         case "default":
             // put pieces on board
             let listPower = 0;
-            //listPower = generateRoleList(newBoard, mode=="simplified"?1:(mode=="advanced"?2:0));
+            listPower = generateRoleList(newBoard, mode=="simplified"?1:(mode=="advanced"?2:0));
             
-            loadPromoteTestSetup(newBoard);
-            break;
+            //loadPromoteTestSetup(newBoard);
             //loadTestingSetup(newBoard);
             //loadDebugSetup(newBoard);
             
