@@ -476,7 +476,7 @@ function pieceBeatenEffects(movedPiece, beatenPiece, moveCurGame, moveCurGameHis
             break;
             case null:
                 if(from == to) { // pawn promotion
-                    if(notAiTurn && movedPiece.team != 2) moveCurGameHistory.lastMoves.push([moveCurGame.turn, movedPieceCopy.name, movedPiece.disguise, movedPiece.enemyVisibleStatus<4?"Pawn":movedPiece.enemyVisible, from, to, movedPiece.enemyVisibleStatus<4?4:movedPiece.enemyVisibleStatus, "⏫🟦🟦"]); // black/white -> promotion
+                    if(notAiTurn && movedPiece.team != 2) moveCurGameHistory.lastMoves.push([moveCurGame.turn, movedPiece.name, movedPiece.disguise, movedPiece.enemyVisibleStatus<4?"Pawn":movedPiece.enemyVisible, from, to, movedPiece.enemyVisibleStatus<4?4:movedPiece.enemyVisibleStatus, "⏫🟦🟦"]); // black/white -> promotion
                     if(notAiTurn && movedPiece.team == 2) moveCurGame.doNotSerialize = true; // gold -> piece chose not to move
                 } else if(notAiTurn) { 
                     moveCurGameHistory.lastMoves.push([moveCurGame.turn, movedPiece.name, movedPiece.disguise, movedPiece.enemyVisible, from, to, movedPiece.enemyVisibleStatus]);
@@ -845,7 +845,7 @@ function movePiece(moveCurGame, from, to, repl = null) {
         }
         
         if(notAiTurn && moveCurGame.players[0] != null) {  // handle user interaction promotion outside
-            return { action: "promote_white", piece: movedPiece };
+            return { action: "promote_white", piece: movedPiece, to: to };
         } else { // 
             let randomOptions = ["Hooker","Royal Knight","Fortune Teller","Runner","Witch"];
             if(movedPiece.name == "White Pawn") {
@@ -870,7 +870,7 @@ function movePiece(moveCurGame, from, to, repl = null) {
         
         
         if(notAiTurn && moveCurGame.players[1] != null) {
-            return { action: "promote_black", piece: movedPiece };
+            return { action: "promote_black", piece: movedPiece, to: to };
         } else {
             let randomOptions = ["Alpha Wolf","Direwolf","Warlock","Scared Wolf","Saboteur Wolf"];
             if(movedPiece.name == "Black Pawn") {

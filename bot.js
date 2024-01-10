@@ -67,7 +67,7 @@ function requireAction(game, actionType, metadata, interaction) {
             let kings = ["Hooker","Idiot","Crowd Seeker","Aura Teller"];
             let knights = ["Royal Knight","Amnesiac"];
             let rooks = ["Fortune Teller","Runner","Witch"];
-            if(metadata.name == "White Pawn") {
+            if(metadata.piece.name == "White Pawn") {
                 kings = ["White King"];
                 knights = ["White Knight"];
                 rooks = ["White Rook"];
@@ -76,16 +76,16 @@ function requireAction(game, actionType, metadata, interaction) {
             let promoteKnight = knights[Math.floor(Math.random() * knights.length)];
             let promoteRook = rooks[Math.floor(Math.random() * rooks.length)];
             let components = [];
-            components.push({ type: 2, label: promoteKing + " " + getUnicode(getChessName(promoteKing), 0), style: 1, custom_id: "promote-"+to+"-"+promoteKing });
-            components.push({ type: 2, label: promoteKnight + " " + getUnicode(getChessName(promoteKnight), 0), style: 1, custom_id: "promote-"+to+"-" + promoteKnight });
-            components.push({ type: 2, label: promoteRook + " " + getUnicode(getChessName(promoteRook), 0), style: 1, custom_id: "promote-"+to+"-" + promoteRook });
-            interaction.editReply(displayBoard(moveCurGame, "Promote " + to, [{ type: 1, components: components }] ));
+            components.push({ type: 2, label: promoteKing + " " + getUnicode(getChessName(promoteKing), 0), style: 1, custom_id: "promote-"+metadata.to+"-"+promoteKing });
+            components.push({ type: 2, label: promoteKnight + " " + getUnicode(getChessName(promoteKnight), 0), style: 1, custom_id: "promote-"+metadata.to+"-" + promoteKnight });
+            components.push({ type: 2, label: promoteRook + " " + getUnicode(getChessName(promoteRook), 0), style: 1, custom_id: "promote-"+metadata.to+"-" + promoteRook });
+            interaction.editReply(displayBoard(game, "Promote " + metadata.to, [{ type: 1, components: components }] ));
         } break;
         case "promote_black": {
             let kings = ["Alpha Wolf","Psychic Wolf","Sneaking Wolf"];
             let knights = ["Direwolf","Clairvoyant Fox","Fox"];
             let rooks = ["Warlock","Scared Wolf","Saboteur Wolf"];
-            if(metadata.name == "Black Pawn") {
+            if(metadata.piece.name == "Black Pawn") {
                 kings = ["Black King"];
                 knights = ["Black Knight"];
                 rooks = ["Black Rook"];
@@ -94,10 +94,10 @@ function requireAction(game, actionType, metadata, interaction) {
             let promoteKnight = knights[Math.floor(Math.random() * knights.length)];
             let promoteRook = rooks[Math.floor(Math.random() * rooks.length)];
             let components = [];
-            components.push({ type: 2, label: promoteKing + " " + getUnicode(getChessName(promoteKing), 1), style: 1, custom_id: "promote-"+to+"-"+promoteKing });
-            components.push({ type: 2, label: promoteKnight + " " + getUnicode(getChessName(promoteKnight), 1), style: 1, custom_id: "promote-"+to+"-" + promoteKnight });
-            components.push({ type: 2, label: promoteRook + " " + getUnicode(getChessName(promoteRook), 1), style: 1, custom_id: "promote-"+to+"-" + promoteRook });
-            interaction.editReply(displayBoard(moveCurGame, "Promote " + to, [{ type: 1, components: components }] ));
+            components.push({ type: 2, label: promoteKing + " " + getUnicode(getChessName(promoteKing), 1), style: 1, custom_id: "promote-"+metadata.to+"-"+promoteKing });
+            components.push({ type: 2, label: promoteKnight + " " + getUnicode(getChessName(promoteKnight), 1), style: 1, custom_id: "promote-"+metadata.to+"-" + promoteKnight });
+            components.push({ type: 2, label: promoteRook + " " + getUnicode(getChessName(promoteRook), 1), style: 1, custom_id: "promote-"+metadata.to+"-" + promoteRook });
+            interaction.editReply(displayBoard(game, "Promote " + metadata.to, [{ type: 1, components: components }] ));
         } break;
     }
 }
@@ -201,10 +201,10 @@ function movePieceWrapper(interaction, moveCurGame, from, to, repl = null) {
     let result = movePiece(moveCurGame, from, to, repl);
     switch(result.action) {
         case "promote_white": {
-            requireAction(moveCurGame, "promote_white", result.piece, interaction);
+            requireAction(moveCurGame, "promote_white", { piece: result.piece, to: result.to }, interaction);
         } break;
         case "promote_black": {
-            requireAction(moveCurGame, "promote_lack", result.piece, interaction);
+            requireAction(moveCurGame, "promote_black", { piece: result.piece, to: result.to }, interaction);
         } break;
         case "turn_done": {
             turnDoneWrapper(interaction, moveCurGame, "Waiting on Opponent");
@@ -630,6 +630,7 @@ client.on('interactionCreate', async interaction => {
                     await interaction.update(displayBoard(curGame, "Executing Move", []));
                     movePieceWrapper(interaction, games[gameID], arg1, arg2);
                 } catch (err) {
+                    console.log(err);
                     console.log("ERROR ON MOVE. IGNORING");
                 }
             break;
@@ -993,12 +994,14 @@ client.on('interactionCreate', async interaction => {
                 if(games[id].players[0]) { // player is P1
                     interaction.reply(msgSpec).then(m => {
                         gamesInterfaces[id].spectator.msg = m;
+                        gamesInterfaces[id].spectator.type = "discord";
                         // player board
                         turnStart(interaction, id, 0, "followup"); 
                     });
                 } else if(games[id].players[1]) { // player is P2
                     interaction.reply(msgSpec).then(m => {
                         gamesInterfaces[id].spectator.msg = m;
+                        gamesInterfaces[id].spectator.type = "discord";
                         games[id].turn = 1;
                         // player board
                         turnStartNot(interaction, id, 1, "followup"); 
@@ -1006,6 +1009,7 @@ client.on('interactionCreate', async interaction => {
                 } else if(games[id].players[2]) { // player is P3
                     interaction.reply(msgSpec).then(m => {
                         gamesInterfaces[id].spectator.msg = m;
+                        gamesInterfaces[id].spectator.type = "discord";
                         games[id].turn = 2;
                         games[id].normalTurn = 1;
                         // player board
@@ -1026,6 +1030,7 @@ client.on('interactionCreate', async interaction => {
             msgSpec.ephemeral = false;
             interaction.reply(msgSpec).then(m => {
                 gamesInterfaces[id].spectator.msg = m;
+                gamesInterfaces[id].spectator.type = "discord";
                 games[id].aiOnly = true;
                 AImove(0, games[id]);
             });
@@ -1079,6 +1084,7 @@ client.on('interactionCreate', async interaction => {
                 msgSpec.ephemeral = false;
                 interaction.reply(msgSpec).then(m => {
                     gamesInterfaces[id].spectator.msg = m;
+                    gamesInterfaces[id].spectator.type = "discord";
                     // player board
                     turnStart(interaction, id, 0, "followup"); 
                 });
@@ -1726,9 +1732,10 @@ function createGame(playerID, playerID2, playerID3, gameID, name1, name2, name3,
         case "default":
             // put pieces on board
             let listPower = 0;
-            listPower = generateRoleList(newBoard, mode=="simplified"?1:(mode=="advanced"?2:0));
+            //listPower = generateRoleList(newBoard, mode=="simplified"?1:(mode=="advanced"?2:0));
             
-            //loadPromoteTestSetup(newBoard);
+            loadPromoteTestSetup(newBoard);
+            break;
             //loadTestingSetup(newBoard);
             //loadDebugSetup(newBoard);
             
@@ -2140,8 +2147,8 @@ function createGame(playerID, playerID2, playerID3, gameID, name1, name2, name3,
 
 // a testing setup where two pieces are one rank away from promoting
 function loadPromoteTestSetup(board) {
-    board[1][0] = getPiece("Aura Teller");
-    board[board.length-2][4] = getPiece("Alpha Wolf");
+    board[1][0] = getPiece("Citizen");
+    board[board.length-2][4] = getPiece("Wolf");
 }
 
 function loadTestingSetup(board) {
