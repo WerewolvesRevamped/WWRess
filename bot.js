@@ -801,6 +801,7 @@ client.on('interactionCreate', async interaction => {
     
     if(!interaction.isCommand()) return; // ignore non-slash commands
     let soloGame = false;
+    let dailyGame = false;
     switch(interaction.commandName) {
         case "ping":
             // Send pinging message
@@ -824,19 +825,19 @@ client.on('interactionCreate', async interaction => {
             let teamColorDec = "";
             switch(team) {
                 case "townsfolk":
-                    pieces = [["Citizen","Ranger","Huntress","Bartender⁎","Fortune Apprentice","Child","Bard⁎⁎","Butcher**"],["Hooker⁎","Idiot","Crowd Seeker","Aura Teller"],["Royal Knight","Alcoholic⁎","Amnesiac"],["Fortune Teller","Runner","Witch"],["Cursed Civilian⁎"]];
+                    pieces = [["Citizen","Ranger","Huntress","Bartender⁎","Fortune Apprentice","Child","Bard⁎⁎","Butcher**"],["Hooker⁎","Idiot","Crowd Seeker","Aura Teller"],["Royal Knight","Alcoholic⁎","Amnesiac"],["Fortune Teller","Runner","Witch"],["Cursed Civilian⁎"],[]];
                     teamColor = "White";
                     teamName = "Townsfolk (White)";
                     teamColorDec = 16777215;
                 break;
                 case "werewolf":
-                    pieces = [["Wolf","Wolf Cub","Tanner","Archivist Fox","Recluse","Dog","Bloody Butcher⁎⁎","Packless Wolf⁎⁎"],["Infecting Wolf⁎","Alpha Wolf","Psychic Wolf","Sneaking Wolf"],["Direwolf⁎","Clairvoyant Fox","Fox"],["Warlock","Scared Wolf","Saboteur Wolf"],["White Werewolf⁎"]];
+                    pieces = [["Wolf","Wolf Cub","Tanner","Archivist Fox","Recluse","Dog","Bloody Butcher⁎⁎","Packless Wolf⁎⁎"],["Infecting Wolf⁎","Alpha Wolf","Psychic Wolf","Sneaking Wolf"],["Direwolf⁎","Clairvoyant Fox","Fox"],["Warlock","Scared Wolf","Saboteur Wolf"],["White Werewolf⁎"],[]];
                     teamColor = "Black";
                     teamName = "Werewolves (Black)";
                     teamColorDec = 1;
                 break;
                 case "solo":
-                    pieces = [["Zombie","Corpse","Undead","Angel","Apprentice","Lamb"],["Bat","Ghast","Horseman of Death","Horseman of War"],[],["Flute Player","Vampire","Apprentice Vampire","Horseman of Pestilence","Horseman of Famine"],[]];
+                    pieces = [["Zombie","Corpse","Undead","Angel","Apprentice","Lamb"],["Bat","Ghast","Horseman of Death","Horseman of War"],[],["Flute Player","Vampire","Apprentice Vampire","Horseman of Pestilence","Horseman of Famine"],[],["Bear", "Angry Bear"]];
                     teamColor = "Gold";
                     teamName = "Solo (Gold)";
                     teamColorDec = 14850359;
@@ -844,7 +845,7 @@ client.on('interactionCreate', async interaction => {
             }
             
             let limitations = [false, false];
-            let fields = ["Pawns","Kings","Knights","Rooks","Queens"];
+            let fields = ["Pawns","Kings","Knights","Rooks","Queens","Bishops"];
             let embed = { title: findEmoji("WWRess") + " **" + teamName + " Piece List:** " + findEmoji("WWRess"), color: teamColorDec, fields: [] };
             for(let i = 0; i < pieces.length; i++) {
                 let field = { name: fields[i], value: "" };
@@ -868,6 +869,8 @@ client.on('interactionCreate', async interaction => {
             //console.log(embed);
             interaction.reply({ embeds: [embed] });
         break;
+        case "play_daily":
+            dailyGame = true;
         case "play_solo":
             soloGame = true;
         case "play":
@@ -888,6 +891,39 @@ client.on('interactionCreate', async interaction => {
                     aiArg = +2;
                 } else {
                     aiArg = 0;
+                }
+                
+                if(dailyGame) { // random values
+                    // reset solo game value
+                    soloGame = false;
+                    // ai strength
+                    aiArg = getDateRand(7, 0);
+                    aiArg -= 3;
+                    // mode
+                    let modes = ["boss_bat","boss_bat_reversed","boss_zombie","boss_zombie_reversed","boss_flute","boss_flute_reversed","boss_horseman","boss_horseman_reversed","boss_ghast","boss_ghast_reversed","hexapawn", "pawnford", "pawnford_big", "chess", "minichess","bad","half_chess","town","wolves","default_double","chess_rotated","boss_multi"];
+                    let defaultModes = ["simplified","default","advanced","default_big","default_huge","default_small","default_tiny","default_tall","default_wide","default_strip"];
+                    let defMode = getDateRand(2, 1);
+                    if(defMode === 1) {
+                        let randMode = getDateRand(modes.length, 2);
+                        modeArg = modes[randMode];
+                    } else {
+                        let randMode = getDateRand(defaultModes.length, 2);
+                        modeArg = defaultModes[randMode];
+                        // solo arg
+                        let randSoloEnabled = getDateRand(3, 40);
+                        if(randSoloEnabled === 0) {
+                            let solosList = ["angel","flute","graveyard","underworld","apprentice","ghast","bear"];
+                            let randSoloSelected = getDateRand(solosList.length, 45);
+                            soloArg = solosList[randSoloSelected];
+                        }
+                    }
+                    // rand value
+                    rand = getDateRand(100, 3);
+                    console.log("DAILY GAME - Parameters");
+                    console.log("Mode:", modeArg);
+                    console.log("AI:", aiArg > 0 ? "+" + aiArg : aiArg);
+                    console.log("Solo:", soloArg);
+                    console.log("Rand:", rand);
                 }
                 
                 if(soloArg && soloArg.length) soloGame = true;
@@ -943,7 +979,15 @@ client.on('interactionCreate', async interaction => {
                     case "boss_bat":
                     case "boss_zombie":
                     case "boss_flute":
+                    case "boss_ghast":
+                    case "boss_multi":
                         players = [[interaction.member.id, interaction.member.user.username], [null, null], [null, "*AI*"]];
+                    break;
+                    case "boss_bat_reversed":
+                    case "boss_zombie_reversed":
+                    case "boss_flute_reversed":
+                    case "boss_ghast_reversed":
+                        players = [[null, "*AI*"], [null, null], [interaction.member.id, interaction.member.user.username]];
                     break;
                     case "boss_horseman":
                         players = [[null, "*AI*"], [interaction.member.id, interaction.member.user.username], [null, "*AI*"]];
@@ -951,14 +995,18 @@ client.on('interactionCreate', async interaction => {
                     case "boss_horseman_reversed":
                         players = [[null, "*AI*"], [null, "*AI*"], [interaction.member.id, interaction.member.user.username]];
                     break;
-                    case "boss_ghast":
-                        players = [[null, "*AI*"], [null, null], [interaction.member.id, interaction.member.user.username]];
                     break;
                     case "hexapawn":
                     case "pawnford":
                     case "pawnford_big":
                     case "chess":
+                    case "chess_rotated":
                     case "minichess":
+                    case "half_chess":
+                    case "bad":
+                    case "town":
+                    case "wolves":
+                    case "default_double":
                         if(teamSelArg) {
                             switch(teamSelArg) {
                                 case "white":
@@ -982,7 +1030,7 @@ client.on('interactionCreate', async interaction => {
                     break;
                 }
                 // create game
-                createGame(players[0][0], players[1][0], players[2][0], games.length, players[0][1], players[1][1], players[2][1], interaction.channel.id, interaction.guild.id, soloArg, modeArg, aiArg);
+                createGame(players[0][0], players[1][0], players[2][0], games.length, players[0][1], players[1][1], players[2][1], interaction.channel.id, interaction.guild.id, soloArg, modeArg, aiArg, dailyGame);
                 
                 // display board
                 let id = getPlayerGameId(interaction.member.id);
@@ -1140,6 +1188,7 @@ function getTeam(piece) {
         case "Vampire": case "Undead": case "Empowered Vampire": case "Bat": case "Apprentice Vampire":
         case "Ghast": case "FireballUp": case "FireballDown":
         case "Horseman of Death": case "Horseman of Pestilence": case "Horseman of Famine": case "Horseman of War": case "Lamb":
+        case "Bear": case "Angry Bear":
             return 2;
     }
 }
@@ -1288,6 +1337,10 @@ function getAbilityText(piece) {
             return "UA | Cannot take pieces. Takes killer, when taken. Must be taken to win.";
         case "Apprentice":
             return "UA | Transforms into first taken piece.";
+        case "Bear":
+            return "UA | Takes killer, when taken. Must be taken twice to win.";
+        case "Angry Bear":
+            return "UA | Takes killer, when taken. Must be taken a second time to win.";
     }
 }
 
@@ -1312,6 +1365,7 @@ function getChessName(piece) {
          case "White Knight": case "Black Knight": 
             return "Knight";
         case "White Bishop": case "Black Bishop":
+        case "Bear": case "Angry Bear":
             return "Bishop";
         case "Runner": case "Fortune Teller": case "Witch":
         case "Warlock": case "Scared Wolf": case "Saboteur Wolf":
@@ -1404,6 +1458,8 @@ function getPiece(name, metadata = {}) {
         case "Ghast":
         case "Apprentice":
         case "Lamb":
+        case "Bear":
+        case "Angry Bear":
         case "Horseman of Pestilence":
         case "Horseman of Famine":
         case "Horseman of Death":
@@ -1442,7 +1498,7 @@ function getWWRevalValue(piece) {
             case "Infecting Wolf": case "Direwolf": case "Bartender":
                 return 5;
                 
-            case "Flute Player": case "Devil": case "Zombie": case "Zombie2": case "Zombie3": case "Zombie4": case "Zombie5": case "Angel": case "Vampire": case "Empowered Vampire": case "Undead": case "Apprentice": case "Bat": case "Corpse": case "Ghast": case "Apprentice Vampire": case "Lamb": case "Horseman of Death": case "Horseman of War": case "Horseman of Famine": case "Horseman of Pestilence": 
+            case "Flute Player": case "Devil": case "Zombie": case "Zombie2": case "Zombie3": case "Zombie4": case "Zombie5": case "Angel": case "Vampire": case "Empowered Vampire": case "Undead": case "Apprentice": case "Bat": case "Corpse": case "Ghast": case "Apprentice Vampire": case "Lamb": case "Horseman of Death": case "Horseman of War": case "Horseman of Famine": case "Horseman of Pestilence": case "Bear": case "Angry Bear":
                 return 0;
              case "FireballUp": case "FireballDown": 
                 return 2;
@@ -1452,7 +1508,7 @@ function getWWRevalValue(piece) {
     }
 }
 
-function generateRoleList(board, mode = 0) {
+function generateRoleList(board, mode = 0, daily = false, offset = 0) {
     // name, chess value, wwr value, incompatible with, requires, addsToWolves
     // all town pieces
 	 /// !!!!!!! USE getWWRValue for town[2]/wolf[2]
@@ -1541,7 +1597,9 @@ function generateRoleList(board, mode = 0) {
         wolfSelected = [];
         let wolfOffset = 0;
         for(let i = 0; i < board[0].length; i++) {
-            townSelected.push(town[Math.floor(Math.random() * (town.length-2))]);
+            let tr = Math.floor(Math.random() * (town.length-2))
+            if(daily) tr = getDateRand(town.length-2, 7 + iterations * 3 + i * offset);
+            townSelected.push(town[tr]);
             // add previous requirement if exists
             let prevReq = townSelected[townSelected.length - 1][4];
             let wolfAdd = townSelected[townSelected.length - 1][5];
@@ -1556,7 +1614,9 @@ function generateRoleList(board, mode = 0) {
         }
         // select pieces WOLF
         for(let i = 0 + wolfOffset; i < board[0].length; i++) {
-            wolfSelected.push(wolf[Math.floor(Math.random() * (wolf.length-1))]);
+            let wr = Math.floor(Math.random() * (wolf.length-1))
+            if(daily) wr = getDateRand(wolf.length-1, 8 + iterations * 3 + i * offset);
+            wolfSelected.push(wolf[wr]);
             // add previous requirement if exists
             let prevReq = wolfSelected[wolfSelected.length - 1][4];
             if(prevReq && prevReq.length) {
@@ -1579,7 +1639,8 @@ function generateRoleList(board, mode = 0) {
             totalValueWolf = totalChessValueWolf + totalWWRValueWolf;
             combinedIncompWolf = [].concat.apply([], wolfSelected.map(el => el[3]));
         } catch (err) {
-            console.log("DISCARD", err);
+            console.log("DISCARD", err); 
+            iterations++;
             continue;
         }
         
@@ -1589,14 +1650,18 @@ function generateRoleList(board, mode = 0) {
         // Double ALCOHOLIC
         if(townNames.filter(el => el=="Alcoholic").length > 1) {
             console.log("DISCARD - Double Alcoholic");
+            iterations++;
             continue;
         }
         // AMNESIAC
         if(townNames.indexOf("Amnesiac") > -1) { // find 
             let amnesiacCount = townNames.filter(el => el=="Amnesiac").length
-            let amnesiacRole = town[Math.floor(Math.random() * town.length)];
+            let amR = Math.floor(Math.random() * town.length);
+            if(daily) amR = getDateRand(town.length-2, 9 + iterations * 3 + offset);
+            let amnesiacRole = town[amR];
             if(amnesiacRole[0] == "Amnesiac" || amnesiacRole[0] == "Bloody Butcher" || amnesiacRole[0] == "Butcher" || amnesiacRole[0] == "Bartender" || (amnesiacRole[0] == "Alcoholic" && townNames.indexOf("Alcoholic") == -1)) {
                 console.log("DISCARD - Amnesiac");
+                iterations++;
                 continue;
             }
             totalChessValueTown = totalChessValueTown - (amnesiacCount * 3) + (amnesiacCount * ((3 + amnesiacRole[1] * 3) / 4));
@@ -1614,6 +1679,7 @@ function generateRoleList(board, mode = 0) {
             else if(townNames.indexOf("Crowd Seeker") > -1) faRole = town.filter(el => el[0]=="Crowd Seeker")[0];
             else {
                 console.log("DISCARD - Fortune Apprentice");
+                iterations++;
                 continue;
             }
             totalChessValueTown = totalChessValueTown - (faCount * 3) + (faCount * ((3 + faRole[1]) / 2));
@@ -1625,6 +1691,7 @@ function generateRoleList(board, mode = 0) {
         let wolfNames = wolfSelected.map(el => el[0]);
         if(wolfNames.filter(el => el=="Tanner").length > 1) {
             console.log("DISCARD - Double Tanner");
+            iterations++;
             continue;
         }
         
@@ -1658,8 +1725,13 @@ function generateRoleList(board, mode = 0) {
         iterations++;
     }
     // randomize piece order
-    townSelected = randomize(townSelected);
-    wolfSelected = randomize(wolfSelected);
+    if(!daily) {
+        townSelected = randomize(townSelected);
+        wolfSelected = randomize(wolfSelected);
+    } else {
+        townSelected = randomizeDaily(townSelected, 10 + iterations * 3 + offset);
+        wolfSelected = randomizeDaily(wolfSelected, 11 + iterations * 3 + offset);
+    }
     // put pieces onto the board
     for(let i = 0; i < board[0].length; i++) {
         board[board.length-1][i] = getPiece(townSelected[i][0], metadata);
@@ -1675,9 +1747,17 @@ function randomize(arr) {
                         .map(({ value }) => value);
 }
 
+// randomizes an array
+function randomizeDaily(arr, start) {
+    let i = 0;
+    return arr .map(value => ({ value, sort: getDateRand(100, start + (i++)) }))
+                        .sort((a, b) => a.sort - b.sort)
+                        .map(({ value }) => value);
+}
+
 // setups a new game
 const emptyBoard = [[getPiece(null), getPiece(null), getPiece(null), getPiece(null), getPiece(null)], [getPiece(null), getPiece(null), getPiece(null), getPiece(null), getPiece(null)], [getPiece(null), getPiece(null), getPiece(null), getPiece(null), getPiece(null)], [getPiece(null), getPiece(null), getPiece(null), getPiece(null), getPiece(null)], [getPiece(null), getPiece(null), getPiece(null), getPiece(null), getPiece(null)]];
-function createGame(playerID, playerID2, playerID3, gameID, name1, name2, name3, channel, guild, soloArg = null, mode = "default", strengthModifier = 0) {
+function createGame(playerID, playerID2, playerID3, gameID, name1, name2, name3, channel, guild, soloArg = null, mode = "default", strengthModifier = 0, daily = false) {
     
     // store players as playing players
     if(playerID) players.push([playerID, gameID]);
@@ -1700,15 +1780,48 @@ function createGame(playerID, playerID2, playerID3, gameID, name1, name2, name3,
         case "boss_bat":
         case "boss_flute":
         case "boss_horseman":
+        case "boss_bat_reversed":
+        case "boss_flute_reversed":
+        case "boss_horseman_reversed":
+        case "bad":
+        case "half_chess":
+        case "town":
+        case "wolves":
+        case "boss_multi":
             height = 5, width = 5;
         break;
+        case "default_tall":
+        case "default_double":
+            height = 8, width = 5;
+        break;
+        case "default_wide":
+            height = 5, width = 8;
+        break;
+        case "default_strip":
+            height = 2, width = 12;
+        break;
+        case "default_tiny":
+            height = 3, width = 3;
+        break;
+        case "default_small":
+            height = 4, width = 4;
+        break;
+        case "default_big":
+            height = 6, width = 6;
+        break;
+        case "default_huge":
+            height = 7, width = 7;
+        break;
         case "boss_ghast":
+        case "boss_ghast_reversed":
             height = 7, width = 5;
         break;
         case "boss_zombie":
+        case "boss_zombie_reversed":
             height = 8, width = 5;
         break;
         case "chess":
+        case "chess_rotated":
             height = 8, width = 8;
         break;
     }
@@ -1723,7 +1836,18 @@ function createGame(playerID, playerID2, playerID3, gameID, name1, name2, name3,
         newBoard.push(deepCopy(emptyRow));
     }
     
-    let newGame = {id: gameID, players: [ playerID, playerID2 ], playerNames: [ name1, name2 ], state: newBoard, turn: 0, normalTurn: 0, concluded: false, selectedPiece: null, doubleMove0: false, doubleMove1: false, inDoubleMove: false, ai: false, firstMove: false, aiOnly: false, height: height, width: width, doNotSerialize: false, prevMove: -1, reducedIterations: false, stupidChance: 0, mode: mode, aiModifier: strengthModifier };
+    let newGame = {id: gameID, players: [ playerID, playerID2 ], playerNames: [ name1, name2 ], state: newBoard, turn: 0, normalTurn: 0, concluded: false, selectedPiece: null, doubleMove0: false, doubleMove1: false, inDoubleMove: false, ai: false, firstMove: false, aiOnly: false, daily: daily, height: height, width: width, doNotSerialize: false, prevMove: -1, reducedIterations: false, stupidChance: 0, mode: mode, aiModifier: strengthModifier };
+ 
+    
+    let pos = [0,1,2,3,4];
+    let pos2 = [0,1,2,3,4];
+    let posl = [0,1,2,3,4,5,6,7];
+    
+    if(daily) {
+        pos = randomizeDaily(pos, 20);
+        pos2 = randomizeDaily(pos2, 25);
+        posl = randomizeDaily(posl, 30);
+    }
  
     switch(mode) {
         default:
@@ -1732,7 +1856,7 @@ function createGame(playerID, playerID2, playerID3, gameID, name1, name2, name3,
         case "default":
             // put pieces on board
             let listPower = 0;
-            listPower = generateRoleList(newBoard, mode=="simplified"?1:(mode=="advanced"?2:0));
+            listPower = generateRoleList(newBoard, mode=="simplified"?1:(mode=="advanced"?2:0), daily);
             
             //loadPromoteTestSetup(newBoard);
             //loadTestingSetup(newBoard);
@@ -1745,6 +1869,7 @@ function createGame(playerID, playerID2, playerID3, gameID, name1, name2, name3,
                 let solos = ["angel","flute","graveyard","underworld"];
                 if(playerID3 == null) solos.push(...["apprentice"]);
                 let selectedSoloIndex = Math.floor(Math.random() * solos.length);
+                if(daily) selectedSoloIndex = getDateRand(solos.length, 4);
                 let selectedSoloName = solos[selectedSoloIndex];
                 if(soloArg && soloArg.length) selectedSoloName = soloArg;
                 let selectedSolo;
@@ -1757,9 +1882,12 @@ function createGame(playerID, playerID2, playerID3, gameID, name1, name2, name3,
                     case "underworld": selectedSolo = ["Vampire","Bat","Underworld", false]; break;
                     case "apprentice": selectedSolo = ["Apprentice","Angel","Apprentice", false]; break;
                     case "ghast": selectedSolo = ["Ghast","Ghast","Ghast", false]; break;
+                    case "bear": selectedSolo = ["Bear", "Bear", "Bear", false]; break
                 }
                 if(listPower > 20) { // list too powerful for just one solo
-                    if(Math.random() < 0.5) {
+                    let posRand = Math.floor(Math.random() * 2);
+                    if(daily) posRand = getDateRand(2, 6);
+                    if(posRand === 0) {
                         newBoard[Math.floor(height/2)][0] = getPiece(selectedSolo[0]);
                         newBoard[Math.floor(height/2)][width - 1] = getPiece(selectedSolo[1]);
                     } else {
@@ -1782,26 +1910,177 @@ function createGame(playerID, playerID2, playerID3, gameID, name1, name2, name3,
                 newGame.playerNames.push(name3);
             }
         break;
-        case "boss_bat":
+        case "default_double":
+            generateRoleList(newBoard, mode=="simplified"?1:(mode=="advanced"?2:0), daily);
+            newBoard[1][pos[0]] = deepCopy(newBoard[0][0]);
+            newBoard[1][pos[1]] = deepCopy(newBoard[0][1]);
+            newBoard[1][pos[2]] = deepCopy(newBoard[0][2]);
+            newBoard[1][pos[3]] = deepCopy(newBoard[0][3]);
+            newBoard[1][pos[4]] = deepCopy(newBoard[0][4]);
+            newBoard[6][pos2[0]] = deepCopy(newBoard[7][0]);
+            newBoard[6][pos2[1]] = deepCopy(newBoard[7][1]);
+            newBoard[6][pos2[2]] = deepCopy(newBoard[7][2]);
+            newBoard[6][pos2[3]] = deepCopy(newBoard[7][3]);
+            newBoard[6][pos2[4]] = deepCopy(newBoard[7][4]);
+        break;
+        case "town":
+            generateRoleList(newBoard, mode=="simplified"?1:(mode=="advanced"?2:0), daily);
+            
+            newBoard[0][0] = deepCopy(newBoard[4][0]);
+            newBoard[0][1] = deepCopy(newBoard[4][1]);
+            newBoard[0][2] = deepCopy(newBoard[4][2]);
+            newBoard[0][3] = deepCopy(newBoard[4][3]);
+            newBoard[0][4] = deepCopy(newBoard[4][4]);
+            newBoard[0][0].team = 1;
+            newBoard[0][1].team = 1;
+            newBoard[0][2].team = 1;
+            newBoard[0][3].team = 1;
+            newBoard[0][4].team = 1;
+        
+        break;
+        case "wolves":
+            generateRoleList(newBoard, mode=="simplified"?1:(mode=="advanced"?2:0), daily);
+            
+            newBoard[4][0] = deepCopy(newBoard[0][0]);
+            newBoard[4][1] = deepCopy(newBoard[0][1]);
+            newBoard[4][2] = deepCopy(newBoard[0][2]);
+            newBoard[4][3] = deepCopy(newBoard[0][3]);
+            newBoard[4][4] = deepCopy(newBoard[0][4]);
+            newBoard[4][0].team = 0;
+            newBoard[4][1].team = 0;
+            newBoard[4][2].team = 0;
+            newBoard[4][3].team = 0;
+            newBoard[4][4].team = 0;
+        
+        break;
+        case "bad":
             // put pieces on board
+            generateRoleList(newBoard, mode=="simplified"?1:(mode=="advanced"?2:0), daily);
+        
+        
+            if(newGame.players[0] == null) {
+                newBoard[4][0] = getPiece("Fortune Teller");
+                newBoard[4][1] = getPiece("Runner");
+                newBoard[4][2] = getPiece("Witch");
+                newBoard[4][3] = getPiece("Runner");
+                newBoard[4][4] = getPiece("Fortune Teller");
+            }
+            if(newGame.players[1] == null) {
+                newBoard[0][0] = getPiece("Warlock");
+                newBoard[0][1] = getPiece("Scared Wolf");
+                newBoard[0][2] = getPiece("Saboteur Wolf");
+                newBoard[0][3] = getPiece("Scared Wolf");
+                newBoard[0][4] = getPiece("Warlock");
+            }
+            newGame.stupidChance = 0.90;
+        break;
+        case "half_chess":
+            // put pieces on board
+            generateRoleList(newBoard, mode=="simplified"?1:(mode=="advanced"?2:0), daily);
+        
+            half_pawn: for(let i = 0; i < 5; i++) {
+                if(newBoard[4][pos[i]].chess === "Pawn") {
+                    for(let j = 0; j < 5; j++) {
+                        if(newBoard[0][pos2[j]].chess === "Pawn") {
+                            newBoard[4][pos[i]] = getPiece("White Pawn");
+                            newBoard[0][pos2[j]] = getPiece("Black Pawn");
+                            break half_pawn;
+                        }
+                    }
+                }
+            }
             
-            newBoard[4][0] = getPiece("Citizen");
-            newBoard[4][1] = getPiece("Royal Knight");
-            newBoard[4][2] = getPiece("Witch");
-            newBoard[4][3] = getPiece("Hooker");
-            newBoard[4][4] = getPiece("Huntress");
+            half_king: for(let i = 0; i < 5; i++) {
+                if(newBoard[4][pos[i]].chess === "King") {
+                    for(let j = 0; j < 5; j++) {
+                        if(newBoard[0][pos2[j]].chess === "King") {
+                            newBoard[4][pos[i]] = getPiece("White King");
+                            newBoard[0][pos2[j]] = getPiece("Black King");
+                            break half_king;
+                        }
+                    }
+                }
+            }
             
-            newBoard[0][0] = getPiece("Undead");
-            newBoard[0][1] = getPiece("Vampire");
-            newBoard[0][2] = getPiece("Bat");
-            newBoard[0][2].enemyVisibleStatus = 7;
-            newBoard[0][3] = getPiece("Apprentice Vampire");
-            newBoard[0][4] = getPiece("Undead");
+            half_knight: for(let i = 0; i < 5; i++) {
+                if(newBoard[4][pos[i]].chess === "Knight") {
+                    for(let j = 0; j < 5; j++) {
+                        if(newBoard[0][pos2[j]].chess === "Knight") {
+                            newBoard[4][pos[i]] = getPiece("White Knight");
+                            newBoard[0][pos2[j]] = getPiece("Black Knight");
+                            break half_knight;
+                        }
+                    }
+                }
+            }
+            
+        break;
+        case "boss_multi":
+            
+            // put pieces on board
+            for(let i = 0; i < 100; i++) {
+                // get a powerful list
+                let pow = generateRoleList(newBoard, mode=="simplified"?1:(mode=="advanced"?2:0), daily, i);
+                console.log("POWER:", pow);
+                if(pow >= 22) break;
+            }
+            
+            let soloRoles = ["Bat","Ghast","Horseman of Death","Horseman of War","Bear","Flute Player","Vampire","Horseman of Pestilence","Horseman of Famine"];
+            
+            let selectedSoloRoles = [];
+            
+            // pick random solos
+            for(let i = 0; i < 5; i++) {
+                let randSoloPick = getDateRand(soloRoles.length, 4 * i);
+                selectedSoloRoles.push(soloRoles.splice(randSoloPick, 1)[0]);
+            }
+            
+            console.log("Multi Boss", selectedSoloRoles);
+            
+            
+            newBoard[0][pos2[0]] = getPiece(selectedSoloRoles[0]);
+            newBoard[0][pos2[1]] = getPiece(selectedSoloRoles[1]);
+            newBoard[0][pos2[2]] = getPiece(selectedSoloRoles[2]);
+            newBoard[0][pos2[3]] = getPiece(selectedSoloRoles[3]);
+            newBoard[0][pos2[4]] = getPiece(selectedSoloRoles[4]);
             newBoard[0][0].protected = false;
             newBoard[0][1].protected = false;
             newBoard[0][2].protected = false;
             newBoard[0][3].protected = false;
             newBoard[0][4].protected = false;
+            
+            
+            newGame.solo = true;
+            newGame.soloRevealed = false;
+            newGame.goldAscended = false;
+            newGame.whiteEliminated = false, 
+            newGame.blackEliminated = false, 
+            newGame.goldEliminated = false, 
+            newGame.players.push(playerID3);
+            newGame.playerNames.push(name3);
+        
+        break;
+        case "boss_bat":
+        case "boss_bat_reversed":
+            // put pieces on board
+            
+            newBoard[4][pos[0]] = getPiece("Citizen");
+            newBoard[4][pos[1]] = getPiece("Royal Knight");
+            newBoard[4][pos[2]] = getPiece("Witch");
+            newBoard[4][pos[3]] = getPiece("Hooker");
+            newBoard[4][pos[4]] = getPiece("Huntress");
+            
+            newBoard[0][pos2[0]] = getPiece("Undead");
+            newBoard[0][pos2[1]] = getPiece("Vampire");
+            newBoard[0][pos2[2]] = getPiece("Bat");
+            newBoard[0][pos2[2]].enemyVisibleStatus = 7;
+            newBoard[0][pos2[3]] = getPiece("Apprentice Vampire");
+            newBoard[0][pos2[4]] = getPiece("Undead");
+            newBoard[0][pos2[0]].protected = false;
+            newBoard[0][pos2[1]].protected = false;
+            newBoard[0][pos2[2]].protected = false;
+            newBoard[0][pos2[3]].protected = false;
+            newBoard[0][pos2[4]].protected = false;
         
         
             newGame.soloTeam = "Underworld";
@@ -1823,24 +2102,24 @@ function createGame(playerID, playerID2, playerID3, gameID, name1, name2, name3,
         case "boss_horseman_reversed":
             // put pieces on board
             
-            newBoard[0][0] = getPiece("Archivist Fox");
-            newBoard[0][1] = getPiece("Sneaking Wolf");
-            newBoard[0][2] = getPiece("Scared Wolf");
-            newBoard[0][3] = getPiece("Alpha Wolf");
-            newBoard[0][4] = getPiece("Dog");
+            newBoard[0][pos[0]] = getPiece("Archivist Fox");
+            newBoard[0][pos[1]] = getPiece("Sneaking Wolf");
+            newBoard[0][pos[2]] = getPiece("Scared Wolf");
+            newBoard[0][pos[3]] = getPiece("Alpha Wolf");
+            newBoard[0][pos[4]] = getPiece("Dog");
             
             newBoard[3][2] = getPiece("Bloody Butcher");
  
-            newBoard[4][0] = getPiece("Horseman of War");
-            newBoard[4][1] = getPiece("Horseman of Pestilence");
-            newBoard[4][2] = getPiece("Lamb");
-            newBoard[4][3] = getPiece("Horseman of Famine");
-            newBoard[4][4] = getPiece("Horseman of Death");
-            newBoard[4][0].protected = false;
-            newBoard[4][1].protected = false;
-            newBoard[4][2].protected = false;
-            newBoard[4][3].protected = false;
-            newBoard[4][4].protected = false;
+            newBoard[4][pos2[0]] = getPiece("Horseman of War");
+            newBoard[4][pos2[1]] = getPiece("Horseman of Pestilence");
+            newBoard[4][pos2[2]] = getPiece("Lamb");
+            newBoard[4][pos2[3]] = getPiece("Horseman of Famine");
+            newBoard[4][pos2[4]] = getPiece("Horseman of Death");
+            newBoard[4][pos2[0]].protected = false;
+            newBoard[4][pos2[1]].protected = false;
+            newBoard[4][pos2[2]].protected = false;
+            newBoard[4][pos2[3]].protected = false;
+            newBoard[4][pos2[4]].protected = false;
         
         
             newGame.soloTeam = "Horsemen";
@@ -1859,19 +2138,20 @@ function createGame(playerID, playerID2, playerID3, gameID, name1, name2, name3,
         
         break;
         case "boss_flute":
+        case "boss_flute_reversed":
             // put pieces on board
             
-            newBoard[4][0] = getPiece("Bartender");
-            newBoard[4][1] = getPiece("Alcoholic");
-            newBoard[4][2] = getPiece("Witch");
-            newBoard[4][3] = getPiece("Hooker");
-            newBoard[4][4] = getPiece("Huntress");
+            newBoard[4][pos[0]] = getPiece("Bartender");
+            newBoard[4][pos[1]] = getPiece("Alcoholic");
+            newBoard[4][pos[2]] = getPiece("Witch");
+            newBoard[4][pos[3]] = getPiece("Hooker");
+            newBoard[4][pos[4]] = getPiece("Huntress");
             
-            newBoard[0][1] = getPiece("Flute Player");
-            newBoard[0][2] = getPiece("Flute Player");
-            newBoard[0][3] = getPiece("Flute Player");
-            newBoard[0][2].enemyVisibleStatus = 7;
-            newBoard[0][2].protected = false;
+            newBoard[0][pos2[1]] = getPiece("Flute Player");
+            newBoard[0][pos2[2]] = getPiece("Flute Player");
+            newBoard[0][pos2[3]] = getPiece("Flute Player");
+            newBoard[0][pos2[2]].enemyVisibleStatus = 7;
+            newBoard[0][pos2[2]].protected = false;
         
         
             newGame.soloTeam = "Flute";
@@ -1890,29 +2170,21 @@ function createGame(playerID, playerID2, playerID3, gameID, name1, name2, name3,
         
         break;
         case "boss_ghast":
+        case "boss_ghast_reversed":
             // put pieces on board
             
-            newBoard[6][0] = getPiece("Fortune Apprentice");
-            //newBoard[6][1] = getPiece("Alcoholic");
-            newBoard[6][2] = getPiece("Aura Teller");
-            //newBoard[6][3] = getPiece("Royal Knight");
-            //newBoard[6][4] = getPiece("Child");
+            newBoard[6][pos[0]] = getPiece("Fortune Apprentice");
+            newBoard[6][pos[1]] = getPiece("Alcoholic");
+            newBoard[6][pos[2]] = getPiece("Aura Teller");
+            newBoard[6][pos[3]] = getPiece("Royal Knight");
+            newBoard[6][pos[4]] = getPiece("Child");
             
-            newBoard[3][0] = getPiece("Ghast");
-            newBoard[3][0].enemyVisibleStatus = 7;
-            newBoard[3][0].protected = false;
-            newBoard[3][3] = getPiece("Ghast");
-            newBoard[3][3].enemyVisibleStatus = 7;
-            newBoard[3][3].protected = false;
-            
-            
-            newBoard[2][0] = getPiece("FireballUp");
-            newBoard[2][1] = getPiece("FireballUp");
-            newBoard[4][1] = getPiece("FireballDown");
-            newBoard[4][2] = getPiece("FireballDown");
-            newBoard[4][3] = getPiece("FireballDown");
-            newBoard[5][0] = getPiece("FireballDown");
-            newBoard[6][4] = getPiece("FireballDown");
+            newBoard[0][pos2[1]] = getPiece("Ghast");
+            newBoard[0][pos2[1]].enemyVisibleStatus = 7;
+            newBoard[0][pos2[1]].protected = false;
+            newBoard[0][pos2[3]] = getPiece("Ghast");
+            newBoard[0][pos2[3]].enemyVisibleStatus = 7;
+            newBoard[0][pos2[3]].protected = false;
         
         
             newGame.soloTeam = "Ghast";
@@ -1931,13 +2203,14 @@ function createGame(playerID, playerID2, playerID3, gameID, name1, name2, name3,
         
         break;
         case "boss_zombie":
+        case "boss_zombie_reversed":
             // put pieces on board
             
-            newBoard[7][0] = getPiece("Hooker");
-            newBoard[7][1] = getPiece("Fortune Teller");
-            newBoard[7][2] = getPiece("Royal Knight");
-            newBoard[7][3] = getPiece("Witch");
-            newBoard[7][4] = getPiece("Idiot");
+            newBoard[7][pos[0]] = getPiece("Hooker");
+            newBoard[7][pos[1]] = getPiece("Fortune Teller");
+            newBoard[7][pos[2]] = getPiece("Royal Knight");
+            newBoard[7][pos[3]] = getPiece("Witch");
+            newBoard[7][pos[4]] = getPiece("Idiot");
             
             newBoard[0][0] = getPiece("Zombie");
             newBoard[0][0].zombieID = 1;
@@ -2078,22 +2351,22 @@ function createGame(playerID, playerID2, playerID3, gameID, name1, name2, name3,
             if(newGame.players[1] == null) newGame.playerNames[1] = "The Mayor";
         break;
         case "minichess":
-            newBoard[0][0] = getPiece("Black Rook");
-            newBoard[0][1] = getPiece("Black Knight");
-            newBoard[0][2] = getPiece("Black Bishop");
-            newBoard[0][3] = getPiece("Black Queen");
-            newBoard[0][4] = getPiece("Black King");
+            newBoard[0][pos[0]] = getPiece("Black Rook");
+            newBoard[0][pos[1]] = getPiece("Black Knight");
+            newBoard[0][pos[2]] = getPiece("Black Bishop");
+            newBoard[0][pos[3]] = getPiece("Black Queen");
+            newBoard[0][pos[4]] = getPiece("Black King");
             newBoard[1][0] = getPiece("Black Pawn");
             newBoard[1][1] = getPiece("Black Pawn");
             newBoard[1][2] = getPiece("Black Pawn");
             newBoard[1][3] = getPiece("Black Pawn");
             newBoard[1][4] = getPiece("Black Pawn");
             
-            newBoard[4][0] = getPiece("White Rook");
-            newBoard[4][1] = getPiece("White Knight");
-            newBoard[4][2] = getPiece("White Bishop");
-            newBoard[4][3] = getPiece("White Queen");
-            newBoard[4][4] = getPiece("White King");
+            newBoard[4][pos[0]] = getPiece("White Rook");
+            newBoard[4][pos[1]] = getPiece("White Knight");
+            newBoard[4][pos[2]] = getPiece("White Bishop");
+            newBoard[4][pos[3]] = getPiece("White Queen");
+            newBoard[4][pos[4]] = getPiece("White King");
             newBoard[3][0] = getPiece("White Pawn");
             newBoard[3][1] = getPiece("White Pawn");
             newBoard[3][2] = getPiece("White Pawn");
@@ -2101,14 +2374,14 @@ function createGame(playerID, playerID2, playerID3, gameID, name1, name2, name3,
             newBoard[3][4] = getPiece("White Pawn");
         break;
         case "chess":
-            newBoard[0][0] = getPiece("Black Rook");
-            newBoard[0][1] = getPiece("Black Knight");
-            newBoard[0][2] = getPiece("Black Bishop");
-            newBoard[0][3] = getPiece("Black Queen");
-            newBoard[0][4] = getPiece("Black King");
-            newBoard[0][5] = getPiece("Black Bishop");
-            newBoard[0][6] = getPiece("Black Knight");
-            newBoard[0][7] = getPiece("Black Rook");
+            newBoard[0][posl[0]] = getPiece("Black Rook");
+            newBoard[0][posl[1]] = getPiece("Black Knight");
+            newBoard[0][posl[2]] = getPiece("Black Bishop");
+            newBoard[0][posl[3]] = getPiece("Black Queen");
+            newBoard[0][posl[4]] = getPiece("Black King");
+            newBoard[0][posl[5]] = getPiece("Black Bishop");
+            newBoard[0][posl[6]] = getPiece("Black Knight");
+            newBoard[0][posl[7]] = getPiece("Black Rook");
             newBoard[1][0] = getPiece("Black Pawn");
             newBoard[1][1] = getPiece("Black Pawn");
             newBoard[1][2] = getPiece("Black Pawn");
@@ -2118,14 +2391,14 @@ function createGame(playerID, playerID2, playerID3, gameID, name1, name2, name3,
             newBoard[1][6] = getPiece("Black Pawn");
             newBoard[1][7] = getPiece("Black Pawn");
             
-            newBoard[7][0] = getPiece("White Rook");
-            newBoard[7][1] = getPiece("White Knight");
-            newBoard[7][2] = getPiece("White Bishop");
-            newBoard[7][3] = getPiece("White Queen");
-            newBoard[7][4] = getPiece("White King");
-            newBoard[7][5] = getPiece("White Bishop");
-            newBoard[7][6] = getPiece("White Knight");
-            newBoard[7][7] = getPiece("White Rook");
+            newBoard[7][posl[0]] = getPiece("White Rook");
+            newBoard[7][posl[1]] = getPiece("White Knight");
+            newBoard[7][posl[2]] = getPiece("White Bishop");
+            newBoard[7][posl[3]] = getPiece("White Queen");
+            newBoard[7][posl[4]] = getPiece("White King");
+            newBoard[7][posl[5]] = getPiece("White Bishop");
+            newBoard[7][posl[6]] = getPiece("White Knight");
+            newBoard[7][posl[7]] = getPiece("White Rook");
             newBoard[6][0] = getPiece("White Pawn");
             newBoard[6][1] = getPiece("White Pawn");
             newBoard[6][2] = getPiece("White Pawn");
@@ -2134,6 +2407,37 @@ function createGame(playerID, playerID2, playerID3, gameID, name1, name2, name3,
             newBoard[6][5] = getPiece("White Pawn");
             newBoard[6][6] = getPiece("White Pawn");
             newBoard[6][7] = getPiece("White Pawn");
+        break;
+        case "chess_rotated":
+            newBoard[posl[0]][0] = getPiece("Black Rook");
+            newBoard[posl[1]][0] = getPiece("Black Knight");
+            newBoard[posl[2]][0] = getPiece("Black Bishop");
+            newBoard[posl[3]][0] = getPiece("Black Queen");
+            newBoard[posl[4]][0] = getPiece("Black King");
+            newBoard[posl[5]][0] = getPiece("Black Bishop");
+            newBoard[posl[6]][0] = getPiece("Black Knight");
+            newBoard[posl[7]][0] = getPiece("Black Rook");
+            newBoard[0][1] = getPiece("Black Pawn");
+            newBoard[1][1] = getPiece("Black Pawn");
+            newBoard[2][1] = getPiece("Black Pawn");
+            newBoard[5][1] = getPiece("Black Pawn");
+            newBoard[6][1] = getPiece("Black Pawn");
+            newBoard[7][1] = getPiece("Black Pawn");
+            
+            newBoard[posl[0]][7] = getPiece("White Rook");
+            newBoard[posl[1]][7] = getPiece("White Knight");
+            newBoard[posl[2]][7] = getPiece("White Bishop");
+            newBoard[posl[3]][7] = getPiece("White Queen");
+            newBoard[posl[4]][7] = getPiece("White King");
+            newBoard[posl[5]][7] = getPiece("White Bishop");
+            newBoard[posl[6]][7] = getPiece("White Knight");
+            newBoard[posl[7]][7] = getPiece("White Rook");
+            newBoard[0][6] = getPiece("White Pawn");
+            newBoard[1][6] = getPiece("White Pawn");
+            newBoard[2][6] = getPiece("White Pawn");
+            newBoard[5][6] = getPiece("White Pawn");
+            newBoard[6][6] = getPiece("White Pawn");
+            newBoard[7][6] = getPiece("White Pawn");
         break;
     }
     
@@ -3151,6 +3455,10 @@ function registerCommands() {
         ]
     });
     client.application?.commands.create({
+        name: 'play_daily',
+        description: 'Starts a game with the daily challenge.',
+    });
+    client.application?.commands.create({
         name: 'pieces',
         description: 'Lists the pieces of a team.',
         options: [
@@ -3191,6 +3499,51 @@ function sleep(ms) {
     setTimeout(resolve, ms);
   });
 } 
+
+
+// returns a value from 0 to n-1 depending on the date
+function getDateRand(n, offset) {
+    let day = getDayOfYear();
+    let randNumbers = [23,155,112,276,211,336,310,229,174,257,317,235,209,321,40,352,116,183,364,304,32,295,224,232,173,55,92,152,124,290,88,105,24,307,78,200,198,84,121,293,37,309,19,320,96,9,2,176,334,90,272,147,201,344,338,289,14,318,357,107,299,322,145,119,335,6,113,110,13,44,308,339,305,72,168,262,106,361,76,203,140,21,38,248,261,68,135,294,194,358,226,57,353,341,18,120,143,33,39,137,193,189,342,218,330,239,236,356,164,61,15,246,123,184,48,138,73,29,265,274,182,319,42,60,243,281,95,98,331,82,350,64,150,271,166,267,77,363,50,223,4,210,313,41,324,264,12,8,296,130,206,56,221,99,297,233,86,250,169,266,279,220,115,117,242,282,94,1,252,118,245,348,25,30,332,81,291,366,179,285,129,188,354,136,351,171,327,302,158,258,7,146,167,53,345,127,187,217,316,54,300,270,74,131,3,134,104,280,298,63,175,31,349,192,47,355,228,269,10,326,65,67,58,133,199,75,97,343,337,191,185,254,277,101,170,323,301,216,275,91,114,89,213,340,362,27,204,153,126,165,161,197,172,255,292,111,87,26,122,125,207,80,177,244,178,284,85,238,227,306,237,100,241,43,240,346,22,365,28,278,79,347,231,205,157,247,62,102,359,45,328,325,195,34,139,288,249,196,222,93,154,273,71,219,234,186,51,256,212,214,190,163,35,268,225,144,263,109,283,11,160,181,156,303,128,17,253,132,59,148,311,202,215,83,180,20,141,16,315,52,36,333,69,159,286,46,103,108,312,230,151,70,49,162,251,149,314,329,360,259,287,208,260,66,142,5,23];
+    let year = new Date().getFullYear();
+    return (randNumbers[(day + offset) % randNumbers.length] + Math.floor((day + offset) / randNumbers.length) + year) % n;
+}
+
+function getDayOfYear() {
+    let now = new Date();
+    let start = new Date(now.getFullYear(), 0, 0);
+    let diff = (now - start) + ((start.getTimezoneOffset() - now.getTimezoneOffset()) * 60 * 1000);
+    let oneDay = 1000 * 60 * 60 * 24;
+    let day = Math.floor(diff / oneDay);
+    return day;
+}
+
+function winRewardEvaluate(game, player1 = null, player2 = null) {
+    if(player1) winRewardEvaluateOne(game, player1);
+    if(player2) winRewardEvaluateOne(game, player2);
+}
+
+var lastDay = -1;
+var dailyWinners = []
+function winRewardEvaluateOne(game, player) {
+    // check if is daily game
+    if(game.daily) {
+        // reset if first win of day
+        if(lastDay != getDayOfYear()) {
+            console.log("Reset Daily Winners");
+            lastDay = getDayOfYear();
+            dailyWinners = [];
+        }
+        // check if first win
+        if(!dailyWinners.includes(player)) {
+            sendMessage(game.id, "**Daily Game Reward:** As a reward for beating the daily game you have earned `10` coins.");
+            sendMessage(game.id, `$coins reward ${player} 10`);
+            dailyWinners.push(player);
+        } else {
+            sendMessage(game.id, "**Daily Game Reward:** You can only earn the reward for beating the daily game once per day.");
+        }
+    }
+}
 
 /* 
 	LOGIN

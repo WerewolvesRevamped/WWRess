@@ -522,13 +522,15 @@ function pieceBeatenEffects(movedPiece, beatenPiece, moveCurGame, moveCurGameHis
                     pieceDied(moveCurGame, beatenPiece, to, from, movedPiece);
                 }
             break;
+            case "Angry Bear":
             case "Angel":
                 if(notAiTurn && !moveCurGame.goldEliminated) {
-                    if(moveCurGame.players[2]) sendMessage(moveCurGame.id, "<@" + moveCurGame.players[2] + "> ascends and wins!");
+                    if(moveCurGame.players[2]) sendMessage(moveCurGame.id, "**Ascension:** <@" + moveCurGame.players[2] + "> ascends and wins!");
                     else sendMessage(moveCurGame.id, "**Ascension:** " + moveCurGame.playerNames[2] + " ascends and wins! The game continues.");
+                    winRewardEvaluate(moveCurGame, moveCurGame.players[2]);
                     console.log("ASCEND GOLD");
                     moveCurGameHistory.lastMoves.push([moveCurGame.turn, movedPiece.name, movedPiece.disguise, movedPiece.enemyVisible, from, to, movedPiece.enemyVisibleStatus, "🇽​"]);
-                    moveCurGameHistory.lastMoves.push([2, "Angel", false, "", to, from, 7, "⬆️🏅🟦"]);
+                    moveCurGameHistory.lastMoves.push([beatenPiece.team, beatenPiece.name, false, "", to, from, 7, "⬆️🏅🟦"]);
                 }
                 if(!moveCurGame.goldEliminated) {
                     pieceDied(moveCurGame, beatenPiece, to, from, movedPiece);
@@ -536,6 +538,12 @@ function pieceBeatenEffects(movedPiece, beatenPiece, moveCurGame, moveCurGameHis
                 moveCurGame.goldEliminated = true;
                 if(!moveCurGame.goldEliminated) moveCurGame.goldAscended = true; //cannot win while eliminated
                 moveCurGame.state[moveTo.y][moveTo.x] = getPiece(null);
+            break;
+            case "Bear":
+                if(notAiTurn) {
+                    moveCurGameHistory.lastMoves.push([beatenPiece.team, beatenPiece.name, false, "", to, from, 7, "🇽​"]);
+                } 
+                moveCurGame.state[moveTo.y][moveTo.x] = getPiece("Angry Bear");
             break;
             case "Zombie":
             case "Zombie2":
@@ -569,7 +577,7 @@ function pieceBeatenEffects(movedPiece, beatenPiece, moveCurGame, moveCurGameHis
             case "Huntress":
                 if(notAiTurn) {
                     moveCurGameHistory.lastMoves.push([moveCurGame.turn, movedPiece.name, movedPiece.disguise, movedPiece.enemyVisible, from, to, movedPiece.enemyVisibleStatus, "🇽​"]);
-                    moveCurGameHistory.lastMoves.push([0, "Huntress", false, "", to, from, 7, "🇽​"]);
+                    moveCurGameHistory.lastMoves.push([beatenPiece.team, beatenPiece.name, false, "", to, from, 7, "🇽​"]);
                 } 
                 moveCurGame.state[moveTo.y][moveTo.x] = getPiece(null);
                 pieceDied(moveCurGame, beatenPiece, to, from, movedPiece);
@@ -1126,6 +1134,7 @@ function nextTurn(game, forceTurn = null) {
                 else enemies += game.playerNames[2];
                 if(game.players[0]) sendMessage(game.id, "**Victory:** " + enemies + " have won against " + game.player[0] + "!");
                 else sendMessage(game.id, "**Victory:** " + enemies + " have won against " + game.playerNames[0] + "!"); 
+                winRewardEvaluate(game, game.players[1], game.players[2]);
             } else if(!game.goldEliminated || soloHasWon) { // P3 wins
                 if(soloHasWon) sendMessage(game.id, "**Game End:** Solo Power causes a loss!");
                 let enemies = "";
@@ -1135,6 +1144,7 @@ function nextTurn(game, forceTurn = null) {
                 else if(game.playerNames[1]) enemies += " & " + game.playerNames[1];
                 if(game.players[2]) channel.send("**Victory:** <@" + game.players[2] + "> has won against " + enemies + "!");
                 else channel.send("**Victory:** " + game.playerNames[2] + " has won against " + enemies + "!");
+                winRewardEvaluate(game, game.players[2]);
             } else if(!game.whiteEliminated) { // P1 wins
                 let enemies = "";
                 if(game.players[1] || game.playerNames[1]) {
@@ -1149,6 +1159,7 @@ function nextTurn(game, forceTurn = null) {
                         if(game.players[2]) enemies += "<@" + game.players[2] + ">";
                         else enemies += game.playerNames[2];
                         enemies += " won by ascension";
+                        winRewardEvaluate(game, game.players[2]);
                     }
                 } else { // white vs gold game
                     if(game.players[2]) enemies += "<@" + game.players[2] + ">";
@@ -1156,6 +1167,7 @@ function nextTurn(game, forceTurn = null) {
                 }
                 if(game.players[0]) sendMessage(game.id, "**Victory:** <@" + game.players[0] + "> has won against " + enemies + "!");
                 else sendMessage(game.id, "**Victory:** " + game.playerNames[0] + " has won against " + enemies + "!");
+                winRewardEvaluate(game, game.players[0]);
             }else if(!game.blackEliminated) { // P2 wins
                 let enemies = "";
                 if(game.players[0]) enemies += "<@" + game.players[0] + ">";
@@ -1172,6 +1184,7 @@ function nextTurn(game, forceTurn = null) {
                 }
                 if(game.players[1]) sendMessage(game.id, "**Victory:** <@" + game.players[1] + "> has won against " + enemies + "!");
                 else sendMessage(game.id, "**Victory:** " + game.playerNames[1] + " has won against " + enemies + "!");
+                winRewardEvaluate(game, game.players[1]);
             } else {
                 sendMessage(game.id, "**Game End:** The game ends in a stalemate!");
             }
@@ -1206,8 +1219,14 @@ function nextTurn(game, forceTurn = null) {
             
             if(game.players[0] && game.players[1]) sendMessage(game.id, "**Victory:** <@" + game.players[oldTurn] + "> has won against <@" + game.players[game.turn] + ">!"); // no AI
             else if(oldTurn == 0 && !game.players[0] && game.players[1]) sendMessage(game.id, "**Victory:** " + game.playerNames[0] + " has won against <@" + game.players[1] + ">!"); // town AI
-            else if(oldTurn == 1 && !game.players[0] && game.players[1]) sendMessage(game.id, "**Victory:** <@" + game.players[1] + "> has won against " + game.playerNames[0] + "!"); // town AI
-            else if(oldTurn == 0 && !game.players[1] && game.players[0]) sendMessage(game.id, "**Victory:** <@" + game.players[0] + "> has won against " + game.playerNames[1] + "!"); // wolf AI
+            else if(oldTurn == 1 && !game.players[0] && game.players[1]) {
+                sendMessage(game.id, "**Victory:** <@" + game.players[1] + "> has won against " + game.playerNames[0] + "!"); // town AI
+                winRewardEvaluate(game, game.players[1]);
+            }
+            else if(oldTurn == 0 && !game.players[1] && game.players[0]) {
+                sendMessage(game.id, "**Victory:** <@" + game.players[0] + "> has won against " + game.playerNames[1] + "!"); // wolf AI
+                winRewardEvaluate(game, game.players[0]);
+            }
             else if(oldTurn == 1 && !game.players[1] && game.players[0]) sendMessage(game.id, "**Victory:** " + game.playerNames[1] + " has won against <@" + game.players[0] + ">!"); // wolf AI
             else if(oldTurn == 0 && !game.players[1] && !game.players[0]) sendMessage(game.id, "**Victory:** " + game.playerNames[0] + " has won against " + game.playerNames[1] + "!"); // both AI
             else if(oldTurn == 1 && !game.players[1] && !game.players[0]) sendMessage(game.id, "**Victory:** " + game.playerNames[1] + " has won against " + game.playerNames[0] + "!"); // both AI

@@ -786,6 +786,7 @@ async function AImove(AI, game) {
     const ITER_FACTOR = 10000;
     console.log("CONSIDERED STATES", debugIterationCounter);
     console.log("SPENT ", timeSpentTotal, "ms TOTAL ", Math.floor(timeSpentTotal/debugIterationCounter*ITER_FACTOR)/ITER_FACTOR, "ms PER STATE");
+    if(timeSpentTotal >= 30000) sendMessage(game.id, `⏰ Sorry! That took a while... I spent ${Math.floor(timeSpentTotal / 100) / 10}s considering ${debugIterationCounter} board states!`);
     //BENCHMARK console.log("SPENT ", timeSpentEvaluating, "ms EVALUATING ", Math.floor(timeSpentEvaluating/debugIterationCounter*ITER_FACTOR)/ITER_FACTOR, "ms PER STATE ", Math.floor(timeSpentEvaluating/timeSpentTotal*100), "%");
     //BENCHMARK console.log("SPENT ", timeSpentChecking, "ms CHECKING MOVES ", Math.floor(timeSpentChecking/debugIterationCounter*ITER_FACTOR)/ITER_FACTOR, "ms PER STATE ", Math.floor(timeSpentChecking/timeSpentTotal*100), "%");
     //BENCHMARK console.log("SPENT ", timeSpentMoving-timeSpentMovingClone, "ms MOVING ", Math.floor((timeSpentMoving-timeSpentMovingClone)/debugIterationCounter*ITER_FACTOR)/ITER_FACTOR, "ms PER STATE ", Math.floor((timeSpentMoving-timeSpentMovingClone)/timeSpentTotal*100), "%");
