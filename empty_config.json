@@ -1,3 +1,9 @@
 {
-	"token": "TOKEN"
+	"token": "TOKEN",
+	"db": {
+		"host": "localhost",
+		"user": "USER",
+		"password": "PASSWORD",
+		"database": "DB Name"
+	}
 }

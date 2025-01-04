@@ -14,6 +14,13 @@ global.client = new Client({
 config = require("./config.json");
 
 /**
+JSON for Big Number
+**/
+BigInt.prototype.toJSON = function () { 
+  return this.toString()
+}
+
+/**
 This really should be changed to use modules once I've made more progress on the split
 **/
 var fs = require('fs');
@@ -21,11 +28,16 @@ var fs = require('fs');
 eval(fs.readFileSync('ai.js')+'');
 eval(fs.readFileSync('game.js')+'');
 eval(fs.readFileSync('cloning.js')+'');
+require("./sql.js")();
 
 /* Setup */
-client.on("ready", () => {
+client.on("ready", async () => {
     // on bot ready
     registerCommands();
+    // load db state
+    sqlSetup();
+    await sleep(1000);
+    loadFromDB();
 });
 
 /** GLOBAL VARIABLES **/
@@ -34,6 +46,98 @@ var gamesHistory = [];
 var gamesInterfaces = [];
 var players = [];
 var outstandingChallenge = [];
+
+/** Load / Save to / from DT **/
+async function saveToDB() {
+    let a = await sqlProm("UPDATE data SET value=" + connection.escape(JSON.stringify(games)) + " WHERE id=0");
+    let b = await sqlProm("UPDATE data SET value=" + connection.escape(JSON.stringify(gamesHistory)) + " WHERE id=1");
+    let c = await sqlProm("UPDATE data SET value=" + connection.escape(JSON.stringify(gamesInterfaces)) + " WHERE id=2");
+    let d = await sqlProm("UPDATE data SET value=" + connection.escape(JSON.stringify(players)) + " WHERE id=3");
+    let e = await sqlProm("UPDATE data SET value=" + connection.escape(JSON.stringify(outstandingChallenge)) + " WHERE id=4");
+    let f = await sqlProm("UPDATE data SET value=" + connection.escape(lastDay) + " WHERE id=5");
+    let g = await sqlProm("UPDATE data SET value=" + connection.escape(JSON.stringify(dailyWinners)) + " WHERE id=6");
+    return await Promise.all([a, b, c, d, e, f, g]);
+}
+
+async function loadFromDB() {
+    let a = await sqlPromOne("SELECT * FROM data WHERE id=0");
+    let b = await sqlPromOne("SELECT * FROM data WHERE id=1");
+    let c = await sqlPromOne("SELECT * FROM data WHERE id=2");
+    let d = await sqlPromOne("SELECT * FROM data WHERE id=3");
+    let e = await sqlPromOne("SELECT * FROM data WHERE id=4");
+    let f = await sqlPromOne("SELECT * FROM data WHERE id=5");
+    let g = await sqlPromOne("SELECT * FROM data WHERE id=6");
+    await Promise.all([a, b, c, d, e, f, g]);
+    let gamesRestore = JSON.parse(a.value ?? "[]");
+    let gamesHistoryRestore = JSON.parse(b.value ?? "[]");
+    let gamesInterfacesRestore = JSON.parse(c.value ?? "[]");
+    let playersRestore = JSON.parse(d.value ?? "[]");
+    outstandingChallenge = JSON.parse(e.value ?? "[]");
+    lastDay = f.value ?? -1;
+    dailyWinners = JSON.parse(g.value ?? "[]");
+    games = [];
+    gamesHistory = [];
+    gamesInterfaces = [];
+    players = [];
+    
+    // filter out deleted games to reduce open games
+    let newId = 0;
+    for(let i = 0; i < gamesRestore.length; i++) {
+        if(gamesRestore[i] !== null) {
+            console.log(`Restoring Game #${i} as ${newId}.`);
+            gamesRestore[i].id = newId;
+            gamesHistoryRestore[i].id = newId;
+            gamesInterfacesRestore[i].id = newId;
+            games.push(gamesRestore[i]);
+            gamesHistory.push(gamesHistoryRestore[i]);
+            gamesInterfaces.push(gamesInterfacesRestore[i]);
+            players.push(playersRestore[i]);
+            newId++;
+        } else {
+            console.log(`Deleting Game #${i}.`);
+        }
+    }
+    
+    console.log(`Restored ${games.length} games!`);
+    console.log(`Restored ${gamesHistory.length} histories!`);
+    console.log(`Restored ${gamesInterfaces.length} interfaces!`);
+    console.log(`Restored ${players.length} players!`);
+    console.log(`Restored ${outstandingChallenge.length} outstanding challenges!`);
+    // restore spectator board message references
+    for(let i = 0; i < gamesInterfaces.length; i++) {
+        let tgi = gamesInterfaces[i];
+        if(tgi === null) continue;
+        // find spectator boards
+        if((tgi?.spectator?.type === "discord") && (tgi?.spectator?.msg ?? null) && !(tgi.spectator.msg.edit)) {
+            let g = client.guilds.cache.get(tgi.spectator.msg.guildId);
+            let c = g.channels.cache.get(tgi.spectator.msg.channelId);
+            let m = await c.messages.fetch(tgi.spectator.msg.id);
+            tgi.spectator.msg = m;
+            console.log(`Reconstructed a spectator board reference for Game #${i}.`);
+        }
+    }
+    // check who's turn it is
+    for(let i = 0; i < games.length; i++) {
+        let tg = games[i];
+        if(tg === null) continue;
+        tg.blackEliminated = true;
+        let tp = tg.players[tg.turn];
+        console.log(`Players in Game #${i}: ${tg.players.join(',')}. Current Turn: ${tg.turn}`);
+        if(tp === null) {
+            if(tg.players.filter(el => el).length > 0) {
+                console.log(`Game #${i} has an AI turn: Restarting turn.`);
+                AImove(tg.turn, tg);
+                sendMessage(tg.id, `${tg.players.filter(el => el).map(el => '<@' + el + '>').join(',')} due to a bot restart your game has been interrupted. Please wait for the bot to finish its turn and then run \`/resend\` to get an updated version of the board. If the bot never seems to finish its turn try running the command anyway after around 30 seconds.`);
+            } else {
+                console.log(`Game #${i} has no valid players: Destroy.`);
+                destroyGame(tg.id);
+            }
+        } else {
+            console.log(`Game #${i} has a player turn: No action taken.`);
+            sendMessage(tg.id, `${tg.players.filter(el => el).map(el => '<@' + el + '>').join(',')} due to a bot restart your game has been interrupted. You should be able to continue playing as usual. If the board is not working, try running \`/resend\`.`);
+        }
+    }
+}
 
 /**
 sendMessage
@@ -226,8 +330,12 @@ async function turnDoneWrapper(interaction, game, message) {
         // update spectator message
         updateSpectatorBoard(game.id);
         if(game.solo && gamesInterfaces[game.id].lastInteraction && !game.blackEliminated && !game.whiteEliminated && !game.goldEliminated) {
-        // update prev player board
-            await gamesInterfaces[game.id].lastInteraction.editReply(displayBoard(game, "Waiting on Opponent", [], gamesInterfaces[game.id].lastInteractionTurn));
+            try {
+                // update prev player board
+                await gamesInterfaces[game.id].lastInteraction.editReply(displayBoard(game, "Waiting on Opponent", [], gamesInterfaces[game.id].lastInteractionTurn));
+            } catch (err) {
+                console.log("Error during Board update. May happen due to a game restart.");
+            }
         }
         // update player message
         if(interaction) {
@@ -548,254 +656,259 @@ function countSoloPieces(game) {
 
 /* New Slash Command */
 client.on('interactionCreate', async interaction => {
-    if(interaction.isButton()) {
-        console.log("INTERACTION", interaction.customId);
-        let type = interaction.customId.split("-")[0];
-        let arg1 = interaction.customId.split("-")[1];
-        let arg2 = interaction.customId.split("-")[2];
-        let gameID = getPlayerGameId(interaction.member.id);
-        let curGame = games[gameID];
-        
-        if(type != "deny" && type != "accept") {
-            // check if its still a valid message
-            if(gamesInterfaces[gameID].interfaces[curGame.turn] && gamesInterfaces[gameID].interfaces[curGame.turn].msg != interaction.message.id) {
-                console.log(gamesInterfaces[gameID].interfaces[curGame.turn].msg);
-                console.log(interaction.message.id);
-                console.log("OUTDATED MESSAGE");
-                interaction.update({content: "✘", components: []});
-                return;
+    if(interaction.isButton()) {  
+        try {
+            console.log("INTERACTION", interaction.customId);
+            let type = interaction.customId.split("-")[0];
+            let arg1 = interaction.customId.split("-")[1];
+            let arg2 = interaction.customId.split("-")[2];
+            let gameID = getPlayerGameId(interaction.member.id);
+            let curGame = games[gameID];
+            
+            if(type != "deny" && type != "accept") {
+                // check if its still a valid message
+                if(gamesInterfaces[gameID].interfaces[curGame.turn] && gamesInterfaces[gameID].interfaces[curGame.turn].msg != interaction.message.id) {
+                    console.log(gamesInterfaces[gameID].interfaces[curGame.turn].msg);
+                    console.log(interaction.message.id);
+                    console.log("OUTDATED MESSAGE");
+                    interaction.update({content: "✘", components: []});
+                    return;
+                }
+                
+                gamesInterfaces[gameID].lastInteraction = interaction;
+                gamesInterfaces[gameID].lastInteractionTurn = curGame.turn;
             }
             
-            gamesInterfaces[gameID].lastInteraction = interaction;
-            gamesInterfaces[gameID].lastInteractionTurn = curGame.turn;
-        }
-        
-        switch(type) {
-            // deny challenge
-            case "deny":
-                if(!isOutstanding(interaction.member.id)) {
-                    interaction.reply({ content: "**Error:** You have no outstanding challenges!", ephemeral: true });
-                } else {
-                    let id = getPlayerGameId(interaction.member.id);
-                    concludeGame(id);
-                    destroyGame(id);
-                    interaction.channel.send("**Challenge:** " + interaction.member.user.username + " denied the challenge!");
-                    console.log("DENY");
+            switch(type) {
+                // deny challenge
+                case "deny":
+                    if(!isOutstanding(interaction.member.id)) {
+                        interaction.reply({ content: "**Error:** You have no outstanding challenges!", ephemeral: true });
+                    } else {
+                        let id = getPlayerGameId(interaction.member.id);
+                        concludeGame(id);
+                        destroyGame(id);
+                        interaction.channel.send("**Challenge:** " + interaction.member.user.username + " denied the challenge!");
+                        console.log("DENY");
+                        
+                        interaction.message.delete();
+                    }
+                break;
+                case "accept":
+                    if(!isOutstanding(interaction.member.id)) {
+                        interaction.reply({ content: "**Error:** You have no outstanding challenges!", ephemeral: true });
+                    } else {
+                        let challenge = outstandingChallenge.filter(el => el[0] == interaction.member.id)[0];
+                        console.log("CHALLENGE", challenge);
+                        
+                        interaction.channel.send("**Challenge**: <@" + challenge[1] + "> Your challenge has been accepted by <@" + interaction.member.id + ">!");
+                        
+                        interaction.reply(displayBoard(games[challenge[2]], "Waiting on Opponent", [], 1));
+                        busyWaiting(interaction, challenge[2], 1, true);
+                        
+                        outstandingChallenge = outstandingChallenge.filter(el => el[0] != interaction.member.id);
+                        
+                        interaction.message.delete();
+                    }
+                break;
+                // start game if starting is black
+                case "start":
+                    await interaction.update(displayBoard(curGame, "Starting Game", []));
+                    turnDoneWrapper(interaction, curGame, "Waiting on Opponent");
+                break;
+                // select a piece; show available moves
+                case "select":    
+                    let selection = nameToXY(arg1);
+                    let currentGame = gameClone(curGame);
                     
-                    interaction.message.delete();
-                }
-            break;
-            case "accept":
-                if(!isOutstanding(interaction.member.id)) {
-                    interaction.reply({ content: "**Error:** You have no outstanding challenges!", ephemeral: true });
-                } else {
-                    let challenge = outstandingChallenge.filter(el => el[0] == interaction.member.id)[0];
-                    console.log("CHALLENGE", challenge);
+                    // generate list of possible moves
+                    //console.log("BOARD AT SELECT", currentGame.state.map(el => el.map(el2 => el2.name).join(",")).join("\n"));
+                    let positions = generatePositions(currentGame.state, arg1);
+                    console.log("AVAILABLE POSITIONS", positions.map(el => xyToName(el[0], el[1])).join(","));
+                    let components = interactionsFromPositions(positions, arg1, "turnmove", "move");
+                    //console.log(components);
                     
-                    interaction.channel.send("**Challenge**: <@" + challenge[1] + "> Your challenge has been accepted by <@" + interaction.member.id + ">!");
+                    currentGame.selectedPiece = shallowCopy(currentGame.state[selection.y][selection.x]);
+                    currentGame.state[selection.y][selection.x] = getPiece("Selected");
                     
-                    interaction.reply(displayBoard(games[challenge[2]], "Waiting on Opponent", [], 1));
-                    busyWaiting(interaction, challenge[2], 1, true);
-                    
-                    outstandingChallenge = outstandingChallenge.filter(el => el[0] != interaction.member.id);
-                    
-                    interaction.message.delete();
-                }
-            break;
-            // start game if starting is black
-            case "start":
-                await interaction.update(displayBoard(curGame, "Starting Game", []));
-                turnDoneWrapper(interaction, curGame, "Waiting on Opponent");
-            break;
-            // select a piece; show available moves
-            case "select":    
-                let selection = nameToXY(arg1);
-                let currentGame = gameClone(curGame);
-                
-                // generate list of possible moves
-                //console.log("BOARD AT SELECT", currentGame.state.map(el => el.map(el2 => el2.name).join(",")).join("\n"));
-                let positions = generatePositions(currentGame.state, arg1);
-                console.log("AVAILABLE POSITIONS", positions.map(el => xyToName(el[0], el[1])).join(","));
-                let components = interactionsFromPositions(positions, arg1, "turnmove", "move");
-                //console.log(components);
-                
-                currentGame.selectedPiece = shallowCopy(currentGame.state[selection.y][selection.x]);
-                currentGame.state[selection.y][selection.x] = getPiece("Selected");
-                
-                interaction.update(displayBoard(currentGame, "Pick a Move", components));
-            break;
-            // move a piece to another location; update board
-            case "move":
-                try {
+                    interaction.update(displayBoard(currentGame, "Pick a Move", components));
+                break;
+                // move a piece to another location; update board
+                case "move":
+                    try {
+                        await interaction.update(displayBoard(curGame, "Executing Move", []));
+                        movePieceWrapper(interaction, games[gameID], arg1, arg2);
+                    } catch (err) {
+                        console.log(err);
+                        console.log("ERROR ON MOVE. IGNORING");
+                    }
+                break;
+                // promote a piece; update board
+                case "promote":
                     await interaction.update(displayBoard(curGame, "Executing Move", []));
-                    movePieceWrapper(interaction, games[gameID], arg1, arg2);
-                } catch (err) {
-                    console.log(err);
-                    console.log("ERROR ON MOVE. IGNORING");
-                }
-            break;
-            // promote a piece; update board
-            case "promote":
-                await interaction.update(displayBoard(curGame, "Executing Move", []));
-                movePieceWrapper(interaction, games[gameID], arg1, arg1, getPiece(arg2));
-            break;
-            // back to turn start menu
-            case "turnstart":
-                turnStart(interaction, gameID, curGame.turn, "update");
-            break;
-            // back to turn move menu
-            case "turnmove":
-                // continue
-                turnMove(interaction, gameID, curGame.turn, "update");
-            break;
-             // select an ability piece; show available actions
-            case "ability":    
-                let abilitySelection = nameToXY(arg1);
-                let abilityPiece = curGame.state[abilitySelection.y][abilitySelection.x];
-                
-                // get ability interactions
-                let aComponents = getAbilityTargets(curGame, abilityPiece, arg1);
-                                
-                // update message
-                interaction.update(displayBoard(curGame, "Pick a Target", aComponents));
-            break;
-            /** ACTIVE ABILITIES **/
-            // investigate
-            case "investigate":
-                let investigatorC = nameToXY(arg1);
-                let investigator = curGame.state[investigatorC.y][investigatorC.x];
-                let investTarget = nameToXY(arg2);
-			    executeActiveAbility(curGame, "Invest", [investigatorC.x, investigatorC.y], [investTarget.x, investTarget.y]);
-                turnMove(interaction, gameID, curGame.turn, "update") 
-            break;
-            // transform
-            case "transform":
-                let transformer = nameToXY(arg1);
-			    executeActiveAbility(curGame, "Transform", [transformer.x, transformer.y], arg2);
-                turnMove(interaction, gameID, curGame.turn, "update");   
-            break;
-            // transform
-            case "createfb":
-                let creator = nameToXY(arg1);
-			    executeActiveAbility(curGame, "CreateFireball", [creator.x, creator.y], arg2);
-                if(countSoloPieces(curGame) == 1) {
-                    await interaction.update(displayBoard(curGame, "Skipping Move"));
-                    turnDoneWrapper(interaction, curGame, "Waiting on Opponent", true); // no move after ability use
-                } else {
+                    movePieceWrapper(interaction, games[gameID], arg1, arg1, getPiece(arg2));
+                break;
+                // back to turn start menu
+                case "turnstart":
+                    turnStart(interaction, gameID, curGame.turn, "update");
+                break;
+                // back to turn move menu
+                case "turnmove":
+                    // continue
                     turnMove(interaction, gameID, curGame.turn, "update");
-                }
-            break;
-            case "teleport":
-                let teleportFrom = nameToXY(arg1);
-                let teleportTo = nameToXY(arg2)
-			    executeActiveAbility(curGame, "Teleport", [teleportFrom.x, teleportFrom.y], [teleportTo.x, teleportTo.y]);
-                turnMove(interaction, gameID, curGame.turn, "update");   
-            break;
-            // transform reveal
-            case "transformreveal":
-                let transformer2 = nameToXY(arg1);
-			    executeActiveAbility(curGame, "TransformReveal", [transformer2.x, transformer2.y], arg2);
-                turnMove(interaction, gameID, curGame.turn, "update");   
-            break;
-            // infect
-            case "infect":
-                let iwSource = nameToXY(arg1);
-                let iwTarget = nameToXY(arg2);
-			    executeActiveAbility(curGame, "Infect", [iwSource.x, iwSource.y], [iwTarget.x, iwTarget.y]);
-                turnMove(interaction, gameID, curGame.turn, "update");   
-            break;
-            // active protect
-            case "protect":
-                let protectTarget = nameToXY(arg2);
-			    executeActiveAbility(curGame, "Protect", null, [protectTarget.x, protectTarget.y]);
-                turnMove(interaction, gameID, curGame.turn, "update");
-            break;
-            // sabotage
-            case "sabotage":
-                let sabotageTarget = nameToXY(arg2);
-			    executeActiveAbility(curGame, "Sabotage", null, [sabotageTarget.x, sabotageTarget.y]);
-                turnMove(interaction, gameID, curGame.turn, "update");
-            break;
-            // enchant
-            case "enchant":
-                let enchantSource = nameToXY(arg1);
-                let enchantTarget = nameToXY(arg2);
-			    executeActiveAbility(curGame, "Enchant", [enchantSource.x, enchantSource.y], [enchantTarget.x, enchantTarget.y]);
-                if(countSoloPieces(curGame) == 1) {
-                    await interaction.update(displayBoard(curGame, "Skipping Move"));
-                    turnDoneWrapper(interaction, curGame, "Waiting on Opponent", true); // no move after ability use
-                } else {
+                break;
+                 // select an ability piece; show available actions
+                case "ability":    
+                    let abilitySelection = nameToXY(arg1);
+                    let abilityPiece = curGame.state[abilitySelection.y][abilitySelection.x];
+                    
+                    // get ability interactions
+                    let aComponents = getAbilityTargets(curGame, abilityPiece, arg1);
+                                    
+                    // update message
+                    interaction.update(displayBoard(curGame, "Pick a Target", aComponents));
+                break;
+                /** ACTIVE ABILITIES **/
+                // investigate
+                case "investigate":
+                    let investigatorC = nameToXY(arg1);
+                    let investigator = curGame.state[investigatorC.y][investigatorC.x];
+                    let investTarget = nameToXY(arg2);
+                    executeActiveAbility(curGame, "Invest", [investigatorC.x, investigatorC.y], [investTarget.x, investTarget.y]);
+                    turnMove(interaction, gameID, curGame.turn, "update") 
+                break;
+                // transform
+                case "transform":
+                    let transformer = nameToXY(arg1);
+                    executeActiveAbility(curGame, "Transform", [transformer.x, transformer.y], arg2);
+                    turnMove(interaction, gameID, curGame.turn, "update");   
+                break;
+                // transform
+                case "createfb":
+                    let creator = nameToXY(arg1);
+                    executeActiveAbility(curGame, "CreateFireball", [creator.x, creator.y], arg2);
+                    if(countSoloPieces(curGame) == 1) {
+                        await interaction.update(displayBoard(curGame, "Skipping Move"));
+                        turnDoneWrapper(interaction, curGame, "Waiting on Opponent", true); // no move after ability use
+                    } else {
+                        turnMove(interaction, gameID, curGame.turn, "update");
+                    }
+                break;
+                case "teleport":
+                    let teleportFrom = nameToXY(arg1);
+                    let teleportTo = nameToXY(arg2)
+                    executeActiveAbility(curGame, "Teleport", [teleportFrom.x, teleportFrom.y], [teleportTo.x, teleportTo.y]);
+                    turnMove(interaction, gameID, curGame.turn, "update");   
+                break;
+                // transform reveal
+                case "transformreveal":
+                    let transformer2 = nameToXY(arg1);
+                    executeActiveAbility(curGame, "TransformReveal", [transformer2.x, transformer2.y], arg2);
+                    turnMove(interaction, gameID, curGame.turn, "update");   
+                break;
+                // infect
+                case "infect":
+                    let iwSource = nameToXY(arg1);
+                    let iwTarget = nameToXY(arg2);
+                    executeActiveAbility(curGame, "Infect", [iwSource.x, iwSource.y], [iwTarget.x, iwTarget.y]);
+                    turnMove(interaction, gameID, curGame.turn, "update");   
+                break;
+                // active protect
+                case "protect":
+                    let protectTarget = nameToXY(arg2);
+                    executeActiveAbility(curGame, "Protect", null, [protectTarget.x, protectTarget.y]);
                     turnMove(interaction, gameID, curGame.turn, "update");
-                }
-            break;
-            // demonize
-            case "demonize":
-                let demonizeSource = nameToXY(arg1);
-                let demonizeTarget = nameToXY(arg2);
-			    executeActiveAbility(curGame, "Demonize", [demonizeSource.x, demonizeSource.y], [demonizeTarget.x, demonizeTarget.y]);
-                if(countSoloPieces(curGame) == 1) {
-                    await interaction.update(displayBoard(curGame, "Skipping Move"));
-                    turnDoneWrapper(interaction, curGame, "Waiting on Opponent", true); // no move after ability use
-                } else {
+                break;
+                // sabotage
+                case "sabotage":
+                    let sabotageTarget = nameToXY(arg2);
+                    executeActiveAbility(curGame, "Sabotage", null, [sabotageTarget.x, sabotageTarget.y]);
                     turnMove(interaction, gameID, curGame.turn, "update");
-                }
-            break;
-            // hooker hide
-            case "hide":
-                let hideSubject = nameToXY(arg1);
-                let hideTarget = nameToXY(arg2);
-			    executeActiveAbility(curGame, "Hide", [hideSubject.x, hideSubject.y], [hideTarget.x, hideTarget.y]);
-                turnMove(interaction, gameID, curGame.turn, "update");
-            break;
-            // hod destroy
-            case "destroy":
-                let destroySubject = nameToXY(arg1);
-                let destroyTarget = nameToXY(arg2);
-			    executeActiveAbility(curGame, "Destroy", [destroySubject.x, destroySubject.y], [destroyTarget.x, destroyTarget.y]);
-                turnMove(interaction, gameID, curGame.turn, "update");
-            break;
-            // tanner tan
-            case "disguise":
-                // show tan options
-                let disInteractions = [{ type: 2, label: "Back", style: 4, custom_id: "ability-" + arg1 }];
-                disInteractions.push({ type: 2, label: "Wolf " + getUnicode("Pawn", 1), style: 3, custom_id: "tan-" + arg2 + "-Wolf" });
-                disInteractions.push({ type: 2, label: "Psychic Wolf " + getUnicode("King", 1), style: 3, custom_id: "tan-" + arg2 + "-Psychic Wolf" });
-                disInteractions.push({ type: 2, label: "Fox " + getUnicode("Knight", 1), style: 3, custom_id: "tan-" + arg2 + "-Fox" });
-                disInteractions.push({ type: 2, label: "Scared Wolf " + getUnicode("Rook", 1), style: 3, custom_id: "tan-" + arg2 + "-Scared Wolf" });
-                let disComponents = [{ type: 1, components: disInteractions }];
-                // update message
-                interaction.update(displayBoard(curGame, "Pick a Disguise", disComponents));
-            break;
-            // horseman tan
-            case "disguise_hm":
-                // show tan options
-                let dis2Interactions = [{ type: 2, label: "Back", style: 4, custom_id: "ability-" + arg1 }];
-                dis2Interactions.push({ type: 2, label: "Lamb " + getUnicode("Pawn", 1), style: 3, custom_id: "tan-" + arg2 + "-Lamb" });
-                dis2Interactions.push({ type: 2, label: "Horseman of War " + getUnicode("King", 1), style: 3, custom_id: "tan-" + arg2 + "-Horseman of War" });
-                dis2Interactions.push({ type: 2, label: "Horseman of Death " + getUnicode("King", 1), style: 3, custom_id: "tan-" + arg2 + "-Horseman of Death" });
-                dis2Interactions.push({ type: 2, label: "Horseman of Pestilence " + getUnicode("Rook", 1), style: 3, custom_id: "tan-" + arg2 + "-Horseman of Pestilence" });
-                let dis2Components = [{ type: 1, components: dis2Interactions }];
-                // update message
-                interaction.update(displayBoard(curGame, "Pick a Disguise", dis2Components));
-            break;
-            // tanner tan
-            case "tan":
-                let tanSubject = nameToXY(arg1);
-			    executeActiveAbility(curGame, "Tan", null, [tanSubject, arg2], true);
-                turnMove(interaction, gameID, curGame.turn, "update") 
-            break;
-            // alpha wolf recall
-            case "recall":
-                let recallSubject = nameToXY(arg2);
-			    executeActiveAbility(curGame, "Recall", null, [recallSubject.x, recallSubject.y]);
-                turnMove(interaction, gameID, curGame.turn, "update");
-            break;
-            // HoW cecall
-            case "cecall":
-                let cecallSubject = nameToXY(arg2);
-			    executeActiveAbility(curGame, "Cecall", null, [cecallSubject.x, cecallSubject.y]);
-                turnMove(interaction, gameID, curGame.turn, "update");
-            break;
+                break;
+                // enchant
+                case "enchant":
+                    let enchantSource = nameToXY(arg1);
+                    let enchantTarget = nameToXY(arg2);
+                    executeActiveAbility(curGame, "Enchant", [enchantSource.x, enchantSource.y], [enchantTarget.x, enchantTarget.y]);
+                    if(countSoloPieces(curGame) == 1) {
+                        await interaction.update(displayBoard(curGame, "Skipping Move"));
+                        turnDoneWrapper(interaction, curGame, "Waiting on Opponent", true); // no move after ability use
+                    } else {
+                        turnMove(interaction, gameID, curGame.turn, "update");
+                    }
+                break;
+                // demonize
+                case "demonize":
+                    let demonizeSource = nameToXY(arg1);
+                    let demonizeTarget = nameToXY(arg2);
+                    executeActiveAbility(curGame, "Demonize", [demonizeSource.x, demonizeSource.y], [demonizeTarget.x, demonizeTarget.y]);
+                    if(countSoloPieces(curGame) == 1) {
+                        await interaction.update(displayBoard(curGame, "Skipping Move"));
+                        turnDoneWrapper(interaction, curGame, "Waiting on Opponent", true); // no move after ability use
+                    } else {
+                        turnMove(interaction, gameID, curGame.turn, "update");
+                    }
+                break;
+                // hooker hide
+                case "hide":
+                    let hideSubject = nameToXY(arg1);
+                    let hideTarget = nameToXY(arg2);
+                    executeActiveAbility(curGame, "Hide", [hideSubject.x, hideSubject.y], [hideTarget.x, hideTarget.y]);
+                    turnMove(interaction, gameID, curGame.turn, "update");
+                break;
+                // hod destroy
+                case "destroy":
+                    let destroySubject = nameToXY(arg1);
+                    let destroyTarget = nameToXY(arg2);
+                    executeActiveAbility(curGame, "Destroy", [destroySubject.x, destroySubject.y], [destroyTarget.x, destroyTarget.y]);
+                    turnMove(interaction, gameID, curGame.turn, "update");
+                break;
+                // tanner tan
+                case "disguise":
+                    // show tan options
+                    let disInteractions = [{ type: 2, label: "Back", style: 4, custom_id: "ability-" + arg1 }];
+                    disInteractions.push({ type: 2, label: "Wolf " + getUnicode("Pawn", 1), style: 3, custom_id: "tan-" + arg2 + "-Wolf" });
+                    disInteractions.push({ type: 2, label: "Psychic Wolf " + getUnicode("King", 1), style: 3, custom_id: "tan-" + arg2 + "-Psychic Wolf" });
+                    disInteractions.push({ type: 2, label: "Fox " + getUnicode("Knight", 1), style: 3, custom_id: "tan-" + arg2 + "-Fox" });
+                    disInteractions.push({ type: 2, label: "Scared Wolf " + getUnicode("Rook", 1), style: 3, custom_id: "tan-" + arg2 + "-Scared Wolf" });
+                    let disComponents = [{ type: 1, components: disInteractions }];
+                    // update message
+                    interaction.update(displayBoard(curGame, "Pick a Disguise", disComponents));
+                break;
+                // horseman tan
+                case "disguise_hm":
+                    // show tan options
+                    let dis2Interactions = [{ type: 2, label: "Back", style: 4, custom_id: "ability-" + arg1 }];
+                    dis2Interactions.push({ type: 2, label: "Lamb " + getUnicode("Pawn", 1), style: 3, custom_id: "tan-" + arg2 + "-Lamb" });
+                    dis2Interactions.push({ type: 2, label: "Horseman of War " + getUnicode("King", 1), style: 3, custom_id: "tan-" + arg2 + "-Horseman of War" });
+                    dis2Interactions.push({ type: 2, label: "Horseman of Death " + getUnicode("King", 1), style: 3, custom_id: "tan-" + arg2 + "-Horseman of Death" });
+                    dis2Interactions.push({ type: 2, label: "Horseman of Pestilence " + getUnicode("Rook", 1), style: 3, custom_id: "tan-" + arg2 + "-Horseman of Pestilence" });
+                    let dis2Components = [{ type: 1, components: dis2Interactions }];
+                    // update message
+                    interaction.update(displayBoard(curGame, "Pick a Disguise", dis2Components));
+                break;
+                // tanner tan
+                case "tan":
+                    let tanSubject = nameToXY(arg1);
+                    executeActiveAbility(curGame, "Tan", null, [tanSubject, arg2], true);
+                    turnMove(interaction, gameID, curGame.turn, "update") 
+                break;
+                // alpha wolf recall
+                case "recall":
+                    let recallSubject = nameToXY(arg2);
+                    executeActiveAbility(curGame, "Recall", null, [recallSubject.x, recallSubject.y]);
+                    turnMove(interaction, gameID, curGame.turn, "update");
+                break;
+                // HoW cecall
+                case "cecall":
+                    let cecallSubject = nameToXY(arg2);
+                    executeActiveAbility(curGame, "Cecall", null, [cecallSubject.x, cecallSubject.y]);
+                    turnMove(interaction, gameID, curGame.turn, "update");
+                break;
+            }
+        } catch(err) {
+            console.log("INTERACTION ERROR");
+            console.log(err);
         }
     }
     
@@ -1007,6 +1120,7 @@ client.on('interactionCreate', async interaction => {
                     case "town":
                     case "wolves":
                     case "default_double":
+                    case "default_strip":
                         if(teamSelArg) {
                             switch(teamSelArg) {
                                 case "white":
@@ -2054,7 +2168,7 @@ function createGame(playerID, playerID2, playerID3, gameID, name1, name2, name3,
             newGame.soloRevealed = false;
             newGame.goldAscended = false;
             newGame.whiteEliminated = false, 
-            newGame.blackEliminated = false, 
+            newGame.blackEliminated = true, 
             newGame.goldEliminated = false, 
             newGame.players.push(playerID3);
             newGame.playerNames.push(name3);
@@ -2092,7 +2206,7 @@ function createGame(playerID, playerID2, playerID3, gameID, name1, name2, name3,
             newGame.soloRevealed = false;
             newGame.goldAscended = false;
             newGame.whiteEliminated = false, 
-            newGame.blackEliminated = false, 
+            newGame.blackEliminated = true, 
             newGame.goldEliminated = false, 
             newGame.players.push(playerID3);
             newGame.playerNames.push(name3);
@@ -2163,7 +2277,7 @@ function createGame(playerID, playerID2, playerID3, gameID, name1, name2, name3,
             newGame.soloRevealed = false;
             newGame.goldAscended = false;
             newGame.whiteEliminated = false, 
-            newGame.blackEliminated = false, 
+            newGame.blackEliminated = true, 
             newGame.goldEliminated = false, 
             newGame.players.push(playerID3);
             newGame.playerNames.push(name3);
@@ -2196,7 +2310,7 @@ function createGame(playerID, playerID2, playerID3, gameID, name1, name2, name3,
             newGame.soloRevealed = false;
             newGame.goldAscended = false;
             newGame.whiteEliminated = false, 
-            newGame.blackEliminated = false, 
+            newGame.blackEliminated = true, 
             newGame.goldEliminated = false, 
             newGame.players.push(playerID3);
             newGame.playerNames.push(name3);
@@ -2308,7 +2422,7 @@ function createGame(playerID, playerID2, playerID3, gameID, name1, name2, name3,
             newGame.soloRevealed = false;
             newGame.goldAscended = false;
             newGame.whiteEliminated = false, 
-            newGame.blackEliminated = false, 
+            newGame.blackEliminated = true, 
             newGame.goldEliminated = false, 
             newGame.players.push(playerID3);
             newGame.playerNames.push(name3);
@@ -2445,6 +2559,8 @@ function createGame(playerID, playerID2, playerID3, gameID, name1, name2, name3,
     // store some data separately because we dont need to always deep copy it
     gamesHistory.push({ id: gameID, history: [], lastMoves: [], sinceCapture: 0 }); // history data
     gamesInterfaces.push({ id: gameID, channel: channel, guild: guild, spectator: { type: "spectator", msg: null }, interfaces: [], lastInteraction: null, lastInteractionTurn: null, lastMove: Date.now() }); // discord related data
+    
+    saveToDB();
 }
 
 
@@ -2506,6 +2622,7 @@ function destroyGame(id) {
         gamesHistory = [];
         gamesInterfaces = [];
     }
+    saveToDB();
 }
 
 // concludes a game (reveals all pieces)
@@ -2523,6 +2640,7 @@ function concludeGame(id) {
     console.log("CONCLUDE UPDATE", id);
     // Update Spectator Board
     updateSpectatorBoard(id);
+    saveToDB();
 }
 
 // turn = 0 for town, 1 for wolves
@@ -3391,7 +3509,7 @@ function registerCommands() {
                 name: "mode",
                 description: "Which gamemode you want to play. Defaults to WWRess (Default).",
                 required: false,
-                choices: [{"name": "Flute Boss","value": "boss_flute"},{"name": "Bat Boss","value": "boss_bat"},{"name": "Ghast Boss (Reversed)","value": "boss_ghast"},{"name": "Zombie Boss","value": "boss_zombie"},{"name": "Horsemen Boss","value": "boss_horseman"},{"name": "Horsemen Boss (Reversed)","value": "boss_horseman_reversed"}]
+                choices: [{"name": "Flute Boss","value": "boss_flute"},{"name": "Bat Boss","value": "boss_bat"},{"name": "Ghast Boss","value": "boss_ghast"},{"name": "Ghast Boss (Reversed)","value": "boss_ghast_reversed"},{"name": "Zombie Boss","value": "boss_zombie"},{"name": "Horsemen Boss","value": "boss_horseman"},{"name": "Horsemen Boss (Reversed)","value": "boss_horseman_reversed"}]
             },
             {
                 type: ApplicationCommandOptionType.String,
@@ -3536,9 +3654,10 @@ function winRewardEvaluateOne(game, player) {
         }
         // check if first win
         if(!dailyWinners.includes(player)) {
-            sendMessage(game.id, "**Daily Game Reward:** As a reward for beating the daily game you have earned `10` coins.");
-            sendMessage(game.id, `$coins reward ${player} 10`);
+            sendMessage(game.id, "**Daily Game Reward:** As a reward for beating the daily game you have earned `15` coins.");
+            sendMessage(game.id, `$coins reward ${player} 15`);
             dailyWinners.push(player);
+            saveToDB();
         } else {
             sendMessage(game.id, "**Daily Game Reward:** You can only earn the reward for beating the daily game once per day.");
         }

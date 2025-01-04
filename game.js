@@ -1024,6 +1024,7 @@ nextTurn
 Runs at the start of a turn, evaluating wins and elimination if necessary
 **/
 function nextTurn(game, forceTurn = null) {
+    if(!game.ai) saveToDB();
     if(game.concluded) return; // dont do a turn on a concluded game
     // increment turn
     let oldTurn = game.turn;
@@ -1142,8 +1143,8 @@ function nextTurn(game, forceTurn = null) {
                 else enemies += game.playerNames[0];
                 if(game.players[1]) enemies += " & <@" + game.players[1] + ">";
                 else if(game.playerNames[1]) enemies += " & " + game.playerNames[1];
-                if(game.players[2]) channel.send("**Victory:** <@" + game.players[2] + "> has won against " + enemies + "!");
-                else channel.send("**Victory:** " + game.playerNames[2] + " has won against " + enemies + "!");
+                if(game.players[2]) sendMessage(game.id, "**Victory:** <@" + game.players[2] + "> has won against " + enemies + "!");
+                else sendMessage(game.id, "**Victory:** " + game.playerNames[2] + " has won against " + enemies + "!");
                 winRewardEvaluate(game, game.players[2]);
             } else if(!game.whiteEliminated) { // P1 wins
                 let enemies = "";
@@ -1199,6 +1200,7 @@ function nextTurn(game, forceTurn = null) {
        
     }
     if(!game.ai) console.log("-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-\nNEXT TURN", game.turn);
+    if(!game.ai) saveToDB();
     
     if(!game.ai) {
         // find a valid move
@@ -1262,6 +1264,9 @@ function nextTurn(game, forceTurn = null) {
     } else if(!game.ai && game.turn == 2 && game.players[2] == null) {
         AImove(2, game)
     }
+    
+    // final save
+    if(!game.ai) saveToDB();
 }
 
 function removeEffects(curGame, team) {
