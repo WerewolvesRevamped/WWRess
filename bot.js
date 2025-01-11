@@ -71,14 +71,13 @@ async function loadFromDB() {
     let gamesRestore = JSON.parse(a.value ?? "[]");
     let gamesHistoryRestore = JSON.parse(b.value ?? "[]");
     let gamesInterfacesRestore = JSON.parse(c.value ?? "[]");
-    let playersRestore = JSON.parse(d.value ?? "[]");
+    players = JSON.parse(d.value ?? "[]");
     outstandingChallenge = JSON.parse(e.value ?? "[]");
     lastDay = f.value ?? -1;
     dailyWinners = JSON.parse(g.value ?? "[]");
     games = [];
     gamesHistory = [];
     gamesInterfaces = [];
-    players = [];
     
     // filter out deleted games to reduce open games
     let newId = 0;
@@ -91,7 +90,7 @@ async function loadFromDB() {
             games.push(gamesRestore[i]);
             gamesHistory.push(gamesHistoryRestore[i]);
             gamesInterfaces.push(gamesInterfacesRestore[i]);
-            players.push(playersRestore[i]);
+            players = players.map(el => [el[0], el[1] === i ? newId : el[1]]);
             newId++;
         } else {
             console.log(`Deleting Game #${i}.`);
@@ -989,7 +988,7 @@ client.on('interactionCreate', async interaction => {
         case "play":
         case "boss":
             if(isPlaying(interaction.member.id)) {
-                interaction.reply({ content: "**Error:** You're already in a game!", ephemeral: true });
+                interaction.reply({ content: "**Error:** You're already in a game! If you do not believe this is accurate use `/resign`.", ephemeral: true });
             } else {
                 let players;
                 let rand = Math.floor(Math.random() * 100);
@@ -1010,11 +1009,11 @@ client.on('interactionCreate', async interaction => {
                     // reset solo game value
                     soloGame = false;
                     // ai strength
-                    aiArg = getDateRand(7, 0);
+                    aiArg = getDateRand(6, 0);
                     aiArg -= 3;
                     // mode
-                    let modes = ["boss_bat","boss_bat_reversed","boss_zombie","boss_zombie_reversed","boss_flute","boss_flute_reversed","boss_horseman","boss_horseman_reversed","boss_ghast","boss_ghast_reversed","hexapawn", "pawnford", "pawnford_big", "chess", "minichess","bad","half_chess","town","wolves","default_double","chess_rotated","boss_multi"];
-                    let defaultModes = ["simplified","default","advanced","default_big","default_huge","default_small","default_tiny","default_tall","default_wide","default_strip"];
+                    let modes = ["boss_bat","boss_bat_reversed","boss_zombie","boss_zombie_reversed","boss_flute","boss_flute_reversed","boss_horseman","boss_horseman_reversed","boss_ghast","boss_ghast_reversed","hexapawn", "pawnford", "pawnford_big", "chess", "minichess","bad","half_chess","town","wolves","default_double","chess_rotated","boss_multi","boss_multi_reversed","chess_rotated_small","knight","pawn"];
+                    let defaultModes = ["simplified","default","advanced","default_big","default_huge","default_small","default_tiny","default_tall","default_wide","default_strip", "rotated"];
                     let defMode = getDateRand(2, 1);
                     if(defMode === 1) {
                         let randMode = getDateRand(modes.length, 2);
@@ -1037,9 +1036,11 @@ client.on('interactionCreate', async interaction => {
                     console.log("AI:", aiArg > 0 ? "+" + aiArg : aiArg);
                     console.log("Solo:", soloArg);
                     console.log("Rand:", rand);
+                    interaction.channel.send(`<@${interaction.member.id}>, you started the daily game with mode **${modeArg.split("_").map(el => el.substr(0, 1).toUpperCase() + el.substr(1)).join(" ")}** and AI strength of **${aiArg >= 0 ? "+" + aiArg : aiArg}**.`);
                 }
                 
                 if(soloArg && soloArg.length) soloGame = true;
+                
                 
                 interaction.guild.channels.cache.get("1162103245829832744").send(`<@${interaction.member.id}> has started a \`${modeArg}\` game!`);
                 
@@ -1094,6 +1095,7 @@ client.on('interactionCreate', async interaction => {
                     case "boss_flute":
                     case "boss_ghast":
                     case "boss_multi":
+                    case "boss_multi_reversed":
                         players = [[interaction.member.id, interaction.member.user.username], [null, null], [null, "*AI*"]];
                     break;
                     case "boss_bat_reversed":
@@ -1114,6 +1116,8 @@ client.on('interactionCreate', async interaction => {
                     case "pawnford_big":
                     case "chess":
                     case "chess_rotated":
+                    case "chess_rotated_small":
+                    case "rotated":
                     case "minichess":
                     case "half_chess":
                     case "bad":
@@ -1121,6 +1125,8 @@ client.on('interactionCreate', async interaction => {
                     case "wolves":
                     case "default_double":
                     case "default_strip":
+                    case "knight":
+                    case "pawn":
                         if(teamSelArg) {
                             switch(teamSelArg) {
                                 case "white":
@@ -1444,7 +1450,7 @@ function getAbilityText(piece) {
         case "Horseman of Pestilence":
             return "Solo | Block a piece's movement/active ability.";
         case "Horseman of War":
-            return "Solo | Can call a piece to the middle of the board.";
+            return "Solo | Can call a piece to the middle rank of the board.";
             
             
         case "Angel":
@@ -1712,7 +1718,7 @@ function generateRoleList(board, mode = 0, daily = false, offset = 0) {
         let wolfOffset = 0;
         for(let i = 0; i < board[0].length; i++) {
             let tr = Math.floor(Math.random() * (town.length-2))
-            if(daily) tr = getDateRand(town.length-2, 7 + iterations * 3 + i * offset);
+            if(daily) tr = getDateRand(town.length-2, 7 + iterations * 3 + i * offset + i);
             townSelected.push(town[tr]);
             // add previous requirement if exists
             let prevReq = townSelected[townSelected.length - 1][4];
@@ -1729,7 +1735,7 @@ function generateRoleList(board, mode = 0, daily = false, offset = 0) {
         // select pieces WOLF
         for(let i = 0 + wolfOffset; i < board[0].length; i++) {
             let wr = Math.floor(Math.random() * (wolf.length-1))
-            if(daily) wr = getDateRand(wolf.length-1, 8 + iterations * 3 + i * offset);
+            if(daily) wr = getDateRand(wolf.length-1, 8 + iterations * 3 + i * offset + i);
             wolfSelected.push(wolf[wr]);
             // add previous requirement if exists
             let prevReq = wolfSelected[wolfSelected.length - 1][4];
@@ -1902,6 +1908,9 @@ function createGame(playerID, playerID2, playerID3, gameID, name1, name2, name3,
         case "town":
         case "wolves":
         case "boss_multi":
+        case "boss_multi_reversed":
+        case "chess_rotated_small":
+        case "rotated":
             height = 5, width = 5;
         break;
         case "default_tall":
@@ -1918,9 +1927,11 @@ function createGame(playerID, playerID2, playerID3, gameID, name1, name2, name3,
             height = 3, width = 3;
         break;
         case "default_small":
+        case "knight":
             height = 4, width = 4;
         break;
         case "default_big":
+        case "pawn":
             height = 6, width = 6;
         break;
         case "default_huge":
@@ -2024,6 +2035,34 @@ function createGame(playerID, playerID2, playerID3, gameID, name1, name2, name3,
                 newGame.playerNames.push(name3);
             }
         break;
+        case "rotated":
+            // put pieces on board
+            generateRoleList(newBoard, mode=="simplified"?1:(mode=="advanced"?2:0), daily);
+            
+            // temp copy
+            newBoard[1][0] = deepCopy(newBoard[0][4]);
+            newBoard[0][4] = getPiece(null);
+            
+            newBoard[posl[0]][4] = deepCopy(newBoard[4][0]);
+            newBoard[posl[1]][4] = deepCopy(newBoard[4][1]);
+            newBoard[posl[2]][4] = deepCopy(newBoard[4][2]);
+            newBoard[posl[3]][4] = deepCopy(newBoard[4][3]);
+            newBoard[posl[4]][4] = deepCopy(newBoard[4][4]);
+            newBoard[4][0] = getPiece(null);
+            newBoard[4][1] = getPiece(null);
+            newBoard[4][2] = getPiece(null);
+            newBoard[4][3] = getPiece(null);
+            
+            newBoard[posl[0]][0] = deepCopy(newBoard[0][0]);
+            newBoard[posl[1]][0] = deepCopy(newBoard[0][1]);
+            newBoard[posl[2]][0] = deepCopy(newBoard[0][2]);
+            newBoard[posl[3]][0] = deepCopy(newBoard[0][3]);
+            newBoard[posl[4]][0] = deepCopy(newBoard[1][0]);
+            newBoard[0][1] = getPiece(null);
+            newBoard[0][2] = getPiece(null);
+            newBoard[0][3] = getPiece(null);
+              
+        break;
         case "default_double":
             generateRoleList(newBoard, mode=="simplified"?1:(mode=="advanced"?2:0), daily);
             newBoard[1][pos[0]] = deepCopy(newBoard[0][0]);
@@ -2036,6 +2075,42 @@ function createGame(playerID, playerID2, playerID3, gameID, name1, name2, name3,
             newBoard[6][pos2[2]] = deepCopy(newBoard[7][2]);
             newBoard[6][pos2[3]] = deepCopy(newBoard[7][3]);
             newBoard[6][pos2[4]] = deepCopy(newBoard[7][4]);
+        break;
+        case "knight":
+            newBoard[0][pos[0]] = getPiece("Royal Knight");
+            newBoard[0][pos[0]] = getPiece("Amnesiac");
+            newBoard[0][pos[0]] = getPiece("Clairvoyant Fox");
+            newBoard[0][pos[0]] = getPiece("Direwolf");
+            newBoard[0][0].team = 1;
+            newBoard[0][1].team = 1;
+            newBoard[0][2].team = 1;
+            newBoard[0][3].team = 1;
+            
+            newBoard[3][pos2[0]] = getPiece("Royal Knight");
+            newBoard[3][pos2[0]] = getPiece("Amnesiac");
+            newBoard[3][pos2[0]] = getPiece("Clairvoyant Fox");
+            newBoard[3][pos2[0]] = getPiece("Direwolf");
+            newBoard[3][0].team = 0;
+            newBoard[3][1].team = 0;
+            newBoard[3][2].team = 0;
+            newBoard[3][3].team = 0;
+        
+        break;
+        case "pawn":
+            newBoard[4][pos[0]] = getPiece("Wolf");
+            newBoard[4][pos[1]] = getPiece("Wolf");
+            newBoard[4][pos[2]] = getPiece("Wolf Cub");
+            newBoard[4][pos[3]] = getPiece("Wolf Cub");
+            newBoard[4][pos[4]] = getPiece("Recluse");
+            newBoard[4][5] = getPiece("Recluse");
+            
+            newBoard[1][pos2[0]] = getPiece("Citizen");
+            newBoard[1][pos2[2]] = getPiece("Citizen");
+            newBoard[1][pos2[3]] = getPiece("Child");
+            newBoard[1][pos2[4]] = getPiece("Child");
+            newBoard[1][pos2[5]] = getPiece("Bard");
+            newBoard[1][5] = getPiece("Bard");
+        
         break;
         case "town":
             generateRoleList(newBoard, mode=="simplified"?1:(mode=="advanced"?2:0), daily);
@@ -2130,6 +2205,7 @@ function createGame(playerID, playerID2, playerID3, gameID, name1, name2, name3,
             
         break;
         case "boss_multi":
+        case "boss_multi_reversed":
             
             // put pieces on board
             for(let i = 0; i < 100; i++) {
@@ -2553,6 +2629,27 @@ function createGame(playerID, playerID2, playerID3, gameID, name1, name2, name3,
             newBoard[6][6] = getPiece("White Pawn");
             newBoard[7][6] = getPiece("White Pawn");
         break;
+        case "chess_rotated_small":
+            newBoard[pos[0]][0] = getPiece("Black Rook");
+            newBoard[pos[1]][0] = getPiece("Black Knight");
+            newBoard[pos[2]][0] = getPiece("Black Bishop");
+            newBoard[pos[3]][0] = getPiece("Black Queen");
+            newBoard[pos[4]][0] = getPiece("Black King");
+            newBoard[0][1] = getPiece("Black Pawn");
+            newBoard[1][1] = getPiece("Black Pawn");
+            newBoard[3][1] = getPiece("Black Pawn");
+            newBoard[4][1] = getPiece("Black Pawn");
+            
+            newBoard[pos[0]][4] = getPiece("White Rook");
+            newBoard[pos[1]][4] = getPiece("White Knight");
+            newBoard[pos[2]][4] = getPiece("White Bishop");
+            newBoard[pos[3]][4] = getPiece("White Queen");
+            newBoard[pos[4]][4] = getPiece("White King");
+            newBoard[0][3] = getPiece("White Pawn");
+            newBoard[1][3] = getPiece("White Pawn");
+            newBoard[3][3] = getPiece("White Pawn");
+            newBoard[4][3] = getPiece("White Pawn");
+        break;
     }
     
     games.push(newGame);
@@ -2661,6 +2758,7 @@ function showMoves(gameID, turn, abilities = false, message = "") {
     if(interactions.length > 5) components.push({ type: 1, components: interactions.slice(5, 10) });
     if(interactions.length > 10) components.push({ type: 1, components: interactions.slice(10, 15) });
     if(interactions.length > 15) components.push({ type: 1, components: interactions.slice(15, 20) });
+    if(interactions.length > 20) components.push({ type: 1, components: interactions.slice(20, 25) });
     return { content: board, ephemeral: true, fetchReply: true, components: components }
 }
 
@@ -3618,13 +3716,59 @@ function sleep(ms) {
   });
 } 
 
+function cyrb128(str) {
+    let h1 = 1779033703, h2 = 3144134277,
+        h3 = 1013904242, h4 = 2773480762;
+    for (let i = 0, k; i < str.length; i++) {
+        k = str.charCodeAt(i);
+        h1 = h2 ^ Math.imul(h1 ^ k, 597399067);
+        h2 = h3 ^ Math.imul(h2 ^ k, 2869860233);
+        h3 = h4 ^ Math.imul(h3 ^ k, 951274213);
+        h4 = h1 ^ Math.imul(h4 ^ k, 2716044179);
+    }
+    h1 = Math.imul(h3 ^ (h1 >>> 18), 597399067);
+    h2 = Math.imul(h4 ^ (h2 >>> 22), 2869860233);
+    h3 = Math.imul(h1 ^ (h3 >>> 17), 951274213);
+    h4 = Math.imul(h2 ^ (h4 >>> 19), 2716044179);
+    h1 ^= (h2 ^ h3 ^ h4), h2 ^= h1, h3 ^= h1, h4 ^= h1;
+    return [h1>>>0, h2>>>0, h3>>>0, h4>>>0];
+}
 
-// returns a value from 0 to n-1 depending on the date
-function getDateRand(n, offset) {
+function sfc32(a, b, c, d) {
+  return function() {
+    a |= 0; b |= 0; c |= 0; d |= 0;
+    let t = (a + b | 0) + d | 0;
+    d = d + 1 | 0;
+    a = b ^ b >>> 9;
+    b = c + (c << 3) | 0;
+    c = (c << 21 | c >>> 11);
+    c = c + t | 0;
+    return (t >>> 0) / 4294967296;
+  }
+}
+
+var dateRand = null;
+var dateNumbers = [];
+var savedDay = null;
+
+function getDateRand(n, offset, basic = false) {
+    // create randomizer if not exists
     let day = getDayOfYear();
-    let randNumbers = [23,155,112,276,211,336,310,229,174,257,317,235,209,321,40,352,116,183,364,304,32,295,224,232,173,55,92,152,124,290,88,105,24,307,78,200,198,84,121,293,37,309,19,320,96,9,2,176,334,90,272,147,201,344,338,289,14,318,357,107,299,322,145,119,335,6,113,110,13,44,308,339,305,72,168,262,106,361,76,203,140,21,38,248,261,68,135,294,194,358,226,57,353,341,18,120,143,33,39,137,193,189,342,218,330,239,236,356,164,61,15,246,123,184,48,138,73,29,265,274,182,319,42,60,243,281,95,98,331,82,350,64,150,271,166,267,77,363,50,223,4,210,313,41,324,264,12,8,296,130,206,56,221,99,297,233,86,250,169,266,279,220,115,117,242,282,94,1,252,118,245,348,25,30,332,81,291,366,179,285,129,188,354,136,351,171,327,302,158,258,7,146,167,53,345,127,187,217,316,54,300,270,74,131,3,134,104,280,298,63,175,31,349,192,47,355,228,269,10,326,65,67,58,133,199,75,97,343,337,191,185,254,277,101,170,323,301,216,275,91,114,89,213,340,362,27,204,153,126,165,161,197,172,255,292,111,87,26,122,125,207,80,177,244,178,284,85,238,227,306,237,100,241,43,240,346,22,365,28,278,79,347,231,205,157,247,62,102,359,45,328,325,195,34,139,288,249,196,222,93,154,273,71,219,234,186,51,256,212,214,190,163,35,268,225,144,263,109,283,11,160,181,156,303,128,17,253,132,59,148,311,202,215,83,180,20,141,16,315,52,36,333,69,159,286,46,103,108,312,230,151,70,49,162,251,149,314,329,360,259,287,208,260,66,142,5,23];
-    let year = new Date().getFullYear();
-    return (randNumbers[(day + offset) % randNumbers.length] + Math.floor((day + offset) / randNumbers.length) + year) % n;
+    if(!dateRand || savedDay != day) {
+        savedDay = day;
+        dateNumbers = [];
+        let year = new Date().getFullYear();
+        let seed = cyrb128("wwress" + year + "-" + day);
+        dateRand = sfc32(seed[0], seed[1], seed[2], seed[3]);
+    }
+    // create random number if not exists
+    if(!dateNumbers[offset]) {     
+        let rand = dateRand();
+        dateNumbers[offset] = rand;
+        console.log(`Generated random number ${offset} as ${rand}`);
+    }
+    // return random number
+    return Math.floor(dateNumbers[offset] * n);
 }
 
 function getDayOfYear() {
@@ -3653,13 +3797,14 @@ function winRewardEvaluateOne(game, player) {
             dailyWinners = [];
         }
         // check if first win
+        let lastMovesLength = gamesHistory[game.id]?.lastMoves?.length ?? "*unknown*";
         if(!dailyWinners.includes(player)) {
-            sendMessage(game.id, "**Daily Game Reward:** As a reward for beating the daily game you have earned `15` coins.");
+            sendMessage(game.id, `**Daily Game Reward:** As a reward for beating the daily game you have earned \`15\` coins. This game had a total of ${lastMovesLength} moves.`);
             sendMessage(game.id, `$coins reward ${player} 15`);
             dailyWinners.push(player);
             saveToDB();
         } else {
-            sendMessage(game.id, "**Daily Game Reward:** You can only earn the reward for beating the daily game once per day.");
+            sendMessage(game.id, `**Daily Game Reward:** You can only earn the reward for beating the daily game once per day. This game had a total of ${lastMovesLength} moves.`);
         }
     }
 }
