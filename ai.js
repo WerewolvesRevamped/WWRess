@@ -772,8 +772,15 @@ async function AImove(AI, game) {
     let bestMove = minmax.move;
 	console.log("BEST MOVE VAL", minmax.value);
     
-    if(minmax.value < -20 && game.players.length == 2 && gamesHistory[game.id].length > 10) {
+    if(minmax.value < -20 && (!game.solo || (game.solo && game.goldEliminated)) && gamesHistory[game.id].lastMoves.length > 10) {
         sendMessage(game.id, "**Game End:** *AI* resigned!");
+        if(game.players[0]) {
+            winRewardEvaluate(game, game.players[0]);
+            sendMessage(game.id, "**Victory:** <@" + game.players[0] + "> wins against " + game.playerNames[1] + "!");
+        } else if(game.players[1]) {
+            winRewardEvaluate(game, game.players[1]);
+            sendMessage(game.id, "**Victory:** <@" + game.players[1] + "> wins against " + game.playerNames[0] + "!");
+        }
         concludeGame(game.id);
         destroyGame(game.id);
         console.log("RESIGN AI");
@@ -786,7 +793,11 @@ async function AImove(AI, game) {
     const ITER_FACTOR = 10000;
     console.log("CONSIDERED STATES", debugIterationCounter);
     console.log("SPENT ", timeSpentTotal, "ms TOTAL ", Math.floor(timeSpentTotal/debugIterationCounter*ITER_FACTOR)/ITER_FACTOR, "ms PER STATE");
-    if(timeSpentTotal >= 30000) sendMessage(game.id, `⏰ Sorry! That took a while... I spent ${Math.floor(timeSpentTotal / 100) / 10}s considering ${debugIterationCounter} board states!`);
+    if(timeSpentTotal >= 30000 && timeSpentTotal < 120000) sendMessage(game.id, `⏰ Sorry! That took a while... I spent ${Math.floor(timeSpentTotal / 100) / 10}s considering ${debugIterationCounter} board states!`);
+    else if(timeSpentTotal >= 120000) {
+        sendMessage(game.id, `⏰ Sorry! That took a while... I spent ${Math.floor(timeSpentTotal / 100) / 10}s considering ${debugIterationCounter} board states! Decreased AI strength.`);
+        games[game.id].aiModifier = games[game.id].aiModifier - 1;
+    }
     //BENCHMARK console.log("SPENT ", timeSpentEvaluating, "ms EVALUATING ", Math.floor(timeSpentEvaluating/debugIterationCounter*ITER_FACTOR)/ITER_FACTOR, "ms PER STATE ", Math.floor(timeSpentEvaluating/timeSpentTotal*100), "%");
     //BENCHMARK console.log("SPENT ", timeSpentChecking, "ms CHECKING MOVES ", Math.floor(timeSpentChecking/debugIterationCounter*ITER_FACTOR)/ITER_FACTOR, "ms PER STATE ", Math.floor(timeSpentChecking/timeSpentTotal*100), "%");
     //BENCHMARK console.log("SPENT ", timeSpentMoving-timeSpentMovingClone, "ms MOVING ", Math.floor((timeSpentMoving-timeSpentMovingClone)/debugIterationCounter*ITER_FACTOR)/ITER_FACTOR, "ms PER STATE ", Math.floor((timeSpentMoving-timeSpentMovingClone)/timeSpentTotal*100), "%");

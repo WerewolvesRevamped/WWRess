@@ -1169,7 +1169,7 @@ function nextTurn(game, forceTurn = null) {
                 if(game.players[0]) sendMessage(game.id, "**Victory:** <@" + game.players[0] + "> has won against " + enemies + "!");
                 else sendMessage(game.id, "**Victory:** " + game.playerNames[0] + " has won against " + enemies + "!");
                 winRewardEvaluate(game, game.players[0]);
-            }else if(!game.blackEliminated) { // P2 wins
+            } else if(!game.blackEliminated) { // P2 wins
                 let enemies = "";
                 if(game.players[0]) enemies += "<@" + game.players[0] + ">";
                 else enemies += game.playerNames[0];
@@ -1234,7 +1234,7 @@ function nextTurn(game, forceTurn = null) {
             else if(oldTurn == 1 && !game.players[1] && !game.players[0]) sendMessage(game.id, "**Victory:** " + game.playerNames[1] + " has won against " + game.playerNames[0] + "!"); // both AI
             concludeGame(game.id);
             delayedDestroy(game.id);
-            console.log("WIN");
+            console.log("WIN SIMPLE");
             return;
         }
     }

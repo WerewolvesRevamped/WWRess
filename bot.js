@@ -92,6 +92,7 @@ async function loadFromDB() {
             gamesInterfaces.push(gamesInterfacesRestore[i]);
             players = players.map(el => [el[0], el[1] === i ? newId : el[1]]);
             newId++;
+            console.log(gamesRestore[i]);
         } else {
             console.log(`Deleting Game #${i}.`);
         }
@@ -119,7 +120,6 @@ async function loadFromDB() {
     for(let i = 0; i < games.length; i++) {
         let tg = games[i];
         if(tg === null) continue;
-        tg.blackEliminated = true;
         let tp = tg.players[tg.turn];
         console.log(`Players in Game #${i}: ${tg.players.join(',')}. Current Turn: ${tg.turn}`);
         if(tp === null) {
@@ -3788,6 +3788,7 @@ function winRewardEvaluate(game, player1 = null, player2 = null) {
 var lastDay = -1;
 var dailyWinners = []
 function winRewardEvaluateOne(game, player) {
+    console.log(game);
     // check if is daily game
     if(game.daily) {
         // reset if first win of day
