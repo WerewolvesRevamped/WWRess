@@ -753,8 +753,8 @@ async function AImove(AI, game) {
     //BENCHMARK timeSpentFastCloning = 0;
     let modifier = game.aiModifier;
     if(pieceCount >= 50) minmax = { move: null };
-    else if(pieceCount >= 27) minmax = minimaxStart(AI, gameCopy, 2 + modifier, 2 + modifier);
-    else if(pieceCount >= 17) minmax = minimaxStart(AI, gameCopy, 3 + modifier, 3 + modifier);
+    else if(pieceCount >= 27) minmax = minimaxStart(AI, gameCopy, 2 + modifier > 0 ? 2 + modifier : 1, 2 + modifier > 0 ? 2 + modifier : 1);
+    else if(pieceCount >= 17) minmax = minimaxStart(AI, gameCopy, 3 + modifier > 0 ? 3 + modifier : 1, 3 + modifier > 0 ? 3 + modifier : 1);
     else if(pieceCount >= 12) minmax = minimaxStart(AI, gameCopy, 4 + modifier, 4 + modifier);
     else if(pieceCount >= 5) minmax = minimaxStart(AI, gameCopy, 5 + modifier, 5 + modifier);
     else if(pieceCount == 4) minmax = minimaxStart(AI, gameCopy, 6 + modifier, 6 + modifier);
@@ -773,18 +773,45 @@ async function AImove(AI, game) {
 	console.log("BEST MOVE VAL", minmax.value);
     
     if(minmax.value < -20 && (!game.solo || (game.solo && game.goldEliminated)) && gamesHistory[game.id].lastMoves.length > 10) {
-        sendMessage(game.id, "**Game End:** *AI* resigned!");
-        if(game.players[0]) {
-            winRewardEvaluate(game, game.players[0]);
-            sendMessage(game.id, "**Victory:** <@" + game.players[0] + "> wins against " + game.playerNames[1] + "!");
-        } else if(game.players[1]) {
-            winRewardEvaluate(game, game.players[1]);
-            sendMessage(game.id, "**Victory:** <@" + game.players[1] + "> wins against " + game.playerNames[0] + "!");
+        
+        // count pieces
+        let wPieces = 0;
+        let bPieces = 0;
+        for(let y = 0; y < game.height; y++) {
+            for(let x = 0; x < game.width; x++) {
+                let xyPiece = game.state[y][x];
+                if(xyPiece.team === 0) wPieces++;
+                else if(xyPiece.team === 1) bPieces++;
+            }
         }
-        concludeGame(game.id);
-        destroyGame(game.id);
-        console.log("RESIGN AI");
-        return;
+        let pDiff = wPieces - bPieces;
+        if(pDiff < 0) pDiff = pDiff * -1;
+        let doNotResign = false;
+        
+        if(wPieces > 4 && bPieces > 4 && pDiff <= 5) doNotResign = true;
+        if(wPieces > 3 && bPieces > 3 && pDiff <= 4) doNotResign = true;
+        if(wPieces > 2 && bPieces > 2 && pDiff <= 3) doNotResign = true;
+        if(wPieces > 1 && bPieces > 1 && pDiff <= 1) doNotResign = true;
+        if(doNotResign) console.log("RESIGN SKIP", "w" + wPieces, "b" + bPieces, "=>", pDiff);
+        
+        if(!doNotResign) {
+            sendMessage(game.id, "**Game End:** " + game.playerNames[game.turn] + " resigned!");
+            if(game.players[0]) {
+                winRewardEvaluate(game, game.players[0]);
+                sendMessage(game.id, "**Victory:** <@" + game.players[0] + "> wins against " + game.playerNames[1] + "!");
+            } else if(game.players[1]) {
+                winRewardEvaluate(game, game.players[1]);
+                sendMessage(game.id, "**Victory:** <@" + game.players[1] + "> wins against " + game.playerNames[0] + "!");
+            } else if(game.turn === 1) {
+                sendMessage(game.id, "**Victory:** " + game.playerNames[0] + " wins against " + game.playerNames[1] + "!");
+            } else if(game.turn === 0) {
+                sendMessage(game.id, "**Victory:** " + game.playerNames[1] + " wins against " + game.playerNames[0] + "!");
+            }
+            concludeGame(game.id);
+            destroyGame(game.id);
+            console.log("RESIGN AI");
+            return;
+        }
     }
     
 
@@ -818,4 +845,16 @@ async function AImove(AI, game) {
     //sendMessage(game.id, "**AI:** Considered " + debugIterationCounter + " possibilities. Selected: " + ((bestMove[0] == null || bestMove[0][0] == null) ? "" : (bestMove[0][0] + " " + (bestMove[0][0], xyToName(bestMove[0][1], bestMove[0][2]) + "~" + (bestMove[1].length == 2 ? xyToName(bestMove[1][0], bestMove[1][1]) : bestMove[1])) +  " & ") + game.state[nameToXY(bestMove[2]).y][nameToXY(bestMove[2]).x].name + " " + bestMove[2] + ">" + xyToName(bestMove[3][0], bestMove[3][1]) + " - Expected Value: " + round2dec(minmax.value));
     
     movePieceWrapper(null, game, bestMove[2], xyToName(bestMove[3][0], bestMove[3][1]));
+    
+    // check best move
+    debugTest = false;
+    if(debugTest) {
+        let gameCopyTest = gameClone(games[game.id]); // create a copy of the game to simulate the move on
+        gameCopyTest.turn = (AI + 1) % 2;
+        gameCopyTest.ai = true; // mark as AI game
+        gameCopyTest.id = null;
+        gameCopyTest.parentId = game.id;
+        var result = minimaxStart((AI + 1) % 2, gameCopyTest, 7, 7);
+        console.log("BEST MOVE   ", games[game.id].state[nameToXY(result.move[2]).y][nameToXY(result.move[2]).x].name + " " + result.move[2] + ">" + xyToName(result.move[3][0], result.move[3][1]), round2dec(result.value));
+    }
 }

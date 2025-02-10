@@ -92,7 +92,6 @@ async function loadFromDB() {
             gamesInterfaces.push(gamesInterfacesRestore[i]);
             players = players.map(el => [el[0], el[1] === i ? newId : el[1]]);
             newId++;
-            console.log(gamesRestore[i]);
         } else {
             console.log(`Deleting Game #${i}.`);
         }
@@ -111,6 +110,11 @@ async function loadFromDB() {
         if((tgi?.spectator?.type === "discord") && (tgi?.spectator?.msg ?? null) && !(tgi.spectator.msg.edit)) {
             let g = client.guilds.cache.get(tgi.spectator.msg.guildId);
             let c = g.channels.cache.get(tgi.spectator.msg.channelId);
+            if(!c) {
+                console.log(`Game Interface #${i} has no valid channel: Destroy.`);
+                destroyGame(tgi.id);
+                continue;
+            }
             let m = await c.messages.fetch(tgi.spectator.msg.id);
             tgi.spectator.msg = m;
             console.log(`Reconstructed a spectator board reference for Game #${i}.`);
@@ -949,7 +953,7 @@ client.on('interactionCreate', async interaction => {
                     teamColorDec = 1;
                 break;
                 case "solo":
-                    pieces = [["Zombie","Corpse","Undead","Angel","Apprentice","Lamb"],["Bat","Ghast","Horseman of Death","Horseman of War"],[],["Flute Player","Vampire","Apprentice Vampire","Horseman of Pestilence","Horseman of Famine"],[],["Bear", "Angry Bear"]];
+                    pieces = [["Zombie","Undead","Angel","Apprentice","Lamb"],["Bat","Ghast","Horseman of Death","Horseman of War"],[],["Flute Player","Vampire","Apprentice Vampire","Horseman of Pestilence","Horseman of Famine"],[],["Bear", "Angry Bear","Corpse"]];
                     teamColor = "Gold";
                     teamName = "Solo (Gold)";
                     teamColorDec = 14850359;
@@ -1092,6 +1096,7 @@ client.on('interactionCreate', async interaction => {
                     break;
                     case "boss_bat":
                     case "boss_zombie":
+                    case "boss_zombie2":
                     case "boss_flute":
                     case "boss_ghast":
                     case "boss_multi":
@@ -1470,7 +1475,7 @@ function getChessName(piece) {
             return null;
         case "Citizen": case "Ranger": case "Huntress": case "Bartender": case "Fortune Apprentice": case "Child": case "Bard": case "Butcher": case "Bloody Butcher":
         case "Wolf": case "Wolf Cub": case "Tanner": case "Archivist Fox": case "Recluse": case "Dog": case "Revealed Bloody Butcher":
-        case "Angel": case "Zombie": case "Zombie2": case "Zombie3": case "Zombie4": case "Zombie5": case "Undead": case "Apprentice": case "Corpse": case "Lamb":
+        case "Angel": case "Zombie": case "Zombie2": case "Zombie3": case "Zombie4": case "Zombie5": case "Undead": case "Apprentice": case "Lamb":
         case "White Pawn": case "Black Pawn": 
             return "Pawn";
         case "Attacked Runner": case "Attacked Scared Wolf":
@@ -1486,6 +1491,7 @@ function getChessName(piece) {
             return "Knight";
         case "White Bishop": case "Black Bishop":
         case "Bear": case "Angry Bear":
+        case "Corpse": 
             return "Bishop";
         case "Runner": case "Fortune Teller": case "Witch":
         case "Warlock": case "Scared Wolf": case "Saboteur Wolf":
@@ -1945,6 +1951,9 @@ function createGame(playerID, playerID2, playerID3, gameID, name1, name2, name3,
         case "boss_zombie_reversed":
             height = 8, width = 5;
         break;
+        case "boss_zombie2":
+            height = 9, width = 5;
+        break;
         case "chess":
         case "chess_rotated":
             height = 8, width = 8;
@@ -1967,11 +1976,13 @@ function createGame(playerID, playerID2, playerID3, gameID, name1, name2, name3,
     let pos = [0,1,2,3,4];
     let pos2 = [0,1,2,3,4];
     let posl = [0,1,2,3,4,5,6,7];
+    let pos_4 = [0,1,2,3];
     
     if(daily) {
         pos = randomizeDaily(pos, 20);
         pos2 = randomizeDaily(pos2, 25);
         posl = randomizeDaily(posl, 30);
+        pos_4 = randomizeDaily(pos_4, 35);
     }
  
     switch(mode) {
@@ -2040,27 +2051,32 @@ function createGame(playerID, playerID2, playerID3, gameID, name1, name2, name3,
             generateRoleList(newBoard, mode=="simplified"?1:(mode=="advanced"?2:0), daily);
             
             // temp copy
-            newBoard[1][0] = deepCopy(newBoard[0][4]);
+            newBoard[1][1] = deepCopy(newBoard[0][4]);
             newBoard[0][4] = getPiece(null);
+            newBoard[2][2] = deepCopy(newBoard[4][4]);
+            newBoard[4][4] = getPiece(null);
             
-            newBoard[posl[0]][4] = deepCopy(newBoard[4][0]);
-            newBoard[posl[1]][4] = deepCopy(newBoard[4][1]);
-            newBoard[posl[2]][4] = deepCopy(newBoard[4][2]);
-            newBoard[posl[3]][4] = deepCopy(newBoard[4][3]);
-            newBoard[posl[4]][4] = deepCopy(newBoard[4][4]);
+            newBoard[pos[0]][4] = deepCopy(newBoard[4][0]);
+            newBoard[pos[1]][4] = deepCopy(newBoard[4][1]);
+            newBoard[pos[2]][4] = deepCopy(newBoard[4][2]);
+            newBoard[pos[3]][4] = deepCopy(newBoard[4][3]);
+            newBoard[pos[4]][4] = deepCopy(newBoard[2][2]);
             newBoard[4][0] = getPiece(null);
             newBoard[4][1] = getPiece(null);
             newBoard[4][2] = getPiece(null);
             newBoard[4][3] = getPiece(null);
             
-            newBoard[posl[0]][0] = deepCopy(newBoard[0][0]);
-            newBoard[posl[1]][0] = deepCopy(newBoard[0][1]);
-            newBoard[posl[2]][0] = deepCopy(newBoard[0][2]);
-            newBoard[posl[3]][0] = deepCopy(newBoard[0][3]);
-            newBoard[posl[4]][0] = deepCopy(newBoard[1][0]);
+            newBoard[pos[0]][0] = deepCopy(newBoard[0][0]);
+            newBoard[pos[1]][0] = deepCopy(newBoard[0][1]);
+            newBoard[pos[2]][0] = deepCopy(newBoard[0][2]);
+            newBoard[pos[3]][0] = deepCopy(newBoard[0][3]);
+            newBoard[pos[4]][0] = deepCopy(newBoard[1][1]);
             newBoard[0][1] = getPiece(null);
             newBoard[0][2] = getPiece(null);
             newBoard[0][3] = getPiece(null);
+            
+            newBoard[1][1] = getPiece(null);
+            newBoard[2][2] = getPiece(null);
               
         break;
         case "default_double":
@@ -2077,19 +2093,19 @@ function createGame(playerID, playerID2, playerID3, gameID, name1, name2, name3,
             newBoard[6][pos2[4]] = deepCopy(newBoard[7][4]);
         break;
         case "knight":
-            newBoard[0][pos[0]] = getPiece("Royal Knight");
-            newBoard[0][pos[0]] = getPiece("Amnesiac");
-            newBoard[0][pos[0]] = getPiece("Clairvoyant Fox");
-            newBoard[0][pos[0]] = getPiece("Direwolf");
+            newBoard[0][pos_4[0]] = getPiece("Royal Knight");
+            newBoard[0][pos_4[1]] = getPiece("Amnesiac");
+            newBoard[0][pos_4[2]] = getPiece("Clairvoyant Fox");
+            newBoard[0][pos_4[3]] = getPiece("Direwolf");
             newBoard[0][0].team = 1;
             newBoard[0][1].team = 1;
             newBoard[0][2].team = 1;
             newBoard[0][3].team = 1;
             
-            newBoard[3][pos2[0]] = getPiece("Royal Knight");
-            newBoard[3][pos2[0]] = getPiece("Amnesiac");
-            newBoard[3][pos2[0]] = getPiece("Clairvoyant Fox");
-            newBoard[3][pos2[0]] = getPiece("Direwolf");
+            newBoard[3][pos_4[0]] = getPiece("Royal Knight");
+            newBoard[3][pos_4[1]] = getPiece("Amnesiac");
+            newBoard[3][pos_4[2]] = getPiece("Clairvoyant Fox");
+            newBoard[3][pos_4[3]] = getPiece("Direwolf");
             newBoard[3][0].team = 0;
             newBoard[3][1].team = 0;
             newBoard[3][2].team = 0;
@@ -2161,7 +2177,7 @@ function createGame(playerID, playerID2, playerID3, gameID, name1, name2, name3,
                 newBoard[0][3] = getPiece("Scared Wolf");
                 newBoard[0][4] = getPiece("Warlock");
             }
-            newGame.stupidChance = 0.90;
+            newGame.stupidChance = 0.70;
         break;
         case "half_chess":
             // put pieces on board
@@ -2438,6 +2454,113 @@ function createGame(playerID, playerID2, playerID3, gameID, name1, name2, name3,
             newBoard[1][3].zombieID = 141;
             newBoard[1][3].zombieParent = 14;
             newBoard[1][3].zombieChildCount = 1;
+            newBoard[1][4] = getPiece("Zombie3");
+            newBoard[1][4].zombieID = 1111;
+            newBoard[1][4].zombieParent = 111;
+            newBoard[1][4].zombieChildCount = 1;
+            newBoard[2][0] = getPiece("Zombie4");
+            newBoard[2][0].zombieID = 131;
+            newBoard[2][0].zombieParent = 13;
+            newBoard[2][0].zombieChildCount = 1;
+            newBoard[2][1] = getPiece("Zombie4");
+            newBoard[2][1].zombieID = 151;
+            newBoard[2][1].zombieParent = 15;
+            newBoard[2][1].zombieChildCount = 1;
+            newBoard[2][2] = getPiece("Zombie4");
+            newBoard[2][2].zombieID = 1211;
+            newBoard[2][2].zombieParent = 121;
+            newBoard[2][2].zombieChildCount = 1;
+            newBoard[2][3] = getPiece("Zombie4");
+            newBoard[2][3].zombieID = 1311;
+            newBoard[2][3].zombieParent = 131;
+            newBoard[2][3].zombieChildCount = 1;
+            newBoard[2][4] = getPiece("Zombie4");
+            newBoard[2][4].zombieID = 1411;
+            newBoard[2][4].zombieParent = 141;
+            newBoard[2][4].zombieChildCount = 1;
+            newBoard[3][0] = getPiece("Zombie5");
+            newBoard[3][0].zombieID = 12111;
+            newBoard[3][0].zombieParent = 1211;
+            newBoard[3][0].zombieChildCount = 0;
+            newBoard[3][1] = getPiece("Zombie5");
+            newBoard[3][1].zombieID = 11111;
+            newBoard[3][1].zombieParent = 1111;
+            newBoard[3][1].zombieChildCount = 0;
+            newBoard[3][2] = getPiece("Zombie5");
+            newBoard[3][2].zombieID = 1511;
+            newBoard[3][2].zombieParent = 151;
+            newBoard[3][2].zombieChildCount = 1;
+            newBoard[3][3] = getPiece("Zombie5");
+            newBoard[3][3].zombieID = 14111;
+            newBoard[3][3].zombieParent = 1411;
+            newBoard[3][3].zombieChildCount = 0;
+            newBoard[3][4] = getPiece("Zombie5");
+            newBoard[3][4].zombieID = 13111;
+            newBoard[3][4].zombieParent = 1311;
+            newBoard[3][4].zombieChildCount = 0;
+            newBoard[3][0].protected = false;
+            newBoard[3][1].protected = false;
+            newBoard[3][2].protected = false;
+            newBoard[3][3].protected = false;
+            newBoard[3][4].protected = false;
+        
+        
+            newGame.soloTeam = "Graveyard";
+            newGame.soloDoubleTurns = false;
+            
+            //newGame.reducedIterations = true;
+            
+            newGame.solo = true;
+            newGame.soloRevealed = false;
+            newGame.goldAscended = false;
+            newGame.whiteEliminated = false, 
+            newGame.blackEliminated = true, 
+            newGame.goldEliminated = false, 
+            newGame.players.push(playerID3);
+            newGame.playerNames.push(name3);
+        
+        break;
+        case "boss_zombie2":
+            // put pieces on board
+            
+            newBoard[7][pos[0]] = getPiece("Huntress");
+            newBoard[7][pos[1]] = getPiece("Child");
+            newBoard[7][pos[2]] = getPiece("Citizen");
+            newBoard[7][pos[3]] = getPiece("Child");
+            newBoard[7][pos[4]] = getPiece("Fortune Apprentice");
+            newBoard[8][pos[0]] = getPiece("Hooker");
+            newBoard[8][pos[1]] = getPiece("Aura Teller");
+            newBoard[8][pos[2]] = getPiece("Royal Knight");
+            newBoard[8][pos[3]] = getPiece("Amnesiac", { amnesiac: "Amnesiac" });
+            newBoard[8][pos[4]] = getPiece("Idiot");
+            
+            newBoard[0][3] = getPiece("Zombie");
+            newBoard[0][3].zombieID = 1;
+            newBoard[0][3].zombieParent = 1;
+            newBoard[0][3].zombieChildCount = 1;
+            newBoard[0][1] = getPiece("Corpse");
+            newBoard[0][2] = getPiece("Zombie");
+            newBoard[0][2].zombieID = 4;
+            newBoard[0][2].zombieParent = 4;
+            newBoard[0][2].zombieChildCount = 1;
+            newBoard[0][0] = getPiece("Zombie");
+            newBoard[0][0].zombieID = 2;
+            newBoard[0][0].zombieParent = 2;
+            newBoard[0][0].zombieChildCount = 1;
+            newBoard[0][4] = getPiece("Corpse");
+            newBoard[1][0] = getPiece("Zombie3");
+            newBoard[1][0].zombieID = 121;
+            newBoard[1][0].zombieParent = 12;
+            newBoard[1][0].zombieChildCount = 1;
+            newBoard[1][1] = getPiece("Zombie3");
+            newBoard[1][1].zombieID = 111;
+            newBoard[1][1].zombieParent = 4;
+            newBoard[1][1].zombieChildCount = 1;
+            newBoard[1][2] = getPiece("Zombie3");
+            newBoard[1][2].zombieID = 15;
+            newBoard[1][2].zombieParent = 1;
+            newBoard[1][2].zombieChildCount = 1;
+            newBoard[1][3] = getPiece("Corpse");
             newBoard[1][4] = getPiece("Zombie3");
             newBoard[1][4].zombieID = 1111;
             newBoard[1][4].zombieParent = 111;
@@ -3587,7 +3710,7 @@ function registerCommands() {
                 name: "mode",
                 description: "Which gamemode you want to play. Defaults to WWRess (Default).",
                 required: false,
-                choices: [{"name": "WWRess (Simplified)","value": "simplified"},{"name": "WWRess","value": "default"},{"name": "WWRess (Advanced)","value": "advanced"},{"name": "Hexapawn","value": "hexapawn"},{"name": "Pawnford","value": "pawnford"},{"name": "Big Pawnford","value": "pawnford_big"},{"name": "Chess","value": "chess"},{"name": "Minichess","value": "minichess"}]
+                choices: [{"name": "WWRess (Simplified)","value": "simplified"},{"name": "WWRess","value": "default"},{"name": "WWRess (Advanced)","value": "advanced"},{"name": "Hexapawn","value": "hexapawn"},{"name": "Pawnford","value": "pawnford"},{"name": "Big Pawnford","value": "pawnford_big"},{"name": "Chess","value": "chess"},{"name": "Minichess","value": "minichess"},{"name": "Half Chess","value": "half_chess"}]
             },
             {
                 type: ApplicationCommandOptionType.String,
@@ -3607,7 +3730,7 @@ function registerCommands() {
                 name: "mode",
                 description: "Which gamemode you want to play. Defaults to WWRess (Default).",
                 required: false,
-                choices: [{"name": "Flute Boss","value": "boss_flute"},{"name": "Bat Boss","value": "boss_bat"},{"name": "Ghast Boss","value": "boss_ghast"},{"name": "Ghast Boss (Reversed)","value": "boss_ghast_reversed"},{"name": "Zombie Boss","value": "boss_zombie"},{"name": "Horsemen Boss","value": "boss_horseman"},{"name": "Horsemen Boss (Reversed)","value": "boss_horseman_reversed"}]
+                choices: [{"name": "Flute Boss","value": "boss_flute"},{"name": "Bat Boss","value": "boss_bat"},{"name": "Ghast Boss","value": "boss_ghast"},{"name": "Ghast Boss (Reversed)","value": "boss_ghast_reversed"},{"name": "Boss Battle (Zombie #2)","value": "boss_zombie2"},{"name": "Horsemen Boss","value": "boss_horseman"},{"name": "Horsemen Boss (Reversed)","value": "boss_horseman_reversed"}]
             },
             {
                 type: ApplicationCommandOptionType.String,
@@ -3628,7 +3751,7 @@ function registerCommands() {
                 name: "mode",
                 description: "Which gamemode you want to play. Defaults to WWRess (Default).",
                 required: false,
-                choices: [{"name": "WWRess (Simplified)","value": "simplified"},{"name": "WWRess","value": "default"},{"name": "WWRess (Advanced)","value": "advanced"},{"name": "Hexapawn","value": "hexapawn"},{"name": "Pawnford","value": "pawnford"},{"name": "Big Pawnford","value": "pawnford_big"},{"name": "Boss Battle (Flute)","value": "boss_flute"},{"name": "Boss Battle (Bat)","value": "boss_bat"},{"name": "Boss Battle (Ghast)","value": "boss_ghast"},{"name": "Boss Battle (Zombie)","value": "boss_zombie"},{"name": "Boss Battle (Horsemen)","value": "boss_horseman"},{"name": "Chess","value": "chess"},{"name": "Minichess","value": "minichess"}]
+                choices: [{"name": "WWRess (Simplified)","value": "simplified"},{"name": "WWRess","value": "default"},{"name": "WWRess (Advanced)","value": "advanced"},{"name": "Hexapawn","value": "hexapawn"},{"name": "Pawnford","value": "pawnford"},{"name": "Big Pawnford","value": "pawnford_big"},{"name": "Boss Battle (Flute)","value": "boss_flute"},{"name": "Boss Battle (Bat)","value": "boss_bat"},{"name": "Boss Battle (Ghast)","value": "boss_ghast"},{"name": "Boss Battle (Zombie)","value": "boss_zombie"},{"name": "Boss Battle (Horsemen)","value": "boss_horseman"},{"name": "Chess","value": "chess"},{"name": "Minichess","value": "minichess"},{"name": "Half Chess","value": "half_chess"}]
             }
         ]
     });
@@ -3647,7 +3770,7 @@ function registerCommands() {
                 name: "mode",
                 description: "Which gamemode you want to play. Defaults to WWRess (Default).",
                 required: false,
-                choices: [{"name": "WWRess (Simplified)","value": "simplified"},{"name": "WWRess","value": "default"},{"name": "WWRess (Advanced)","value": "advanced"},{"name": "Hexapawn","value": "hexapawn"},{"name": "Chess","value": "chess"},{"name": "Minichess","value": "minichess"}]
+                choices: [{"name": "WWRess (Simplified)","value": "simplified"},{"name": "WWRess","value": "default"},{"name": "WWRess (Advanced)","value": "advanced"},{"name": "Hexapawn","value": "hexapawn"},{"name": "Chess","value": "chess"},{"name": "Minichess","value": "minichess"},{"name": "Half Chess","value": "half_chess"}]
             }
         ]
     });
@@ -3788,7 +3911,6 @@ function winRewardEvaluate(game, player1 = null, player2 = null) {
 var lastDay = -1;
 var dailyWinners = []
 function winRewardEvaluateOne(game, player) {
-    console.log(game);
     // check if is daily game
     if(game.daily) {
         // reset if first win of day
